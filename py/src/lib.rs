@@ -1,14 +1,28 @@
-use pyo3::prelude::*;
+use displays_lib as lib;
+use pyo3::{exceptions::PyException, prelude::*};
 
-/// Formats the sum of two numbers as string.
-#[pyfunction]
-fn sum_as_string(a: usize, b: usize) -> PyResult<String> {
-    Ok((a + b).to_string())
+#[pyclass]
+struct State {
+    state: lib::state::State,
 }
 
-/// A Python module implemented in Rust.
+#[pymethods]
+impl State {
+    #[staticmethod]
+    fn query() -> PyResult<State> {
+        Ok(State {
+            state: lib::state::State::query()
+                .map_err(|err| PyException::new_err(err.to_string()))?,
+        })
+    }
+
+    fn __repr__(&self) -> String {
+        format!("{}", self.state)
+    }
+}
+
 #[pymodule]
-fn py(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(sum_as_string, m)?)?;
+fn displays_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<State>()?;
     Ok(())
 }
