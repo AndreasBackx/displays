@@ -60,7 +60,6 @@ impl State {
             vec![Default::default(); num_path_array_elements as usize];
         let mut modes: Vec<DISPLAYCONFIG_MODE_INFO> =
             vec![Default::default(); num_mode_info_array_elements as usize];
-        // let mut current_topology_id = DISPLAYCONFIG_TOPOLOGY_ID(0);
 
         // Query the current display configuration
         let status: windows::Win32::Foundation::WIN32_ERROR = unsafe {
@@ -74,8 +73,6 @@ impl State {
                 // Some(&mut current_topology_id),
             )
         };
-
-        // println!("Current active topology ID: {:?}", current_topology_id);
 
         if status != ERROR_SUCCESS {
             bail!("Failed to query display config. Error code: {:?}", status);
