@@ -32,26 +32,26 @@ fn main() -> Result<()> {
             DisplayConfig {
                 name: "LG TV".to_owned(),
                 path: None,
-                enabled: cli.tv,
+                is_enabled: cli.tv,
             },
             DisplayConfig {
                 name: "AW3225QF".to_owned(),
                 path: None,
-                enabled: !cli.tv,
+                is_enabled: !cli.tv,
             },
             DisplayConfig {
                 name: "Y32p-30".to_owned(),
                 path: Some(
                     r"\\?\DISPLAY#LEN66F9#7&289ec95a&0&UID264#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7}".to_owned(),
                 ),
-                enabled: !cli.tv,
+                is_enabled: !cli.tv,
             },
             DisplayConfig {
                 name: "Y32p-30".to_owned(),
                 path: Some(
                     r"\\?\DISPLAY#LEN66F9#7&289ec95a&0&UID260#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7}".to_owned(),
                 ),
-                enabled: !cli.tv,
+                is_enabled: !cli.tv,
             },
         ],
     };

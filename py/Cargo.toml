@@ -9,5 +9,5 @@ name = "displays"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "0.22.0"
+pyo3 = "0.22.5"
 displays-lib = { path = "../lib", features = ["cli"] }

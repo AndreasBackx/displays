@@ -1,7 +1,6 @@
-use crate::display_config::DisplayConfigs;
+use crate::display_config::{DisplayConfig, DisplayConfigs};
 use anyhow::{bail, Result};
-use std::collections::HashMap;
-use std::fmt::Display;
+use std::collections::BTreeSet;
 use tracing::info;
 use windows::Win32::Devices::Display::{
     DisplayConfigGetDeviceInfo, GetDisplayConfigBufferSizes, QueryDisplayConfig, SetDisplayConfig,
@@ -33,7 +32,7 @@ impl State {
         Ok(used_source_ids)
     }
 
-    pub fn query() -> Result<State> {
+    pub fn try_new() -> Result<State> {
         // Get the current display configuration buffer sizes
         let mut num_path_array_elements: u32 = 0;
         let mut num_mode_info_array_elements: u32 = 0;
@@ -70,7 +69,6 @@ impl State {
                 &mut num_mode_info_array_elements,
                 modes.as_mut_ptr(),
                 None,
-                // Some(&mut current_topology_id),
             )
         };
 
@@ -117,7 +115,7 @@ impl State {
             let source_id = path.sourceInfo.id;
             let source_is_free = !used_source_ids.contains(&source_id);
 
-            if setup.enabled && source_is_free {
+            if setup.is_enabled && source_is_free {
                 info!("Enabling display!");
                 // Enable the display
                 path.flags |= DISPLAYCONFIG_PATH_ACTIVE;
@@ -158,6 +156,43 @@ impl State {
         }
 
         Ok(())
+    }
+
+    pub fn query(&self) -> Result<BTreeSet<DisplayConfig>> {
+        let mut configs = BTreeSet::new();
+
+        for path_info in self.paths.iter() {
+            let Ok((name, path)) = get_device_info(path_info) else {
+                continue;
+            };
+
+            let is_enabled =
+                path_info.flags & DISPLAYCONFIG_PATH_ACTIVE == DISPLAYCONFIG_PATH_ACTIVE;
+            configs.insert(DisplayConfig {
+                name,
+                path: Some(path),
+                is_enabled,
+            });
+        }
+
+        let (enabled_configs, disabled_configs): (BTreeSet<_>, BTreeSet<_>) =
+            configs.into_iter().partition(|config| config.is_enabled);
+
+        let only_disabled_configs: BTreeSet<_> = disabled_configs
+            .into_iter()
+            .filter(|disabled_config| {
+                let enabled_config = DisplayConfig {
+                    is_enabled: true,
+                    ..disabled_config.clone()
+                };
+                !enabled_configs.contains(&enabled_config)
+            })
+            .collect();
+
+        let mut unique_configs = enabled_configs;
+        unique_configs.extend(only_disabled_configs);
+
+        Ok(unique_configs)
     }
 }
 
@@ -248,9 +283,9 @@ impl Display for State {
                 table.add_row(row);
             }
             // Print the table to stdout
-            writeln!(f, "{}", display_id);
-            writeln!(f, "{table}");
-            writeln!(f, "");
+            writeln!(f, "{}", display_id)?;
+            writeln!(f, "{table}")?;
+            writeln!(f, "")?;
         }
 
         Ok(())

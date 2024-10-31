@@ -3,9 +3,9 @@ pub struct DisplayConfigs {
     pub displays: Vec<DisplayConfig>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DisplayConfig {
     pub name: String,
     pub path: Option<String>,
-    pub enabled: bool,
+    pub is_enabled: bool,
 }
