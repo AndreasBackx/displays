@@ -10,4 +10,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = "0.22.5"
-displays-lib = { path = "../lib", features = ["cli"] }
+displays-lib = { path = "../lib" }

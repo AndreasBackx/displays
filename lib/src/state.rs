@@ -1,6 +1,7 @@
 use crate::display_config::{DisplayConfig, DisplayConfigs};
 use anyhow::{bail, Result};
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
+use std::fmt::Display;
 use tracing::info;
 use windows::Win32::Devices::Display::{
     DisplayConfigGetDeviceInfo, GetDisplayConfigBufferSizes, QueryDisplayConfig, SetDisplayConfig,
