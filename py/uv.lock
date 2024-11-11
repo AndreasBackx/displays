@@ -50,7 +50,7 @@ wheels = [
 ]
 
 [[package]]
-name = "displays-py"
+name = "displays"
 version = "0.1.0"
 source = { editable = "." }
 

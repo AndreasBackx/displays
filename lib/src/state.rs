@@ -234,6 +234,11 @@ impl Display for State {
 
             let is_enabled = path.flags & DISPLAYCONFIG_PATH_ACTIVE == DISPLAYCONFIG_PATH_ACTIVE;
 
+            // println!(
+            //     "{}",
+            //     target_mode.map_or("".to_string(), |info| format!("{}", info.name))
+            // );
+
             let display_id = format!("{} - {}", device_name.clone(), device_path.clone());
             let new_row = row![
                 is_enabled.to_string(),
@@ -305,6 +310,15 @@ fn get_device_info(path: &DISPLAYCONFIG_PATH_INFO) -> Result<(String, String)> {
 
     let status = unsafe { DisplayConfigGetDeviceInfo(&mut target_device_name.header) };
 
+    // let a = String::from_utf16(
+    //     &target_device_name
+    //         .monitorDevicePath
+    //         .into_iter()
+    //         .take_while(|character| *character != 0)
+    //         .collect::<Vec<_>>(),
+    // )
+    // .unwrap_or_default();
+
     if status as u32 != ERROR_SUCCESS.0 {
         bail!("Failed to query device info. Error code: {:?}", status);
     }
@@ -330,6 +344,23 @@ fn get_device_info(path: &DISPLAYCONFIG_PATH_INFO) -> Result<(String, String)> {
 
     if device_name.is_empty() || device_path.is_empty() {
         bail!("Empty device name or path");
+    }
+
+    unsafe {
+        eprintln!(
+            "target_device_name.flags.Anonymous.value: {:?}",
+            target_device_name.flags.Anonymous.value
+        );
+        if target_device_name.flags.Anonymous.value & 0x00000004 == 0x00000004 {
+            eprintln!(
+                "target_device_name.edidManufactureId: {:?}",
+                target_device_name.edidManufactureId
+            );
+            eprintln!(
+                "target_device_name.edidProductCodeId: {:?}",
+                target_device_name.edidProductCodeId
+            );
+        }
     }
 
     Ok((device_name, device_path))
