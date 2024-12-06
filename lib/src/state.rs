@@ -1,4 +1,4 @@
-use crate::display_config::{DisplayConfig, DisplayConfigs};
+use crate::displays::{DisplayConfig, DisplayConfigs};
 use anyhow::{bail, Result};
 use std::collections::{BTreeSet, HashMap};
 use std::fmt::Display;

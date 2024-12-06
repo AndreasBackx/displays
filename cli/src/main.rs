@@ -1,4 +1,5 @@
 use std::{
+    io::Cursor,
     mem,
     ptr::{self, null_mut},
 };
@@ -6,7 +7,8 @@ use std::{
 // #![windows_subsystem = "windows"]
 use anyhow::Result;
 use clap::Parser;
-use displays_lib::state::State;
+// use displays_lib::state::State;
+use edid_rs::{Reader, EDID};
 use windows::{
     core::PCSTR,
     Win32::{
@@ -21,6 +23,7 @@ use windows::{
         },
     },
 };
+use winreg::{enums::HKEY_LOCAL_MACHINE, RegKey};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -108,9 +111,42 @@ fn main() -> Result<()> {
         // )
         .init();
 
-    let state = State::try_new()?;
+    // Open the HKEY_LOCAL_MACHINE root key.
+    let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
 
-    println!("{state}");
+    // Open the DISPLAY registry key under Enum.
+    let display_key_path = r"SYSTEM\CurrentControlSet\Enum\DISPLAY";
+    let display_key = hklm.open_subkey(display_key_path)?;
+
+    // Iterate over each subkey in DISPLAY (each display device).
+    for device_id in display_key.enum_keys() {
+        let device_id = device_id?;
+        let device_key = display_key.open_subkey(&device_id)?;
+
+        // Each device may have multiple subkeys, so iterate over them.
+        for instance_id in device_key.enum_keys() {
+            let instance_id = instance_id?;
+            let device_params_key = format!("{instance_id}\\Device Parameters",);
+            let instance_key = device_key.open_subkey(&device_params_key)?;
+
+            // Check if the EDID value exists within this instance key.
+            if let Ok(edid_data) = instance_key.get_raw_value("EDID") {
+                println!("Found EDID for device {}\\{}:", device_id, instance_id);
+
+                let mut cursor = Cursor::new(edid_data.bytes);
+                let reader = &mut Reader::new(&mut cursor);
+                let edid = EDID::parse(reader);
+                println!("{:#?}", edid);
+            } else {
+                println!("No EDID found for device {}\\{}", device_id, instance_id);
+            }
+        }
+    }
+
+    // return Ok(());
+    // let state = State::try_new()?;
+
+    // println!("{state}");
 
     // TODO on how to map them:
     // The code below convert_utf8(monitor_info.szDevice)
@@ -129,8 +165,8 @@ fn main() -> Result<()> {
     // Though, that might simply make it easier to use and not actually required.
     // Though if it would be xplatform, this would be required.
 
-    // let devices = enumerate_display_devices();
-    // println!("{devices:#?}");
+    let devices = enumerate_display_devices();
+    println!("{devices:#?}");
 
     let monitors = enumerate_monitors()?;
     println!("{monitors:#?}");
@@ -174,7 +210,7 @@ fn main() -> Result<()> {
                     convert_utf16(physical_monitor.szPhysicalMonitorDescription)
                 );
                 unsafe {
-                    let _ = SetMonitorBrightness(physical_monitor.hPhysicalMonitor, 100);
+                    let _ = SetMonitorBrightness(physical_monitor.hPhysicalMonitor, 0);
                 }
             }
         }
