@@ -30,16 +30,16 @@ pub trait LogicalDisplay {
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
 pub struct LogicalDisplayWindows {
-    pub(crate) target: TargetDevice,
-    pub(crate) is_enabled: bool,
+    pub target: TargetDevice,
+    pub is_enabled: bool,
 }
 
 impl LogicalDisplayWindows {}
 
 #[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
-struct TargetDevice {
-    pub(crate) name: String,
-    pub(crate) path: String,
+pub struct TargetDevice {
+    pub name: String,
+    pub path: String,
 }
 
 impl LogicalDisplay for LogicalDisplayWindows {
@@ -120,8 +120,9 @@ impl LogicalDisplayManagerWindows {
             .paths
             .clone()
             .into_iter()
-            .map(|path| path.try_into())
-            .collect::<anyhow::Result<_>>()?;
+            .map(|path| -> anyhow::Result<_> { path.try_into() })
+            .filter_map(|path| path.ok())
+            .collect();
 
         let (enabled_displays, disabled_displays): (BTreeSet<_>, BTreeSet<_>) = logical_displays
             .into_iter()

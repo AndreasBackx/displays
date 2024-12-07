@@ -20,12 +20,15 @@ impl PhysicalDisplay {
     }
 }
 
+#[derive(Debug)]
 pub struct PhysicalDisplayWindows {
-    /// E.g: "\\.\DISPLAY1"
-    path: String,
+    // /// E.g: "\\.\DISPLAY1"
+    // path_short: String,
+    /// \\?\DISPLAY#LEN66F9#7&289ec95a&0&UID264
+    pub(crate) path: String,
     /// E.g: "Lenovo Y32p-30"
-    name: String,
-    serial_number: String,
+    pub(crate) name: String,
+    pub(crate) serial_number: String,
 }
 
 #[derive(Clone)]
@@ -47,27 +50,30 @@ impl PhysicalDisplayManagerWindows {
         let mut physical_displays = vec![];
 
         // Iterate over each subkey in DISPLAY (each display device).
-        for device_id in display_key.enum_keys() {
-            let device_id = device_id?;
-            let device_key = display_key.open_subkey(&device_id)?;
+        for model_id in display_key.enum_keys() {
+            let model_id = model_id?;
+            let model_item = display_key.open_subkey(&model_id)?;
 
             // Each device may have multiple subkeys, so iterate over them.
-            for instance_id in device_key.enum_keys() {
+            for instance_id in model_item.enum_keys() {
                 let instance_id = instance_id?;
                 let device_params_key = format!("{instance_id}\\Device Parameters",);
-                let instance_key = device_key.open_subkey(&device_params_key)?;
+                let instance_key = model_item.open_subkey(&device_params_key)?;
 
                 // Check if the EDID value exists within this instance key.
                 if let Ok(edid_data) = instance_key.get_raw_value("EDID") {
-                    println!("Found EDID for device {}\\{}:", device_id, instance_id);
+                    println!("Found EDID for device {}\\{}:", model_id, instance_id);
 
                     let mut cursor = Cursor::new(edid_data.bytes);
                     let reader = &mut Reader::new(&mut cursor);
                     let edid = EDID::parse(reader).map_err(|err| anyhow::anyhow!(err))?;
                     println!("{:#?}", edid);
-                    physical_displays.push(edid.try_into()?);
+                    let path = format!(r"\\?\DISPLAY#{model_id}#{instance_id}");
+                    if let Ok(physical_display) = (path, edid).try_into() {
+                        physical_displays.push(physical_display);
+                    }
                 } else {
-                    println!("No EDID found for device {}\\{}", device_id, instance_id);
+                    println!("No EDID found for device {}\\{}", model_id, instance_id);
                 }
             }
         }
@@ -119,10 +125,10 @@ impl PhysicalDisplayManagerWindows {
     }
 }
 
-impl TryFrom<EDID> for PhysicalDisplayWindows {
+impl TryFrom<(String, EDID)> for PhysicalDisplayWindows {
     type Error = anyhow::Error;
-    fn try_from(value: EDID) -> Result<Self, Self::Error> {
-        let name = value
+    fn try_from((path, edid): (String, EDID)) -> Result<Self, Self::Error> {
+        let name = edid
             .descriptors
             .0
             .iter()
@@ -133,7 +139,7 @@ impl TryFrom<EDID> for PhysicalDisplayWindows {
             .nth(0)
             .cloned()
             .context("no monitor name found")?;
-        let serial_number = value
+        let serial_number = edid
             .descriptors
             .0
             .iter()
@@ -145,6 +151,7 @@ impl TryFrom<EDID> for PhysicalDisplayWindows {
             .cloned()
             .context("no serial number found")?;
         Ok(Self {
+            path,
             name,
             serial_number,
         })

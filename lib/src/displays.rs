@@ -19,8 +19,26 @@ impl Displays {
 
     pub fn query(&self) -> anyhow::Result<Vec<Display>> {
         let logical_displays = self.logical_manager.query()?;
-        let physical_displays = self.physical_manager.query()?;
-        Ok(vec![])
+        let mut physical_displays = self.physical_manager.query()?;
+
+        Ok(logical_displays
+            .into_iter()
+            .filter_map(|logical_display| {
+                physical_displays
+                    .iter()
+                    .position(|physical_display| {
+                        logical_display
+                            .target
+                            .path
+                            .starts_with(&physical_display.path)
+                    })
+                    .map(|position| physical_displays.remove(position))
+                    .map(|physical_display| Display {
+                        logical: logical_display,
+                        physical: physical_display,
+                    })
+            })
+            .collect())
     }
 
     pub fn validate(displays: Vec<Displays>) -> Result<(), ValidateUpdateError> {

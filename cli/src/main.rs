@@ -7,6 +7,7 @@ use std::{
 // #![windows_subsystem = "windows"]
 use anyhow::Result;
 use clap::Parser;
+use displays_lib::displays::Displays;
 // use displays_lib::state::State;
 use edid_rs::{Reader, EDID};
 use windows::{
@@ -18,8 +19,8 @@ use windows::{
         },
         Foundation::{BOOL, LPARAM, RECT},
         Graphics::Gdi::{
-            EnumDisplayDevicesA, EnumDisplayMonitors, GetMonitorInfoA, DISPLAY_DEVICEA, HDC,
-            HMONITOR, MONITORINFO, MONITORINFOEXA,
+            EnumDisplayDevicesA, EnumDisplayMonitors, GetMonitorInfoA, GetMonitorInfoW,
+            DISPLAY_DEVICEA, HDC, HMONITOR, MONITORINFO, MONITORINFOEXA, MONITORINFOEXW,
         },
     },
 };
@@ -102,6 +103,42 @@ pub fn enumerate_monitors() -> windows::core::Result<Vec<HMONITOR>> {
     Ok(monitors)
 }
 
+#[derive(Debug)]
+struct MonitorInfo {
+    handle: HMONITOR,
+    name: String,
+    primary: bool,
+    rect: RECT,
+    work_rect: RECT,
+}
+
+fn get_detailed_monitor_info() -> Result<Vec<MonitorInfo>> {
+    let mut monitor_infos = Vec::new();
+    let monitors = enumerate_monitors()?;
+
+    for monitor in monitors {
+        let mut monitor_info: MONITORINFOEXW = unsafe { std::mem::zeroed() };
+
+        monitor_info.monitorInfo.cbSize = std::mem::size_of::<MONITORINFOEXW>() as u32;
+
+        let success = unsafe {
+            GetMonitorInfoW(monitor, ptr::addr_of_mut!(monitor_info) as *mut MONITORINFO)
+        };
+
+        if success.as_bool() {
+            monitor_infos.push(MonitorInfo {
+                handle: monitor,
+                name: String::from_utf16_lossy(&monitor_info.szDevice),
+                primary: monitor_info.monitorInfo.dwFlags & 1 != 0, // MONITORINFOF_PRIMARY
+                rect: monitor_info.monitorInfo.rcMonitor,
+                work_rect: monitor_info.monitorInfo.rcWork,
+            });
+        }
+    }
+
+    Ok(monitor_infos)
+}
+
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
         // .event_format(
@@ -110,6 +147,12 @@ fn main() -> Result<()> {
         //         .with_line_number(true),
         // )
         .init();
+
+    let displays = Displays::try_new()?;
+    let d = displays.query()?;
+    println!("{d:#?}");
+
+    return Ok(());
 
     // Open the HKEY_LOCAL_MACHINE root key.
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
@@ -171,6 +214,9 @@ fn main() -> Result<()> {
     let monitors = enumerate_monitors()?;
     println!("{monitors:#?}");
 
+    let monitor_info = get_detailed_monitor_info()?;
+    println!("{monitor_info:#?}");
+
     for monitor in monitors {
         // Prepare to get information about the monitor
         let mut monitor_info = MONITORINFOEXA {
@@ -209,9 +255,13 @@ fn main() -> Result<()> {
                     "{}",
                     convert_utf16(physical_monitor.szPhysicalMonitorDescription)
                 );
-                unsafe {
-                    let _ = SetMonitorBrightness(physical_monitor.hPhysicalMonitor, 0);
-                }
+                println!(
+                    "{}",
+                    convert_utf16(physical_monitor.szPhysicalMonitorDescription)
+                );
+                // unsafe {
+                //     let _ = SetMonitorBrightness(physical_monitor.hPhysicalMonitor, 100);
+                // }
             }
         }
     }
