@@ -1,11 +1,11 @@
 use anyhow::Context;
 use edid_rs::EDID;
 
-use crate::display::{DisplayIdentifier, DisplayUpdate};
+use crate::display::{DisplayIdentifierInner, DisplayUpdate, DisplayUpdateInner};
 
 #[derive(Debug, Clone, Default)]
 pub struct PhysicalDisplayUpdate {
-    pub id: DisplayIdentifier,
+    pub id: DisplayIdentifierInner,
     pub content: PhysicalDisplayUpdateContent,
 }
 
@@ -72,8 +72,8 @@ impl TryFrom<(String, EDID)> for PhysicalDisplayWindows {
     }
 }
 
-impl From<DisplayUpdate> for Option<PhysicalDisplayUpdate> {
-    fn from(value: DisplayUpdate) -> Self {
+impl From<DisplayUpdateInner> for Option<PhysicalDisplayUpdate> {
+    fn from(value: DisplayUpdateInner) -> Self {
         value.physical.map(|content| PhysicalDisplayUpdate {
             id: value.id,
             content,

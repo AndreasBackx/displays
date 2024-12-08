@@ -14,9 +14,10 @@ use windows::Win32::{
 };
 use winreg::{enums::HKEY_LOCAL_MACHINE, RegKey};
 
-use crate::logical::windows::utils::try_utf16_cstring;
-
-use super::display::{Brightness, PhysicalDisplayUpdate, PhysicalDisplayWindows};
+use super::{
+    physical_display::{Brightness, PhysicalDisplayUpdate, PhysicalDisplayWindows},
+    utils::try_utf16_cstring,
+};
 
 #[derive(Clone)]
 pub struct PhysicalDisplayManagerWindows {}

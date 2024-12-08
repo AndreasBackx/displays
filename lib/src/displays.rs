@@ -1,7 +1,13 @@
+use std::collections::{BTreeMap, BTreeSet};
+
 use crate::{
-    display::{Display, DisplayUpdate},
-    logical::windows::{display::LogicalDisplayUpdate, manager::LogicalDisplayManagerWindows},
-    physical::windows::{display::PhysicalDisplayUpdate, manager::PhysicalDisplayManagerWindows},
+    display::{
+        Display, DisplayIdentifier, DisplayIdentifierInner, DisplayUpdate, DisplayUpdateInner,
+    },
+    windows::{
+        logical_display::LogicalDisplayUpdate, logical_manager::LogicalDisplayManagerWindows,
+        physical_display::PhysicalDisplayUpdate, physical_manager::PhysicalDisplayManagerWindows,
+    },
 };
 
 pub struct Displays {
@@ -41,14 +47,58 @@ impl Displays {
             .collect())
     }
 
+    fn get_inner(
+        &self,
+        ids: BTreeSet<&DisplayIdentifier>,
+    ) -> anyhow::Result<BTreeMap<DisplayIdentifier, (DisplayIdentifierInner, Display)>> {
+        let displays = self.query()?;
+        Ok(displays
+            .into_iter()
+            .map(|display| {
+                let id = display.id();
+                (id.outer.clone(), (id, display))
+            })
+            .filter(|(id, _)| ids.contains(&id))
+            .collect())
+    }
+
+    pub fn get(
+        &self,
+        ids: BTreeSet<&DisplayIdentifier>,
+    ) -> anyhow::Result<BTreeMap<DisplayIdentifier, Display>> {
+        self.get_inner(ids).map(|display_by_id| {
+            display_by_id
+                .into_iter()
+                .map(|(id, (_, display))| (id, display))
+                .collect()
+        })
+    }
+
+    // fn resolve_id(&self, id: DisplayIdentifier) -> anyhow::Result<DisplayIdentifier> {}
+
     fn apply(self, updates: Vec<DisplayUpdate>, validate: bool) -> anyhow::Result<()> {
-        let logical_updates: Vec<LogicalDisplayUpdate> = updates
+        let ids = updates.iter().map(|update| &update.id).collect();
+        let mut id_mapping = self.get_inner(ids)?;
+        let updates_inner: Vec<_> = updates
+            .into_iter()
+            .filter_map(|update| {
+                id_mapping
+                    .remove(&update.id)
+                    .map(|(id_inner, _display)| DisplayUpdateInner {
+                        id: id_inner,
+                        logical: update.logical,
+                        physical: update.physical,
+                    })
+            })
+            .collect();
+
+        let logical_updates: Vec<LogicalDisplayUpdate> = updates_inner
             .clone()
             .into_iter()
             .filter_map(|display| display.into())
             .collect();
         self.logical_manager.apply(logical_updates, validate)?;
-        let physical_updates: Vec<PhysicalDisplayUpdate> = updates
+        let physical_updates: Vec<PhysicalDisplayUpdate> = updates_inner
             .into_iter()
             .filter_map(|display| display.into())
             .collect();

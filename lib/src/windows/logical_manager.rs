@@ -1,21 +1,18 @@
-use std::{collections::BTreeSet, string::FromUtf16Error};
+use std::collections::BTreeSet;
 
 use anyhow::bail;
 use tracing::info;
 use windows::Win32::{
     Devices::Display::{
-        DisplayConfigGetDeviceInfo, GetDisplayConfigBufferSizes, QueryDisplayConfig,
-        SetDisplayConfig, DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME, DISPLAYCONFIG_MODE_INFO,
-        DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_TARGET_DEVICE_NAME, QDC_ALL_PATHS,
-        SDC_ALLOW_PATH_ORDER_CHANGES, SDC_APPLY, SDC_TOPOLOGY_SUPPLIED, SDC_VALIDATE,
+        GetDisplayConfigBufferSizes, QueryDisplayConfig, SetDisplayConfig, DISPLAYCONFIG_MODE_INFO,
+        DISPLAYCONFIG_PATH_INFO, QDC_ALL_PATHS, SDC_ALLOW_PATH_ORDER_CHANGES, SDC_APPLY,
+        SDC_TOPOLOGY_SUPPLIED, SDC_VALIDATE,
     },
     Foundation::ERROR_SUCCESS,
     Graphics::Gdi::{DISPLAYCONFIG_PATH_ACTIVE, DISPLAYCONFIG_PATH_MODE_IDX_INVALID},
 };
 
-use crate::logical;
-
-use super::display::{LogicalDisplayUpdate, LogicalDisplayWindows};
+use super::logical_display::{LogicalDisplayUpdate, LogicalDisplayWindows};
 
 #[derive(Clone)]
 pub struct LogicalDisplayManagerWindows {
@@ -119,6 +116,10 @@ impl LogicalDisplayManagerWindows {
         updates: Vec<LogicalDisplayUpdate>,
         validate: bool,
     ) -> anyhow::Result<Vec<LogicalDisplayUpdate>> {
+        if updates.len() == 0 {
+            return Ok(updates);
+        }
+
         let mut used_source_ids = self.get_used_source_ids()?;
         let mut remaining_updates = updates.clone();
         for path in self.paths.iter_mut() {
@@ -158,6 +159,10 @@ impl LogicalDisplayManagerWindows {
                 // Disable the display
                 path.flags &= !DISPLAYCONFIG_PATH_ACTIVE;
             }
+        }
+
+        if remaining_updates.len() == updates.len() {
+            return Ok(remaining_updates);
         }
 
         let mut sdc_flags = SDC_TOPOLOGY_SUPPLIED | SDC_ALLOW_PATH_ORDER_CHANGES;

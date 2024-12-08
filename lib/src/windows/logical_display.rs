@@ -8,7 +8,9 @@ use windows::Win32::{
     Graphics::Gdi::DISPLAYCONFIG_PATH_ACTIVE,
 };
 
-use crate::display::{DisplayIdentifier, DisplayUpdate};
+use crate::display::{
+    DisplayIdentifier, DisplayIdentifierInner, DisplayUpdate, DisplayUpdateInner,
+};
 
 use super::utils::try_utf16_cstring;
 
@@ -19,7 +21,7 @@ pub struct LogicalDisplayUpdateContent {
 
 #[derive(Debug, Clone)]
 pub struct LogicalDisplayUpdate {
-    pub id: DisplayIdentifier,
+    pub id: DisplayIdentifierInner,
     pub content: LogicalDisplayUpdateContent,
 }
 
@@ -30,8 +32,8 @@ pub struct LogicalDisplayWindows {
 }
 
 impl LogicalDisplayWindows {
-    pub fn matches(&self, id: &DisplayIdentifier) -> bool {
-        if let Some(ref name) = id.name {
+    pub fn matches(&self, id: &DisplayIdentifierInner) -> bool {
+        if let Some(ref name) = id.outer.name {
             if self.target.name.starts_with(name) {
                 return false;
             }
@@ -105,8 +107,8 @@ impl TryFrom<(DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_TARGET_DEVICE_NAME)> for Ta
     }
 }
 
-impl From<DisplayUpdate> for Option<LogicalDisplayUpdate> {
-    fn from(value: DisplayUpdate) -> Self {
+impl From<DisplayUpdateInner> for Option<LogicalDisplayUpdate> {
+    fn from(value: DisplayUpdateInner) -> Self {
         value.logical.map(|content| LogicalDisplayUpdate {
             id: value.id,
             content,

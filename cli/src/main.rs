@@ -10,7 +10,7 @@ use clap::Parser;
 use displays_lib::{
     display::{DisplayIdentifier, DisplayUpdate},
     displays::Displays,
-    physical::windows::display::PhysicalDisplayUpdateContent,
+    windows::physical_display::PhysicalDisplayUpdateContent,
 };
 // use displays_lib::state::State;
 use edid_rs::{Reader, EDID};
@@ -19,7 +19,7 @@ use windows::{
     Win32::{
         Devices::Display::{
             GetNumberOfPhysicalMonitorsFromHMONITOR, GetPhysicalMonitorsFromHMONITOR,
-            SetMonitorBrightness, PHYSICAL_MONITOR,
+            PHYSICAL_MONITOR,
         },
         Foundation::{BOOL, LPARAM, RECT},
         Graphics::Gdi::{
@@ -153,12 +153,13 @@ fn main() -> Result<()> {
         .init();
 
     let displays = Displays::try_new()?;
-    // let d = displays.query()?;
-    // println!("{d:#?}");
+    let d = displays.query()?;
+    println!("{d:#?}");
 
     let updates = vec![DisplayUpdate {
         id: DisplayIdentifier {
-            source_id: Some(1),
+            // source_id: Some(1),
+            serial_number: Some("U1HMF6PT".to_string()),
             ..Default::default()
         },
         physical: Some(PhysicalDisplayUpdateContent {
