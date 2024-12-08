@@ -7,7 +7,7 @@ use std::{
 // #![windows_subsystem = "windows"]
 use anyhow::Result;
 use clap::Parser;
-use displays_lib::displays::Displays;
+// use displays_lib::displays::Displays;
 // use displays_lib::state::State;
 use edid_rs::{Reader, EDID};
 use windows::{
@@ -148,11 +148,11 @@ fn main() -> Result<()> {
         // )
         .init();
 
-    let displays = Displays::try_new()?;
-    let d = displays.query()?;
-    println!("{d:#?}");
+    // let displays = Displays::try_new()?;
+    // let d = displays.query()?;
+    // println!("{d:#?}");
 
-    return Ok(());
+    // return Ok(());
 
     // Open the HKEY_LOCAL_MACHINE root key.
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
@@ -232,7 +232,7 @@ fn main() -> Result<()> {
         // Get the monitor info for this monitor
         unsafe { GetMonitorInfoA(monitor, monitor_info_base) }.ok()?;
 
-        eprintln!("{}", convert_utf8(monitor_info.szDevice));
+        eprintln!("szDevice: {}", convert_utf8(monitor_info.szDevice));
         // eprintln!("{monitor_info:#?}");
 
         //
@@ -252,11 +252,7 @@ fn main() -> Result<()> {
             // For each physical monitor, set brightness to 100%
             for physical_monitor in &physical_monitors {
                 println!(
-                    "{}",
-                    convert_utf16(physical_monitor.szPhysicalMonitorDescription)
-                );
-                println!(
-                    "{}",
+                    "szPhysicalMonitorDescription: {}",
                     convert_utf16(physical_monitor.szPhysicalMonitorDescription)
                 );
                 // unsafe {

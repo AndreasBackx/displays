@@ -1,7 +1,7 @@
 use crate::{
-    display::Display,
-    logical_display::LogicalDisplayManagerWindows,
-    physical_display::{self, PhysicalDisplayManagerWindows},
+    display::{Display, DisplayUpdate},
+    logical::windows::{display::LogicalDisplayUpdate, manager::LogicalDisplayManagerWindows},
+    physical::windows::manager::PhysicalDisplayManagerWindows,
 };
 
 pub struct Displays {
@@ -41,12 +41,26 @@ impl Displays {
             .collect())
     }
 
-    pub fn validate(displays: Vec<Displays>) -> Result<(), ValidateUpdateError> {
+    fn apply(self, updates: Vec<DisplayUpdate>, validate: bool) -> anyhow::Result<()> {
+        let logical_updates: Vec<LogicalDisplayUpdate> = updates
+            .into_iter()
+            .filter_map(|display| display.into())
+            .collect();
+        self.logical_manager.apply(logical_updates, validate)?;
+        let physical_updates: Vec<LogicalDisplayUpdate> = updates
+            .into_iter()
+            .filter_map(|display| display.into())
+            .collect();
+        self.physical_manager.apply(physical_updates, validate)?;
         Ok(())
     }
 
-    pub fn update(displays: Vec<Displays>) -> Result<(), ValidateUpdateError> {
-        Ok(())
+    pub fn update(self, updates: Vec<DisplayUpdate>) -> anyhow::Result<()> {
+        self.apply(updates, false)
+    }
+
+    pub fn validate(self, updates: Vec<DisplayUpdate>) -> anyhow::Result<()> {
+        self.apply(updates, true)
     }
 }
 

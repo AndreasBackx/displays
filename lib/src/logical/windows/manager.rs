@@ -13,40 +13,9 @@ use windows::Win32::{
     Graphics::Gdi::{DISPLAYCONFIG_PATH_ACTIVE, DISPLAYCONFIG_PATH_MODE_IDX_INVALID},
 };
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct LogicalDisplayWriteWindows {
-    pub settings: LogicalDisplayWriteSettingsWindows,
-    pub target: TargetDevice,
-}
+use crate::logical;
 
-#[derive(Debug, PartialEq, Eq, Default)]
-pub struct LogicalDisplayWriteSettingsWindows {
-    pub is_enabled: Option<bool>,
-}
-
-pub trait LogicalDisplay {
-    fn is_enabled(&self) -> bool;
-}
-
-#[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
-pub struct LogicalDisplayWindows {
-    pub target: TargetDevice,
-    pub is_enabled: bool,
-}
-
-impl LogicalDisplayWindows {}
-
-#[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
-pub struct TargetDevice {
-    pub name: String,
-    pub path: String,
-}
-
-impl LogicalDisplay for LogicalDisplayWindows {
-    fn is_enabled(&self) -> bool {
-        self.is_enabled
-    }
-}
+use super::display::{LogicalDisplayUpdate, LogicalDisplayWindows};
 
 #[derive(Clone)]
 pub struct LogicalDisplayManagerWindows {
@@ -126,7 +95,7 @@ impl LogicalDisplayManagerWindows {
 
         let (enabled_displays, disabled_displays): (BTreeSet<_>, BTreeSet<_>) = logical_displays
             .into_iter()
-            .partition(|display| display.is_enabled());
+            .partition(|display| display.is_enabled);
 
         // A display may be both in enabled and disabled because it may be represented/stored in
         // more than one. So remove the disables displays that are also in an enabled state.
@@ -147,11 +116,11 @@ impl LogicalDisplayManagerWindows {
 
     pub fn apply(
         mut self,
-        mut display_writes: Vec<LogicalDisplayWriteWindows>,
+        updates: Vec<LogicalDisplayUpdate>,
         validate: bool,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<Vec<LogicalDisplayUpdate>> {
         let mut used_source_ids = self.get_used_source_ids()?;
-        // let mut remaining_setups = display_writes.clone();
+        let mut remaining_updates = updates.clone();
         for path in self.paths.iter_mut() {
             // Invalidate all mode configs.
             path.sourceInfo.Anonymous.modeInfoIdx = DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
@@ -159,16 +128,16 @@ impl LogicalDisplayManagerWindows {
 
             let logical_display: LogicalDisplayWindows = (*path).try_into()?;
 
-            let Some(matching_display_write) = display_writes
+            let Some(matching_update) = remaining_updates
                 .iter()
-                .position(|display_write| display_write.target == logical_display.target)
-                .map(|index| display_writes.remove(index))
+                .position(|update| logical_display.matches(&update.id))
+                .map(|index| remaining_updates.remove(index))
             else {
                 continue;
             };
 
-            info!("Found setup: {matching_display_write:?}");
-            let Some(should_enable) = matching_display_write.settings.is_enabled else {
+            info!("Found setup: {matching_update:?}");
+            let Some(should_enable) = matching_update.content.is_enabled else {
                 continue;
             };
 
@@ -201,59 +170,6 @@ impl LogicalDisplayManagerWindows {
             bail!("Failed to set display config. Error code: {}", status);
         }
 
-        Ok(())
-    }
-}
-
-fn try_utf16_cstring<const N: usize>(value: &[u16; N]) -> Result<String, FromUtf16Error> {
-    let end_index = value
-        .iter()
-        .position(|&character| character == 0)
-        .unwrap_or(0);
-    String::from_utf16(&value[..end_index])
-}
-
-impl TryFrom<DISPLAYCONFIG_PATH_INFO> for LogicalDisplayWindows {
-    type Error = anyhow::Error;
-
-    fn try_from(value: DISPLAYCONFIG_PATH_INFO) -> Result<Self, Self::Error> {
-        let mut target_device_name = DISPLAYCONFIG_TARGET_DEVICE_NAME {
-            header: Default::default(),
-            ..Default::default()
-        };
-        target_device_name.header.size =
-            std::mem::size_of::<DISPLAYCONFIG_TARGET_DEVICE_NAME>() as u32;
-        target_device_name.header.adapterId = value.targetInfo.adapterId;
-        target_device_name.header.id = value.targetInfo.id;
-        target_device_name.header.r#type = DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME;
-
-        let status = unsafe { DisplayConfigGetDeviceInfo(&mut target_device_name.header) };
-
-        if status as u32 != ERROR_SUCCESS.0 {
-            bail!("Failed to query device info. Error code: {:?}", status);
-        }
-
-        let target = target_device_name.try_into()?;
-        let is_enabled = value.flags & DISPLAYCONFIG_PATH_ACTIVE == DISPLAYCONFIG_PATH_ACTIVE;
-        Ok(Self { target, is_enabled })
-    }
-}
-
-impl TryFrom<DISPLAYCONFIG_TARGET_DEVICE_NAME> for TargetDevice {
-    type Error = anyhow::Error;
-
-    fn try_from(value: DISPLAYCONFIG_TARGET_DEVICE_NAME) -> Result<Self, Self::Error> {
-        let Ok(name) = try_utf16_cstring(&value.monitorFriendlyDeviceName) else {
-            bail!("Invalid UTF16 passed for device name");
-        };
-        let Ok(path) = try_utf16_cstring(&value.monitorDevicePath) else {
-            bail!("Invalid UTF16 passed for device path");
-        };
-
-        if name.is_empty() || path.is_empty() {
-            bail!("Empty device name or path");
-        }
-
-        Ok(Self { name, path })
+        Ok(remaining_updates)
     }
 }
