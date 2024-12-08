@@ -5,9 +5,13 @@ use std::{
 };
 
 // #![windows_subsystem = "windows"]
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
-// use displays_lib::displays::Displays;
+use displays_lib::{
+    display::{DisplayIdentifier, DisplayUpdate},
+    displays::Displays,
+    physical::windows::display::PhysicalDisplayUpdateContent,
+};
 // use displays_lib::state::State;
 use edid_rs::{Reader, EDID};
 use windows::{
@@ -148,9 +152,25 @@ fn main() -> Result<()> {
         // )
         .init();
 
-    // let displays = Displays::try_new()?;
+    let displays = Displays::try_new()?;
     // let d = displays.query()?;
     // println!("{d:#?}");
+
+    let updates = vec![DisplayUpdate {
+        id: DisplayIdentifier {
+            source_id: Some(1),
+            ..Default::default()
+        },
+        physical: Some(PhysicalDisplayUpdateContent {
+            brightness: Some(100),
+        }),
+        ..Default::default()
+    }];
+    displays
+        .update(updates)
+        .context("failed updating displays")?;
+
+    return Ok(());
 
     // return Ok(());
 

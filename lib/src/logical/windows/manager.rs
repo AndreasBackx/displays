@@ -126,7 +126,10 @@ impl LogicalDisplayManagerWindows {
             path.sourceInfo.Anonymous.modeInfoIdx = DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
             path.targetInfo.Anonymous.modeInfoIdx = DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
 
-            let logical_display: LogicalDisplayWindows = (*path).try_into()?;
+            let Ok(logical_display): anyhow::Result<LogicalDisplayWindows> = (*path).try_into()
+            else {
+                continue;
+            };
 
             let Some(matching_update) = remaining_updates
                 .iter()

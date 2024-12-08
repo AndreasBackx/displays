@@ -19,6 +19,6 @@ clap = { version = "4.5.18", features = ["derive"] }
 prettytable = "0.10.0"
 dialoguer = "0.11.0"
 
-# displays-lib = { path = "../lib", features = ["cli"] }
+displays-lib = { path = "../lib", features = ["cli"] }
 winreg = "0.52.0"
 edid-rs = { git = "https://github.com/AndreasBackx/edid-rs", commit = "f083f135e1c7077285b951f25692562f85d1aac1" }

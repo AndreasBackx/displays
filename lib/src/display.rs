@@ -1,6 +1,6 @@
 use crate::{
     logical::windows::display::{LogicalDisplayUpdateContent, LogicalDisplayWindows},
-    physical::windows::display::PhysicalDisplayWindows,
+    physical::windows::display::{PhysicalDisplayUpdateContent, PhysicalDisplayWindows},
 };
 
 #[derive(Debug, Default, Clone)]
@@ -8,6 +8,7 @@ pub struct DisplayIdentifier {
     pub name: Option<String>,
     pub serial_number: Option<String>,
     pub path: Option<String>,
+    pub source_id: Option<u32>,
 }
 
 #[derive(Debug)]
@@ -25,11 +26,12 @@ impl Display {
             name: Some(self.physical.name.clone()),
             serial_number: Some(self.physical.serial_number.clone()),
             path: Some(self.physical.path.clone()),
+            source_id: Some(self.logical.target.source_id),
         }
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct DisplayUpdate {
     pub id: DisplayIdentifier,
     pub logical: Option<LogicalDisplayUpdateContent>,

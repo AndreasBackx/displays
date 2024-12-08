@@ -14,15 +14,9 @@ use windows::Win32::{
 };
 use winreg::{enums::HKEY_LOCAL_MACHINE, RegKey};
 
-use crate::{
-    display::{Brightness, PhysicalDisplayUpdate},
-    logical::windows::utils::try_utf16_cstring,
-};
+use crate::logical::windows::utils::try_utf16_cstring;
 
-use super::{
-    display::{PhysicalDisplayUpdate, PhysicalDisplayWindows},
-    utils::try_utf8_cstring,
-};
+use super::display::{Brightness, PhysicalDisplayUpdate, PhysicalDisplayWindows};
 
 #[derive(Clone)]
 pub struct PhysicalDisplayManagerWindows {}
@@ -103,21 +97,28 @@ impl PhysicalDisplayManagerWindows {
     }
 
     pub fn apply(
-        mut self,
+        &self,
         updates: Vec<PhysicalDisplayUpdate>,
-        validate: bool,
     ) -> anyhow::Result<Vec<PhysicalDisplayUpdate>> {
         let monitor_infos = self.get_monitor_infos()?;
         let mut remaining_updates = updates.clone();
 
         for monitor_info in monitor_infos {
+            let Some(display_id) = monitor_info.display_id() else {
+                continue;
+            };
             let Some(matching_update) = remaining_updates
                 .iter()
-                .position(|update| update.id.)
+                .filter_map(|update| update.id.source_id)
+                .position(|source_id| source_id == display_id)
                 .map(|index| remaining_updates.remove(index))
             else {
                 continue;
             };
+
+            if let Some(brightness) = matching_update.content.brightness {
+                monitor_info.monitor.set_brightness(brightness)?;
+            }
         }
 
         Ok(remaining_updates)
@@ -159,12 +160,12 @@ impl MonitorInfo {
         try_utf16_cstring(&self.info.szDevice).unwrap_or_default()
     }
 
-    fn display_id(&self) -> Option<u8> {
+    fn display_id(&self) -> Option<u32> {
         self.path()
             .chars()
             .last()
             .and_then(|c| c.to_digit(10))
-            .map(|digit| digit as u8)
+            .map(|digit| digit)
     }
 }
 

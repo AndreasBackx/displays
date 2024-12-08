@@ -1,10 +1,7 @@
 use anyhow::Context;
 use edid_rs::EDID;
 
-use crate::{
-    display::{DisplayIdentifier, DisplayUpdate},
-    logical::windows::display::LogicalDisplayUpdate,
-};
+use crate::display::{DisplayIdentifier, DisplayUpdate};
 
 #[derive(Debug, Clone, Default)]
 pub struct PhysicalDisplayUpdate {
@@ -14,14 +11,14 @@ pub struct PhysicalDisplayUpdate {
 
 #[derive(Debug, Clone, Default)]
 pub struct PhysicalDisplayUpdateContent {
-    pub brightness: Option<i8>,
+    pub brightness: Option<u32>,
 }
 
 pub struct Brightness(u8);
 
 impl Brightness {
     pub const fn new(value: u8) -> Self {
-        if value > 100 || value < 0 {
+        if value > 100 {
             // TODO Remove
             panic!("Brightness needs to be between 0 and 100");
         }
@@ -41,6 +38,7 @@ pub struct PhysicalDisplayWindows {
     pub(crate) name: String,
     pub(crate) serial_number: String,
 }
+
 impl TryFrom<(String, EDID)> for PhysicalDisplayWindows {
     type Error = anyhow::Error;
     fn try_from((path, edid): (String, EDID)) -> Result<Self, Self::Error> {
