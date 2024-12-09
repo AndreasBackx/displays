@@ -10,7 +10,10 @@ use clap::Parser;
 use displays_lib::{
     display::{DisplayIdentifier, DisplayUpdate},
     displays::Displays,
-    windows::physical_display::PhysicalDisplayUpdateContent,
+    windows::{
+        logical_display::LogicalDisplayUpdateContent,
+        physical_display::PhysicalDisplayUpdateContent,
+    },
 };
 // use displays_lib::state::State;
 use edid_rs::{Reader, EDID};
@@ -152,24 +155,24 @@ fn main() -> Result<()> {
         // )
         .init();
 
-    let displays = Displays::try_new()?;
-    let d = displays.query()?;
-    println!("{d:#?}");
+    let displays = Displays::query()?;
+    println!("{displays:#?}");
 
     let updates = vec![DisplayUpdate {
         id: DisplayIdentifier {
-            // source_id: Some(1),
+            // name: Some("Display name".to_string()),
             serial_number: Some("U1HMF6PT".to_string()),
             ..Default::default()
         },
         physical: Some(PhysicalDisplayUpdateContent {
-            brightness: Some(100),
+            brightness: Some(0),
+        }),
+        logical: Some(LogicalDisplayUpdateContent {
+            is_enabled: Some(true),
         }),
         ..Default::default()
     }];
-    displays
-        .update(updates)
-        .context("failed updating displays")?;
+    Displays::update(updates).context("failed updating displays")?;
 
     return Ok(());
 

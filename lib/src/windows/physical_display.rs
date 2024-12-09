@@ -1,7 +1,7 @@
 use anyhow::Context;
 use edid_rs::EDID;
 
-use crate::display::{DisplayIdentifierInner, DisplayUpdate, DisplayUpdateInner};
+use crate::display::{DisplayIdentifierInner, DisplayUpdateInner};
 
 #[derive(Debug, Clone, Default)]
 pub struct PhysicalDisplayUpdate {

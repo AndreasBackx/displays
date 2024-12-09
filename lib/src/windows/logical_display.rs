@@ -9,7 +9,7 @@ use windows::Win32::{
 };
 
 use crate::display::{
-    DisplayIdentifier, DisplayIdentifierInner, DisplayUpdate, DisplayUpdateInner,
+    DisplayIdentifierInner, DisplayUpdateInner,
 };
 
 use super::utils::try_utf16_cstring;

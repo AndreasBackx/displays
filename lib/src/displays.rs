@@ -10,22 +10,12 @@ use crate::{
     },
 };
 
-pub struct Displays {
-    logical_manager: LogicalDisplayManagerWindows,
-    physical_manager: PhysicalDisplayManagerWindows,
-}
+pub struct Displays {}
 
 impl Displays {
-    pub fn try_new() -> anyhow::Result<Self> {
-        Ok(Self {
-            logical_manager: LogicalDisplayManagerWindows::try_new()?,
-            physical_manager: PhysicalDisplayManagerWindows::try_new()?,
-        })
-    }
-
-    pub fn query(&self) -> anyhow::Result<Vec<Display>> {
-        let logical_displays = self.logical_manager.query()?;
-        let mut physical_displays = self.physical_manager.query()?;
+    pub fn query() -> anyhow::Result<Vec<Display>> {
+        let logical_displays = LogicalDisplayManagerWindows::query()?;
+        let mut physical_displays = PhysicalDisplayManagerWindows::query()?;
 
         Ok(logical_displays
             .into_iter()
@@ -48,10 +38,9 @@ impl Displays {
     }
 
     fn get_inner(
-        &self,
         ids: BTreeSet<&DisplayIdentifier>,
     ) -> anyhow::Result<BTreeMap<DisplayIdentifier, (DisplayIdentifierInner, Display)>> {
-        let displays = self.query()?;
+        let displays = Self::query()?;
         Ok(displays
             .into_iter()
             .map(|display| {
@@ -63,10 +52,9 @@ impl Displays {
     }
 
     pub fn get(
-        &self,
         ids: BTreeSet<&DisplayIdentifier>,
     ) -> anyhow::Result<BTreeMap<DisplayIdentifier, Display>> {
-        self.get_inner(ids).map(|display_by_id| {
+        Self::get_inner(ids).map(|display_by_id| {
             display_by_id
                 .into_iter()
                 .map(|(id, (_, display))| (id, display))
@@ -74,11 +62,9 @@ impl Displays {
         })
     }
 
-    // fn resolve_id(&self, id: DisplayIdentifier) -> anyhow::Result<DisplayIdentifier> {}
-
-    fn apply(self, updates: Vec<DisplayUpdate>, validate: bool) -> anyhow::Result<()> {
+    fn apply(updates: Vec<DisplayUpdate>, validate: bool) -> anyhow::Result<()> {
         let ids = updates.iter().map(|update| &update.id).collect();
-        let mut id_mapping = self.get_inner(ids)?;
+        let mut id_mapping = Self::get_inner(ids)?;
         let updates_inner: Vec<_> = updates
             .into_iter()
             .filter_map(|update| {
@@ -97,21 +83,21 @@ impl Displays {
             .into_iter()
             .filter_map(|display| display.into())
             .collect();
-        self.logical_manager.apply(logical_updates, validate)?;
+        LogicalDisplayManagerWindows::apply(logical_updates, validate)?;
         let physical_updates: Vec<PhysicalDisplayUpdate> = updates_inner
             .into_iter()
             .filter_map(|display| display.into())
             .collect();
-        self.physical_manager.apply(physical_updates)?;
+        PhysicalDisplayManagerWindows::apply(physical_updates)?;
         Ok(())
     }
 
-    pub fn update(self, updates: Vec<DisplayUpdate>) -> anyhow::Result<()> {
-        self.apply(updates, false)
+    pub fn update(updates: Vec<DisplayUpdate>) -> anyhow::Result<()> {
+        Self::apply(updates, false)
     }
 
-    pub fn validate(self, updates: Vec<DisplayUpdate>) -> anyhow::Result<()> {
-        self.apply(updates, true)
+    pub fn validate(updates: Vec<DisplayUpdate>) -> anyhow::Result<()> {
+        Self::apply(updates, true)
     }
 }
 

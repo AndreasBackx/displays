@@ -1,0 +1,57 @@
+
+use anyhow::bail;
+use windows::Win32::{
+    Devices::Display::{
+        GetNumberOfPhysicalMonitorsFromHMONITOR,
+        GetPhysicalMonitorsFromHMONITOR, PHYSICAL_MONITOR,
+    },
+    Graphics::Gdi::HMONITOR,
+};
+
+use super::{
+    physical_display::Brightness,
+    physical_monitor::PhysicalMonitor,
+};
+
+pub(crate) struct Monitor(pub(crate) HMONITOR);
+
+impl From<HMONITOR> for Monitor {
+    fn from(value: HMONITOR) -> Self {
+        Self(value)
+    }
+}
+
+impl Monitor {
+    pub(crate) fn get_physical_monitors(&self) -> anyhow::Result<Vec<PhysicalMonitor>> {
+        let mut monitor_count = 0;
+        unsafe { GetNumberOfPhysicalMonitorsFromHMONITOR(self.0, &mut monitor_count) }?;
+
+        let mut physical_monitors = vec![PHYSICAL_MONITOR::default(); monitor_count as usize];
+        unsafe { GetPhysicalMonitorsFromHMONITOR(self.0, physical_monitors.as_mut_slice()) }?;
+
+        Ok(physical_monitors
+            .into_iter()
+            .map(|monitor| monitor.into())
+            .collect())
+    }
+
+    pub(crate) fn get_brightness(&self) -> anyhow::Result<Brightness> {
+        let physical_monitors = self.get_physical_monitors()?;
+        if physical_monitors.len() != 1 {
+            bail!("Found more physical monitors connected to 1 HMONITOR, not supported!");
+        }
+        let physical_monitor = physical_monitors[0];
+        let monitor_brightness = physical_monitor.get_brightness()?;
+        Ok(Brightness::new(monitor_brightness.current as u8))
+    }
+
+    pub(crate) fn set_brightness(&self, brightness: u32) -> anyhow::Result<()> {
+        let physical_monitors = self.get_physical_monitors()?;
+        if physical_monitors.len() != 1 {
+            bail!("Found more physical monitors connected to 1 HMONITOR, not supported!");
+        }
+        let physical_monitor = physical_monitors[0];
+        physical_monitor.set_brightness(brightness)?;
+        Ok(())
+    }
+}

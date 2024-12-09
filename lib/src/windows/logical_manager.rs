@@ -15,13 +15,15 @@ use windows::Win32::{
 use super::logical_display::{LogicalDisplayUpdate, LogicalDisplayWindows};
 
 #[derive(Clone)]
-pub struct LogicalDisplayManagerWindows {
+pub struct LogicalDisplayManagerWindows {}
+
+struct DisplayConfig {
     paths: Vec<DISPLAYCONFIG_PATH_INFO>,
     modes: Vec<DISPLAYCONFIG_MODE_INFO>,
 }
 
-impl LogicalDisplayManagerWindows {
-    pub fn try_new() -> anyhow::Result<Self> {
+impl DisplayConfig {
+    fn try_new() -> anyhow::Result<Self> {
         // Get the current display configuration buffer sizes
         let mut num_path_array_elements: u32 = 0;
         let mut num_mode_info_array_elements: u32 = 0;
@@ -80,9 +82,12 @@ impl LogicalDisplayManagerWindows {
 
         Ok(used_source_ids)
     }
+}
 
-    pub fn query(&self) -> anyhow::Result<BTreeSet<LogicalDisplayWindows>> {
-        let logical_displays: Vec<LogicalDisplayWindows> = self
+impl LogicalDisplayManagerWindows {
+    pub fn query() -> anyhow::Result<BTreeSet<LogicalDisplayWindows>> {
+        let display_config = DisplayConfig::try_new()?;
+        let logical_displays: Vec<LogicalDisplayWindows> = display_config
             .paths
             .clone()
             .into_iter()
@@ -112,7 +117,6 @@ impl LogicalDisplayManagerWindows {
     }
 
     pub fn apply(
-        mut self,
         updates: Vec<LogicalDisplayUpdate>,
         validate: bool,
     ) -> anyhow::Result<Vec<LogicalDisplayUpdate>> {
@@ -120,9 +124,10 @@ impl LogicalDisplayManagerWindows {
             return Ok(updates);
         }
 
-        let mut used_source_ids = self.get_used_source_ids()?;
+        let mut display_config = DisplayConfig::try_new()?;
+        let mut used_source_ids = display_config.get_used_source_ids()?;
         let mut remaining_updates = updates.clone();
-        for path in self.paths.iter_mut() {
+        for path in display_config.paths.iter_mut() {
             // Invalidate all mode configs.
             path.sourceInfo.Anonymous.modeInfoIdx = DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
             path.targetInfo.Anonymous.modeInfoIdx = DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
@@ -172,7 +177,7 @@ impl LogicalDisplayManagerWindows {
             sdc_flags |= SDC_APPLY;
         }
 
-        let status: i32 = unsafe { SetDisplayConfig(Some(&self.paths), None, sdc_flags) };
+        let status: i32 = unsafe { SetDisplayConfig(Some(&display_config.paths), None, sdc_flags) };
 
         if status as u32 != ERROR_SUCCESS.0 {
             bail!("Failed to set display config. Error code: {}", status);
