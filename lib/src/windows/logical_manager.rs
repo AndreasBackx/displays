@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
 use anyhow::bail;
-use tracing::info;
+use tracing::{info, instrument};
 use windows::Win32::{
     Devices::Display::{
         GetDisplayConfigBufferSizes, QueryDisplayConfig, SetDisplayConfig, DISPLAYCONFIG_MODE_INFO,
@@ -85,6 +85,7 @@ impl DisplayConfig {
 }
 
 impl LogicalDisplayManagerWindows {
+    #[instrument(ret)]
     pub fn query() -> anyhow::Result<BTreeSet<LogicalDisplayWindows>> {
         let display_config = DisplayConfig::try_new()?;
         let logical_displays: Vec<LogicalDisplayWindows> = display_config

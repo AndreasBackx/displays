@@ -20,7 +20,7 @@ impl DisplayManager {
         let mut logical_displays: Vec<_> =
             LogicalDisplayManagerWindows::query()?.into_iter().collect();
         // Enabled displays first as we want to return enabled displays ideally.
-        logical_displays.sort_by_key(|logical| logical.is_enabled);
+        logical_displays.sort_by_key(|logical| !logical.is_enabled);
         let mut physical_displays = PhysicalDisplayManagerWindows::query()?;
 
         Ok(logical_displays
@@ -47,27 +47,20 @@ impl DisplayManager {
     fn get_inner(
         ids: BTreeSet<DisplayIdentifier>,
     ) -> anyhow::Result<BTreeMap<DisplayIdentifier, (DisplayIdentifierInner, Display)>> {
-        let mut displays = Self::query()?;
-        // Enabled displays first as it's required for setting brightness.
-        displays.sort_by_key(|display| display.logical.is_enabled);
-        Ok(
-            displays
-                .into_iter()
-                .filter_map(|displ| {
-                    let id = displ.id();
-                    ids.iter()
-                        .filter(|user_id| user_id.is_subset(&id.outer))
-                        .nth(0)
-                        .and_then(|user_id| {
-                            debug!("{id:?}: {displ:?}");
-                            Some((user_id.clone(), (id, displ)))
-                        })
-                })
-                .collect(), // .fold(BTreeMap::new(), |mut items_by_user_id, (user_id, item)| {
-                            //     items_by_user_id.entry(user_id).or_insert(vec![]).push(item);
-                            //     items_by_user_id
-                            // })
-        )
+        let displays = Self::query()?;
+        Ok(displays
+            .into_iter()
+            .filter_map(|displ| {
+                let id = displ.id();
+                ids.iter()
+                    .filter(|user_id| user_id.is_subset(&id.outer))
+                    .nth(0)
+                    .and_then(|user_id| {
+                        debug!("{id:?}: {displ:?}");
+                        Some((user_id.clone(), (id, displ)))
+                    })
+            })
+            .collect())
     }
 
     pub fn get(
