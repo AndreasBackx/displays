@@ -9,7 +9,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use displays_lib::{
     display::{DisplayIdentifier, DisplayUpdate},
-    displays::Displays,
+    manager::DisplayManager,
     windows::{
         logical_display::LogicalDisplayUpdateContent,
         physical_display::PhysicalDisplayUpdateContent,
@@ -17,6 +17,8 @@ use displays_lib::{
 };
 // use displays_lib::state::State;
 use edid_rs::{Reader, EDID};
+use tracing::{debug, info};
+use tracing_subscriber::{fmt, EnvFilter};
 use windows::{
     core::PCSTR,
     Win32::{
@@ -147,32 +149,41 @@ fn get_detailed_monitor_info() -> Result<Vec<MonitorInfo>> {
 }
 
 fn main() -> Result<()> {
-    tracing_subscriber::fmt()
-        // .event_format(
-        //     tracing_subscriber::fmt::format()
-        //         .with_file(true)
-        //         .with_line_number(true),
-        // )
-        .init();
+    tracing_subscriber::fmt::init();
 
-    let displays = Displays::query()?;
-    println!("{displays:#?}");
-
-    let updates = vec![DisplayUpdate {
-        id: DisplayIdentifier {
-            // name: Some("Display name".to_string()),
-            serial_number: Some("U1HMF6PT".to_string()),
-            ..Default::default()
-        },
-        physical: Some(PhysicalDisplayUpdateContent {
-            brightness: Some(0),
-        }),
-        logical: Some(LogicalDisplayUpdateContent {
-            is_enabled: Some(true),
-        }),
+    // let displays = Displays::query()?;
+    // println!("{displays:#?}");
+    let left_display = DisplayIdentifier {
+        serial_number: Some("U1HMF6PT".to_string()),
         ..Default::default()
-    }];
-    Displays::update(updates).context("failed updating displays")?;
+    };
+    let center_display = DisplayIdentifier {
+        name: Some("AW3225QF".to_string()),
+        ..Default::default()
+    };
+    let right_display = DisplayIdentifier {
+        serial_number: Some("U1HMF6PN".to_string()),
+        ..Default::default()
+    };
+    let displays = vec![left_display, center_display, right_display];
+
+    let updates = displays
+        .into_iter()
+        .map(|id| DisplayUpdate {
+            id,
+            physical: Some(PhysicalDisplayUpdateContent {
+                brightness: Some(0),
+            }),
+            logical: Some(LogicalDisplayUpdateContent {
+                // is_enabled: Some(true),
+                ..Default::default()
+            }),
+            ..Default::default()
+        })
+        .collect();
+    let remaining_updates: Vec<DisplayUpdate> =
+        DisplayManager::update(updates).context("failed updating displays")?;
+    println!("Remaining updates: {remaining_updates:#?}");
 
     return Ok(());
 
@@ -198,14 +209,14 @@ fn main() -> Result<()> {
 
             // Check if the EDID value exists within this instance key.
             if let Ok(edid_data) = instance_key.get_raw_value("EDID") {
-                println!("Found EDID for device {}\\{}:", device_id, instance_id);
+                debug!("Found EDID for device {}\\{}:", device_id, instance_id);
 
                 let mut cursor = Cursor::new(edid_data.bytes);
                 let reader = &mut Reader::new(&mut cursor);
                 let edid = EDID::parse(reader);
-                println!("{:#?}", edid);
+                debug!("{:#?}", edid);
             } else {
-                println!("No EDID found for device {}\\{}", device_id, instance_id);
+                debug!("No EDID found for device {}\\{}", device_id, instance_id);
             }
         }
     }

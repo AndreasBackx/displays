@@ -1,18 +1,15 @@
-
 use anyhow::bail;
+use tracing::info;
 use windows::Win32::{
     Devices::Display::{
-        GetNumberOfPhysicalMonitorsFromHMONITOR,
-        GetPhysicalMonitorsFromHMONITOR, PHYSICAL_MONITOR,
+        GetNumberOfPhysicalMonitorsFromHMONITOR, GetPhysicalMonitorsFromHMONITOR, PHYSICAL_MONITOR,
     },
     Graphics::Gdi::HMONITOR,
 };
 
-use super::{
-    physical_display::Brightness,
-    physical_monitor::PhysicalMonitor,
-};
+use super::{physical_display::Brightness, physical_monitor::PhysicalMonitor};
 
+#[derive(Debug)]
 pub(crate) struct Monitor(pub(crate) HMONITOR);
 
 impl From<HMONITOR> for Monitor {
@@ -36,6 +33,7 @@ impl Monitor {
     }
 
     pub(crate) fn get_brightness(&self) -> anyhow::Result<Brightness> {
+        info!("Getting brightness");
         let physical_monitors = self.get_physical_monitors()?;
         if physical_monitors.len() != 1 {
             bail!("Found more physical monitors connected to 1 HMONITOR, not supported!");
@@ -46,6 +44,7 @@ impl Monitor {
     }
 
     pub(crate) fn set_brightness(&self, brightness: u32) -> anyhow::Result<()> {
+        info!("Setting brightness");
         let physical_monitors = self.get_physical_monitors()?;
         if physical_monitors.len() != 1 {
             bail!("Found more physical monitors connected to 1 HMONITOR, not supported!");

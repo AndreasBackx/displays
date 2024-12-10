@@ -1,17 +1,38 @@
-use std::mem;
+use std::{fmt::Display, mem};
 
-use windows::Win32::Graphics::Gdi::{
-        GetMonitorInfoW, MONITORINFO, MONITORINFOEXW,
-    };
+use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MONITORINFO, MONITORINFOEXW};
 
-use super::{
-    monitor::Monitor,
-    utils::try_utf16_cstring,
-};
+use super::{monitor::Monitor, utils::try_utf16_cstring};
 
+#[derive(Debug)]
 pub struct MonitorInfo {
     pub(crate) monitor: Monitor,
     pub(crate) info: MONITORINFOEXW,
+}
+
+impl MonitorInfo {
+    pub(crate) fn path(&self) -> String {
+        try_utf16_cstring(&self.info.szDevice).unwrap_or_default()
+    }
+
+    pub(crate) fn display_id(&self) -> Option<u32> {
+        self.path()
+            .chars()
+            .last()
+            .and_then(|c| c.to_digit(10))
+            .map(|digit| digit)
+    }
+}
+
+impl Display for MonitorInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "MonitorInfo {{path: {path}, display_id: {display_id:?}}}",
+            path = self.path(),
+            display_id = self.display_id(),
+        )
+    }
 }
 
 impl TryFrom<Monitor> for MonitorInfo {
@@ -36,19 +57,5 @@ impl TryFrom<Monitor> for MonitorInfo {
                 info: monitor_info,
             })
             .ok_or(anyhow::anyhow!("could not get monitor info"))
-    }
-}
-
-impl MonitorInfo {
-    pub(crate) fn path(&self) -> String {
-        try_utf16_cstring(&self.info.szDevice).unwrap_or_default()
-    }
-
-    pub(crate) fn display_id(&self) -> Option<u32> {
-        self.path()
-            .chars()
-            .last()
-            .and_then(|c| c.to_digit(10))
-            .map(|digit| digit)
     }
 }

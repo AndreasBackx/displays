@@ -14,9 +14,9 @@ struct DisplayConfig {
     pub is_enabled: bool,
 }
 
-impl From<DisplayConfig> for lib::displays::DisplayConfig {
+impl From<DisplayConfig> for lib::manager::DisplayConfig {
     fn from(value: DisplayConfig) -> Self {
-        lib::displays::DisplayConfig {
+        lib::manager::DisplayConfig {
             name: value.name,
             path: value.path,
             is_enabled: value.is_enabled,
@@ -65,7 +65,7 @@ fn _apply(configs: BTreeSet<DisplayConfig>, validate: bool) -> PyResult<()> {
         .into_iter()
         .map(|py_display_config| py_display_config.into())
         .collect();
-    let display_configs = lib::displays::DisplayConfigs { displays };
+    let display_configs = lib::manager::DisplayConfigs { displays };
 
     let mut state = try_new_state()?;
 

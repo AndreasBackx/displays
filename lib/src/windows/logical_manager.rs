@@ -127,6 +127,8 @@ impl LogicalDisplayManagerWindows {
         let mut display_config = DisplayConfig::try_new()?;
         let mut used_source_ids = display_config.get_used_source_ids()?;
         let mut remaining_updates = updates.clone();
+        let mut has_changed = false;
+        // TODO Sort by enabled as we want those first!!!
         for path in display_config.paths.iter_mut() {
             // Invalidate all mode configs.
             path.sourceInfo.Anonymous.modeInfoIdx = DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
@@ -164,9 +166,11 @@ impl LogicalDisplayManagerWindows {
                 // Disable the display
                 path.flags &= !DISPLAYCONFIG_PATH_ACTIVE;
             }
+            // TODO Introduce a check for if the display was already on.
+            has_changed = true;
         }
 
-        if remaining_updates.len() == updates.len() {
+        if !has_changed {
             return Ok(remaining_updates);
         }
 

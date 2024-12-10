@@ -1,6 +1,7 @@
 use std::{io::Cursor, ptr};
 
 use edid_rs::{Reader, EDID};
+use tracing::{debug, field, info, info_span, instrument, trace, Instrument, Span};
 use windows::Win32::{
     Foundation::{BOOL, LPARAM, RECT},
     Graphics::Gdi::{EnumDisplayMonitors, HDC, HMONITOR},
@@ -40,18 +41,18 @@ impl PhysicalDisplayManagerWindows {
 
                 // Check if the EDID value exists within this instance key.
                 if let Ok(edid_data) = instance_key.get_raw_value("EDID") {
-                    println!("Found EDID for device {}\\{}:", model_id, instance_id);
+                    debug!("Found EDID for device {}\\{}:", model_id, instance_id);
 
                     let mut cursor = Cursor::new(edid_data.bytes);
                     let reader = &mut Reader::new(&mut cursor);
                     let edid = EDID::parse(reader).map_err(|err| anyhow::anyhow!(err))?;
-                    println!("{:#?}", edid);
+                    trace!("{:#?}", edid);
                     let path = format!(r"\\?\DISPLAY#{model_id}#{instance_id}");
                     if let Ok(physical_display) = (path, edid).try_into() {
                         physical_displays.push(physical_display);
                     }
                 } else {
-                    println!("No EDID found for device {}\\{}", model_id, instance_id);
+                    debug!("No EDID found for device {}\\{}", model_id, instance_id);
                 }
             }
         }
@@ -87,22 +88,29 @@ impl PhysicalDisplayManagerWindows {
             .collect::<anyhow::Result<_>>()
     }
 
+    #[instrument(level = "debug")]
     pub fn apply(
         updates: Vec<PhysicalDisplayUpdate>,
     ) -> anyhow::Result<Vec<PhysicalDisplayUpdate>> {
-        let monitor_infos = Self::get_monitor_infos()?;
+        if updates.is_empty() {
+            return Ok(updates);
+        }
+
+        let monitor_infos: Vec<MonitorInfo> = Self::get_monitor_infos()?;
         let mut remaining_updates = updates.clone();
 
         for monitor_info in monitor_infos {
+            Span::current().record("monitor_info", field::display(&monitor_info));
             let Some(display_id) = monitor_info.display_id() else {
                 continue;
             };
             let Some(matching_update) = remaining_updates
                 .iter()
                 .filter_map(|update| update.id.source_id)
-                .position(|source_id| source_id == display_id)
+                .position(|source_id| source_id + 1 == display_id)
                 .map(|index| remaining_updates.remove(index))
             else {
+                debug!("No update matching {monitor_info}");
                 continue;
             };
 

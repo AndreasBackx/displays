@@ -1,5 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use tracing::{debug, instrument};
+
 use crate::{
     display::{
         Display, DisplayIdentifier, DisplayIdentifierInner, DisplayUpdate, DisplayUpdateInner,
@@ -10,11 +12,15 @@ use crate::{
     },
 };
 
-pub struct Displays {}
+pub struct DisplayManager {}
 
-impl Displays {
+impl DisplayManager {
+    #[instrument(ret)]
     pub fn query() -> anyhow::Result<Vec<Display>> {
-        let logical_displays = LogicalDisplayManagerWindows::query()?;
+        let mut logical_displays: Vec<_> =
+            LogicalDisplayManagerWindows::query()?.into_iter().collect();
+        // Enabled displays first as we want to return enabled displays ideally.
+        logical_displays.sort_by_key(|logical| logical.is_enabled);
         let mut physical_displays = PhysicalDisplayManagerWindows::query()?;
 
         Ok(logical_displays
@@ -37,22 +43,35 @@ impl Displays {
             .collect())
     }
 
+    #[instrument(ret, skip_all, level = "debug")]
     fn get_inner(
-        ids: BTreeSet<&DisplayIdentifier>,
+        ids: BTreeSet<DisplayIdentifier>,
     ) -> anyhow::Result<BTreeMap<DisplayIdentifier, (DisplayIdentifierInner, Display)>> {
-        let displays = Self::query()?;
-        Ok(displays
-            .into_iter()
-            .map(|display| {
-                let id = display.id();
-                (id.outer.clone(), (id, display))
-            })
-            .filter(|(id, _)| ids.contains(&id))
-            .collect())
+        let mut displays = Self::query()?;
+        // Enabled displays first as it's required for setting brightness.
+        displays.sort_by_key(|display| display.logical.is_enabled);
+        Ok(
+            displays
+                .into_iter()
+                .filter_map(|displ| {
+                    let id = displ.id();
+                    ids.iter()
+                        .filter(|user_id| user_id.is_subset(&id.outer))
+                        .nth(0)
+                        .and_then(|user_id| {
+                            debug!("{id:?}: {displ:?}");
+                            Some((user_id.clone(), (id, displ)))
+                        })
+                })
+                .collect(), // .fold(BTreeMap::new(), |mut items_by_user_id, (user_id, item)| {
+                            //     items_by_user_id.entry(user_id).or_insert(vec![]).push(item);
+                            //     items_by_user_id
+                            // })
+        )
     }
 
     pub fn get(
-        ids: BTreeSet<&DisplayIdentifier>,
+        ids: BTreeSet<DisplayIdentifier>,
     ) -> anyhow::Result<BTreeMap<DisplayIdentifier, Display>> {
         Self::get_inner(ids).map(|display_by_id| {
             display_by_id
@@ -63,8 +82,13 @@ impl Displays {
     }
 
     fn apply(updates: Vec<DisplayUpdate>, validate: bool) -> anyhow::Result<Vec<DisplayUpdate>> {
-        let ids = updates.iter().map(|update| &update.id).collect();
+        let ids: BTreeSet<_> = updates
+            .clone()
+            .into_iter()
+            .map(|update| update.id)
+            .collect();
         let mut id_mapping = Self::get_inner(ids)?;
+        debug!("id_mapping: {id_mapping:#?}");
         let updates_inner: Vec<_> = updates
             .into_iter()
             .filter_map(|update| {
@@ -77,6 +101,7 @@ impl Displays {
                     })
             })
             .collect();
+        debug!("updates_inner: {updates_inner:#?}");
 
         let logical_updates: Vec<LogicalDisplayUpdate> = updates_inner
             .clone()

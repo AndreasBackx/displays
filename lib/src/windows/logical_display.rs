@@ -1,4 +1,5 @@
 use anyhow::bail;
+use tracing::instrument;
 use windows::Win32::{
     Devices::Display::{
         DisplayConfigGetDeviceInfo, DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME,
@@ -8,9 +9,7 @@ use windows::Win32::{
     Graphics::Gdi::DISPLAYCONFIG_PATH_ACTIVE,
 };
 
-use crate::display::{
-    DisplayIdentifierInner, DisplayUpdateInner,
-};
+use crate::display::{DisplayIdentifier, DisplayIdentifierInner, DisplayUpdateInner};
 
 use super::utils::try_utf16_cstring;
 
@@ -32,6 +31,16 @@ pub struct LogicalDisplayWindows {
 }
 
 impl LogicalDisplayWindows {
+    pub fn id(&self) -> DisplayIdentifierInner {
+        DisplayIdentifierInner {
+            outer: DisplayIdentifier {
+                name: Some(self.target.name.clone()),
+                ..Default::default()
+            },
+            path: Some(self.target.path.clone()),
+            ..Default::default()
+        }
+    }
     pub fn matches(&self, id: &DisplayIdentifierInner) -> bool {
         if let Some(ref name) = id.outer.name {
             if self.target.name.starts_with(name) {
@@ -85,6 +94,7 @@ impl TryFrom<DISPLAYCONFIG_PATH_INFO> for LogicalDisplayWindows {
 impl TryFrom<(DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_TARGET_DEVICE_NAME)> for TargetDevice {
     type Error = anyhow::Error;
 
+    #[instrument(ret, skip_all, level = "debug")]
     fn try_from(
         (path_info, target): (DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_TARGET_DEVICE_NAME),
     ) -> Result<Self, Self::Error> {
