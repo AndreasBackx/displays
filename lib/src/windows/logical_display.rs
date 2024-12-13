@@ -1,17 +1,16 @@
-use anyhow::bail;
 use tracing::instrument;
 use windows::Win32::{
     Devices::Display::{
         DisplayConfigGetDeviceInfo, DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME,
         DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_TARGET_DEVICE_NAME,
     },
-    Foundation::ERROR_SUCCESS,
+    Foundation::WIN32_ERROR,
     Graphics::Gdi::DISPLAYCONFIG_PATH_ACTIVE,
 };
 
 use crate::display::{DisplayIdentifier, DisplayIdentifierInner, DisplayUpdateInner};
 
-use super::utils::try_utf16_cstring;
+use super::{error::WindowsError, utils::try_utf16_cstring};
 
 #[derive(Debug, Default, Clone)]
 pub struct LogicalDisplayUpdateContent {
@@ -66,7 +65,7 @@ pub struct TargetDevice {
 }
 
 impl TryFrom<DISPLAYCONFIG_PATH_INFO> for LogicalDisplayWindows {
-    type Error = anyhow::Error;
+    type Error = WindowsError;
 
     fn try_from(value: DISPLAYCONFIG_PATH_INFO) -> Result<Self, Self::Error> {
         let mut target_device_name = DISPLAYCONFIG_TARGET_DEVICE_NAME {
@@ -79,11 +78,8 @@ impl TryFrom<DISPLAYCONFIG_PATH_INFO> for LogicalDisplayWindows {
         target_device_name.header.id = value.targetInfo.id;
         target_device_name.header.r#type = DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME;
 
-        let status = unsafe { DisplayConfigGetDeviceInfo(&mut target_device_name.header) };
-
-        if status as u32 != ERROR_SUCCESS.0 {
-            bail!("Failed to query device info. Error code: {:?}", status);
-        }
+        WIN32_ERROR(unsafe { DisplayConfigGetDeviceInfo(&mut target_device_name.header) } as u32)
+            .ok()?;
 
         let target = (value, target_device_name).try_into()?;
         let is_enabled = value.flags & DISPLAYCONFIG_PATH_ACTIVE == DISPLAYCONFIG_PATH_ACTIVE;
@@ -92,21 +88,31 @@ impl TryFrom<DISPLAYCONFIG_PATH_INFO> for LogicalDisplayWindows {
 }
 
 impl TryFrom<(DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_TARGET_DEVICE_NAME)> for TargetDevice {
-    type Error = anyhow::Error;
+    type Error = WindowsError;
 
     #[instrument(ret, skip_all, level = "debug")]
     fn try_from(
         (path_info, target): (DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_TARGET_DEVICE_NAME),
     ) -> Result<Self, Self::Error> {
         let Ok(name) = try_utf16_cstring(&target.monitorFriendlyDeviceName) else {
-            bail!("Invalid UTF16 passed for device name");
+            return Err(WindowsError::InvalidUtf16 {
+                data: target.monitorFriendlyDeviceName.to_vec(),
+                origin: "monitorFriendlyDeviceName".to_string(),
+            });
         };
         let Ok(path) = try_utf16_cstring(&target.monitorDevicePath) else {
-            bail!("Invalid UTF16 passed for device path");
+            return Err(WindowsError::InvalidUtf16 {
+                data: target.monitorFriendlyDeviceName.to_vec(),
+                origin: "monitorDevicePath".to_string(),
+            });
         };
 
         if name.is_empty() || path.is_empty() {
-            bail!("Empty device name or path");
+            return Err(WindowsError::Other {
+                message: format!(
+                    "monitorFriendlyDeviceName ({name}) or monitorDevicePath ({path}) empty"
+                ),
+            });
         }
 
         Ok(Self {

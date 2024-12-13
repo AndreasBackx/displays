@@ -1,3 +1,4 @@
+pub mod error;
 pub mod logical_display;
 pub mod logical_manager;
 mod monitor;

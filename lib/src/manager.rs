@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
+use thiserror::Error;
 use tracing::{debug, instrument};
 
 use crate::{
@@ -7,16 +8,55 @@ use crate::{
         Display, DisplayIdentifier, DisplayIdentifierInner, DisplayUpdate, DisplayUpdateInner,
     },
     windows::{
-        logical_display::LogicalDisplayUpdate, logical_manager::LogicalDisplayManagerWindows,
-        physical_display::PhysicalDisplayUpdate, physical_manager::PhysicalDisplayManagerWindows,
+        logical_display::LogicalDisplayUpdate,
+        logical_manager::{
+            LogicalDisplayApplyError, LogicalDisplayManagerWindows, LogicalDisplayQueryError,
+        },
+        physical_display::PhysicalDisplayUpdate,
+        physical_manager::{
+            PhysicalDisplayApplyError, PhysicalDisplayManagerWindows, PhysicalDisplayQueryError,
+        },
     },
 };
+
+#[derive(Error, Debug)]
+pub enum DisplayQueryError {
+    #[error("physical querying error")]
+    Physical {
+        #[from]
+        source: PhysicalDisplayQueryError,
+    },
+    #[error("logical querying error")]
+    Logical {
+        #[from]
+        source: LogicalDisplayQueryError,
+    },
+}
+
+#[derive(Error, Debug)]
+pub enum DisplayApplyError {
+    #[error("error while first querying displays")]
+    Query {
+        #[from]
+        source: DisplayQueryError,
+    },
+    #[error("physical querying error")]
+    Physical {
+        #[from]
+        source: PhysicalDisplayApplyError,
+    },
+    #[error("logical querying error")]
+    Logical {
+        #[from]
+        source: LogicalDisplayApplyError,
+    },
+}
 
 pub struct DisplayManager {}
 
 impl DisplayManager {
     #[instrument(ret)]
-    pub fn query() -> anyhow::Result<Vec<Display>> {
+    pub fn query() -> Result<Vec<Display>, DisplayQueryError> {
         let mut logical_displays: Vec<_> =
             LogicalDisplayManagerWindows::query()?.into_iter().collect();
         // Enabled displays first as we want to return enabled displays ideally.
@@ -46,7 +86,8 @@ impl DisplayManager {
     #[instrument(ret, skip_all, level = "debug")]
     fn get_inner(
         ids: BTreeSet<DisplayIdentifier>,
-    ) -> anyhow::Result<BTreeMap<DisplayIdentifier, (DisplayIdentifierInner, Display)>> {
+    ) -> Result<BTreeMap<DisplayIdentifier, (DisplayIdentifierInner, Display)>, DisplayQueryError>
+    {
         let displays = Self::query()?;
         Ok(displays
             .into_iter()
@@ -65,7 +106,7 @@ impl DisplayManager {
 
     pub fn get(
         ids: BTreeSet<DisplayIdentifier>,
-    ) -> anyhow::Result<BTreeMap<DisplayIdentifier, Display>> {
+    ) -> Result<BTreeMap<DisplayIdentifier, Display>, DisplayQueryError> {
         Self::get_inner(ids).map(|display_by_id| {
             display_by_id
                 .into_iter()
@@ -74,7 +115,10 @@ impl DisplayManager {
         })
     }
 
-    fn apply(updates: Vec<DisplayUpdate>, validate: bool) -> anyhow::Result<Vec<DisplayUpdate>> {
+    fn apply(
+        updates: Vec<DisplayUpdate>,
+        validate: bool,
+    ) -> Result<Vec<DisplayUpdate>, DisplayApplyError> {
         let ids: BTreeSet<_> = updates
             .clone()
             .into_iter()
@@ -137,11 +181,11 @@ impl DisplayManager {
         Ok(remaining_updates)
     }
 
-    pub fn update(updates: Vec<DisplayUpdate>) -> anyhow::Result<Vec<DisplayUpdate>> {
+    pub fn update(updates: Vec<DisplayUpdate>) -> Result<Vec<DisplayUpdate>, DisplayApplyError> {
         Self::apply(updates, false)
     }
 
-    pub fn validate(updates: Vec<DisplayUpdate>) -> anyhow::Result<Vec<DisplayUpdate>> {
+    pub fn validate(updates: Vec<DisplayUpdate>) -> Result<Vec<DisplayUpdate>, DisplayApplyError> {
         Self::apply(updates, true)
     }
 }

@@ -1,15 +1,15 @@
+use windows::Win32::{
+    Devices::Display::{GetMonitorBrightness, SetMonitorBrightness, PHYSICAL_MONITOR},
+    Foundation::GetLastError,
+};
 
-use anyhow::bail;
-use windows::Win32::Devices::Display::{
-        GetMonitorBrightness, SetMonitorBrightness, PHYSICAL_MONITOR,
-    };
-
+use super::error::WindowsError;
 
 #[derive(Clone, Copy)]
 pub(crate) struct PhysicalMonitor(pub(crate) PHYSICAL_MONITOR);
 
 impl PhysicalMonitor {
-    pub(crate) fn get_brightness(&self) -> anyhow::Result<MonitorBrightness> {
+    pub(crate) fn get_brightness(&self) -> Result<MonitorBrightness, WindowsError> {
         let (mut min_brightness, mut current_brightness, mut max_brightness) = (0, 0, 0);
         let return_code = unsafe {
             GetMonitorBrightness(
@@ -20,7 +20,7 @@ impl PhysicalMonitor {
             )
         };
         if return_code != 1 {
-            bail!("failed to get monitor brightness");
+            unsafe { GetLastError() }.ok()?;
         }
         Ok(MonitorBrightness {
             min: min_brightness,
@@ -29,10 +29,10 @@ impl PhysicalMonitor {
         })
     }
 
-    pub(crate) fn set_brightness(&self, brightness: u32) -> anyhow::Result<()> {
+    pub(crate) fn set_brightness(&self, brightness: u32) -> Result<(), WindowsError> {
         let return_code = unsafe { SetMonitorBrightness(self.0.hPhysicalMonitor, brightness) };
         if return_code != 1 {
-            bail!("failed to set monitor brightness");
+            unsafe { GetLastError() }.ok()?;
         }
         Ok(())
     }

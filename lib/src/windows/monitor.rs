@@ -1,5 +1,3 @@
-use anyhow::bail;
-use tracing::info;
 use windows::Win32::{
     Devices::Display::{
         GetNumberOfPhysicalMonitorsFromHMONITOR, GetPhysicalMonitorsFromHMONITOR, PHYSICAL_MONITOR,
@@ -7,7 +5,10 @@ use windows::Win32::{
     Graphics::Gdi::HMONITOR,
 };
 
-use super::{physical_display::Brightness, physical_monitor::PhysicalMonitor};
+use super::{
+    error::WindowsError, physical_display::Brightness, physical_manager::PhysicalDisplayApplyError,
+    physical_monitor::PhysicalMonitor,
+};
 
 #[derive(Debug)]
 pub(crate) struct Monitor(pub(crate) HMONITOR);
@@ -19,7 +20,7 @@ impl From<HMONITOR> for Monitor {
 }
 
 impl Monitor {
-    pub(crate) fn get_physical_monitors(&self) -> anyhow::Result<Vec<PhysicalMonitor>> {
+    pub(crate) fn get_physical_monitors(&self) -> Result<Vec<PhysicalMonitor>, WindowsError> {
         let mut monitor_count = 0;
         unsafe { GetNumberOfPhysicalMonitorsFromHMONITOR(self.0, &mut monitor_count) }?;
 
@@ -32,22 +33,30 @@ impl Monitor {
             .collect())
     }
 
-    pub(crate) fn get_brightness(&self) -> anyhow::Result<Brightness> {
-        info!("Getting brightness");
+    pub(crate) fn get_brightness(&self) -> Result<Brightness, PhysicalDisplayApplyError> {
         let physical_monitors = self.get_physical_monitors()?;
         if physical_monitors.len() != 1 {
-            bail!("Found more physical monitors connected to 1 HMONITOR, not supported!");
+            PhysicalDisplayApplyError::Unsupported {
+                message: format!(
+                    "{} physical monitors connected to 1 HMONITOR, this is not (yet) supported.",
+                    physical_monitors.len()
+                ),
+            };
         }
         let physical_monitor = physical_monitors[0];
         let monitor_brightness = physical_monitor.get_brightness()?;
         Ok(Brightness::new(monitor_brightness.current as u8))
     }
 
-    pub(crate) fn set_brightness(&self, brightness: u32) -> anyhow::Result<()> {
-        info!("Setting brightness");
+    pub(crate) fn set_brightness(&self, brightness: u32) -> Result<(), PhysicalDisplayApplyError> {
         let physical_monitors = self.get_physical_monitors()?;
         if physical_monitors.len() != 1 {
-            bail!("Found more physical monitors connected to 1 HMONITOR, not supported!");
+            PhysicalDisplayApplyError::Unsupported {
+                message: format!(
+                    "{} physical monitors connected to 1 HMONITOR, this is not (yet) supported.",
+                    physical_monitors.len()
+                ),
+            };
         }
         let physical_monitor = physical_monitors[0];
         physical_monitor.set_brightness(brightness)?;

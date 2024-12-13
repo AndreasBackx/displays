@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use anyhow::bail;
+use thiserror::Error;
 use tracing::{info, instrument};
 use windows::Win32::{
     Devices::Display::{
@@ -8,11 +8,32 @@ use windows::Win32::{
         DISPLAYCONFIG_PATH_INFO, QDC_ALL_PATHS, SDC_ALLOW_PATH_ORDER_CHANGES, SDC_APPLY,
         SDC_TOPOLOGY_SUPPLIED, SDC_VALIDATE,
     },
-    Foundation::ERROR_SUCCESS,
+    Foundation::WIN32_ERROR,
     Graphics::Gdi::{DISPLAYCONFIG_PATH_ACTIVE, DISPLAYCONFIG_PATH_MODE_IDX_INVALID},
 };
 
-use super::logical_display::{LogicalDisplayUpdate, LogicalDisplayWindows};
+use super::{
+    error::WindowsError,
+    logical_display::{LogicalDisplayUpdate, LogicalDisplayWindows},
+};
+
+#[derive(Error, Debug)]
+pub enum LogicalDisplayQueryError {
+    #[error(transparent)]
+    WindowsError {
+        #[from]
+        source: WindowsError,
+    },
+}
+
+#[derive(Error, Debug)]
+pub enum LogicalDisplayApplyError {
+    #[error(transparent)]
+    WindowsError {
+        #[from]
+        source: WindowsError,
+    },
+}
 
 #[derive(Clone)]
 pub struct LogicalDisplayManagerWindows {}
@@ -22,77 +43,15 @@ struct DisplayConfig {
     modes: Vec<DISPLAYCONFIG_MODE_INFO>,
 }
 
-impl DisplayConfig {
-    fn try_new() -> anyhow::Result<Self> {
-        // Get the current display configuration buffer sizes
-        let mut num_path_array_elements: u32 = 0;
-        let mut num_mode_info_array_elements: u32 = 0;
-
-        let qdc_flags = QDC_ALL_PATHS;
-
-        let status = unsafe {
-            GetDisplayConfigBufferSizes(
-                qdc_flags,
-                &mut num_path_array_elements,
-                &mut num_mode_info_array_elements,
-            )
-        };
-
-        if status != ERROR_SUCCESS {
-            bail!(
-                "Failed to get display config buffer sizes. Error code: {:?}",
-                status
-            );
-        }
-
-        // Allocate memory for path and mode info arrays
-        let mut paths: Vec<DISPLAYCONFIG_PATH_INFO> =
-            vec![Default::default(); num_path_array_elements as usize];
-        let mut modes: Vec<DISPLAYCONFIG_MODE_INFO> =
-            vec![Default::default(); num_mode_info_array_elements as usize];
-
-        // Query the current display configuration
-        let status: windows::Win32::Foundation::WIN32_ERROR = unsafe {
-            QueryDisplayConfig(
-                qdc_flags,
-                &mut num_path_array_elements,
-                paths.as_mut_ptr(),
-                &mut num_mode_info_array_elements,
-                modes.as_mut_ptr(),
-                None,
-            )
-        };
-
-        if status != ERROR_SUCCESS {
-            bail!("Failed to query display config. Error code: {:?}", status);
-        }
-
-        Ok(Self { paths, modes })
-    }
-
-    fn get_used_source_ids(&self) -> anyhow::Result<Vec<u32>> {
-        let mut used_source_ids = Vec::<u32>::new();
-
-        for path in self.paths.iter() {
-            let is_enabled = path.flags & DISPLAYCONFIG_PATH_ACTIVE == DISPLAYCONFIG_PATH_ACTIVE;
-            if is_enabled {
-                used_source_ids.push(path.sourceInfo.id);
-            }
-        }
-
-        Ok(used_source_ids)
-    }
-}
-
 impl LogicalDisplayManagerWindows {
     #[instrument(ret)]
-    pub fn query() -> anyhow::Result<BTreeSet<LogicalDisplayWindows>> {
+    pub fn query() -> Result<BTreeSet<LogicalDisplayWindows>, LogicalDisplayQueryError> {
         let display_config = DisplayConfig::try_new()?;
         let logical_displays: Vec<LogicalDisplayWindows> = display_config
             .paths
             .clone()
             .into_iter()
-            .map(|path| -> anyhow::Result<_> { path.try_into() })
+            .map(|path| -> Result<_, _> { path.try_into() })
             .filter_map(|path| path.ok())
             .collect();
 
@@ -120,13 +79,13 @@ impl LogicalDisplayManagerWindows {
     pub fn apply(
         updates: Vec<LogicalDisplayUpdate>,
         validate: bool,
-    ) -> anyhow::Result<Vec<LogicalDisplayUpdate>> {
+    ) -> Result<Vec<LogicalDisplayUpdate>, LogicalDisplayApplyError> {
         if updates.len() == 0 {
             return Ok(updates);
         }
 
         let mut display_config = DisplayConfig::try_new()?;
-        let mut used_source_ids = display_config.get_used_source_ids()?;
+        let mut used_source_ids = display_config.get_used_source_ids();
         let mut remaining_updates = updates.clone();
         let mut has_changed = false;
         // TODO Sort by enabled as we want those first!!!
@@ -135,8 +94,7 @@ impl LogicalDisplayManagerWindows {
             path.sourceInfo.Anonymous.modeInfoIdx = DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
             path.targetInfo.Anonymous.modeInfoIdx = DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
 
-            let Ok(logical_display): anyhow::Result<LogicalDisplayWindows> = (*path).try_into()
-            else {
+            let Ok(logical_display): Result<LogicalDisplayWindows, _> = (*path).try_into() else {
                 continue;
             };
 
@@ -182,12 +140,65 @@ impl LogicalDisplayManagerWindows {
             sdc_flags |= SDC_APPLY;
         }
 
-        let status: i32 = unsafe { SetDisplayConfig(Some(&display_config.paths), None, sdc_flags) };
-
-        if status as u32 != ERROR_SUCCESS.0 {
-            bail!("Failed to set display config. Error code: {}", status);
-        }
+        WIN32_ERROR(
+            unsafe { SetDisplayConfig(Some(&display_config.paths), None, sdc_flags) } as u32,
+        )
+        .ok()
+        .map_err(WindowsError::from)?;
 
         Ok(remaining_updates)
+    }
+}
+
+impl DisplayConfig {
+    fn try_new() -> Result<Self, WindowsError> {
+        // Get the current display configuration buffer sizes
+        let mut num_path_array_elements: u32 = 0;
+        let mut num_mode_info_array_elements: u32 = 0;
+
+        let qdc_flags = QDC_ALL_PATHS;
+
+        unsafe {
+            GetDisplayConfigBufferSizes(
+                qdc_flags,
+                &mut num_path_array_elements,
+                &mut num_mode_info_array_elements,
+            )
+        }
+        .ok()?;
+
+        // Allocate memory for path and mode info arrays
+        let mut paths: Vec<DISPLAYCONFIG_PATH_INFO> =
+            vec![Default::default(); num_path_array_elements as usize];
+        let mut modes: Vec<DISPLAYCONFIG_MODE_INFO> =
+            vec![Default::default(); num_mode_info_array_elements as usize];
+
+        // Query the current display configuration
+        unsafe {
+            QueryDisplayConfig(
+                qdc_flags,
+                &mut num_path_array_elements,
+                paths.as_mut_ptr(),
+                &mut num_mode_info_array_elements,
+                modes.as_mut_ptr(),
+                None,
+            )
+        }
+        .ok()?;
+
+        Ok(Self { paths, modes })
+    }
+
+    fn get_used_source_ids(&self) -> Vec<u32> {
+        let mut used_source_ids = Vec::<u32>::new();
+
+        for path in self.paths.iter() {
+            let is_enabled = path.flags & DISPLAYCONFIG_PATH_ACTIVE == DISPLAYCONFIG_PATH_ACTIVE;
+            if is_enabled {
+                used_source_ids.push(path.sourceInfo.id);
+            }
+        }
+
+        used_source_ids
     }
 }

@@ -4,7 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.83"
 tracing = "0.1.40"
 windows = { version = "0.58.0", features = [
     "Win32_Devices",
@@ -14,9 +13,6 @@ windows = { version = "0.58.0", features = [
     "Win32_Graphics_Gdi",
 ] }
 
-prettytable = { version = "0.10.0", optional = true }
 winreg = "0.52.0"
 edid-rs = { git = "https://github.com/AndreasBackx/edid-rs", commit = "f083f135e1c7077285b951f25692562f85d1aac1" }
-
-[features]
-cli = ["dep:prettytable"]
+thiserror = "2.0.6"

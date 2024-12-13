@@ -2,10 +2,10 @@ use std::{fmt::Display, mem};
 
 use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MONITORINFO, MONITORINFOEXW};
 
-use super::{monitor::Monitor, utils::try_utf16_cstring};
+use super::{error::WindowsError, monitor::Monitor, utils::try_utf16_cstring};
 
 #[derive(Debug)]
-pub struct MonitorInfo {
+pub(crate) struct MonitorInfo {
     pub(crate) monitor: Monitor,
     pub(crate) info: MONITORINFOEXW,
 }
@@ -36,7 +36,7 @@ impl Display for MonitorInfo {
 }
 
 impl TryFrom<Monitor> for MonitorInfo {
-    type Error = anyhow::Error;
+    type Error = WindowsError;
 
     fn try_from(value: Monitor) -> Result<Self, Self::Error> {
         let mut monitor_info = MONITORINFOEXW {
@@ -56,6 +56,10 @@ impl TryFrom<Monitor> for MonitorInfo {
                 monitor: value,
                 info: monitor_info,
             })
-            .ok_or(anyhow::anyhow!("could not get monitor info"))
+            .ok_or(WindowsError::Other {
+                message:
+                    "Failed to get monitor info via GetMonitorInfoW, no extra info was provided."
+                        .to_string(),
+            })
     }
 }

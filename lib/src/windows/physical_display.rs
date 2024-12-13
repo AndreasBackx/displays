@@ -1,7 +1,8 @@
-use anyhow::Context;
 use edid_rs::EDID;
 
 use crate::display::{DisplayIdentifierInner, DisplayUpdateInner};
+
+use super::physical_manager::PhysicalDisplayQueryError;
 
 #[derive(Debug, Clone, Default)]
 pub struct PhysicalDisplayUpdate {
@@ -40,7 +41,7 @@ pub struct PhysicalDisplayWindows {
 }
 
 impl TryFrom<(String, EDID)> for PhysicalDisplayWindows {
-    type Error = anyhow::Error;
+    type Error = PhysicalDisplayQueryError;
     fn try_from((path, edid): (String, EDID)) -> Result<Self, Self::Error> {
         let name = edid
             .descriptors
@@ -52,7 +53,10 @@ impl TryFrom<(String, EDID)> for PhysicalDisplayWindows {
             })
             .nth(0)
             .cloned()
-            .context("no monitor name found")?;
+            .ok_or_else(|| PhysicalDisplayQueryError::EDIDInvalid {
+                message: "no monitor name found".to_string(),
+                key: path.clone(),
+            })?;
         let serial_number = edid
             .descriptors
             .0
@@ -63,7 +67,10 @@ impl TryFrom<(String, EDID)> for PhysicalDisplayWindows {
             })
             .nth(0)
             .cloned()
-            .context("no serial number found")?;
+            .ok_or_else(|| PhysicalDisplayQueryError::EDIDInvalid {
+                message: "no serial number found".to_string(),
+                key: path.clone(),
+            })?;
         Ok(Self {
             path,
             name,
