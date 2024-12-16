@@ -4,15 +4,14 @@ use thiserror::Error;
 use tracing::{debug, instrument};
 
 use crate::{
-    display::{
-        Display, DisplayIdentifier, DisplayIdentifierInner, DisplayUpdate, DisplayUpdateInner,
-    },
+    display::{Display, DisplayUpdate, DisplayUpdateInner},
+    display_identifier::{DisplayIdentifier, DisplayIdentifierInner},
+    logical_display::LogicalDisplayUpdate,
+    physical_display::PhysicalDisplayUpdate,
     windows::{
-        logical_display::LogicalDisplayUpdate,
         logical_manager::{
             LogicalDisplayApplyError, LogicalDisplayManagerWindows, LogicalDisplayQueryError,
         },
-        physical_display::PhysicalDisplayUpdate,
         physical_manager::{
             PhysicalDisplayApplyError, PhysicalDisplayManagerWindows, PhysicalDisplayQueryError,
         },
@@ -115,7 +114,7 @@ impl DisplayManager {
         })
     }
 
-    fn apply(
+    pub fn apply(
         updates: Vec<DisplayUpdate>,
         validate: bool,
     ) -> Result<Vec<DisplayUpdate>, DisplayApplyError> {

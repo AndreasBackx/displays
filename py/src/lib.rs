@@ -1,114 +1,57 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
-use displays_lib as lib;
+use display::Display;
+use display_identifier::DisplayIdentifier;
+use display_update::DisplayUpdate;
+use displays_lib::{self as lib};
 use pyo3::{exceptions::PyException, prelude::*};
 
-#[pyclass]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-struct DisplayConfig {
-    #[pyo3(get, set)]
-    pub name: String,
-    #[pyo3(get, set)]
-    pub path: Option<String>,
-    #[pyo3(get, set)]
-    pub is_enabled: bool,
-}
+mod display;
+mod display_identifier;
+mod display_update;
 
-impl From<DisplayConfig> for lib::manager::DisplayConfig {
-    fn from(value: DisplayConfig) -> Self {
-        lib::manager::DisplayConfig {
-            name: value.name,
-            path: value.path,
-            is_enabled: value.is_enabled,
-        }
-    }
-}
-
-#[pymethods]
-impl DisplayConfig {
-    #[new]
-    #[pyo3(signature = (*, name, path=None, is_enabled=true))]
-    fn new(name: String, path: Option<String>, is_enabled: bool) -> Self {
-        Self {
-            name,
-            path,
-            is_enabled,
-        }
-    }
-
-    fn __str__(&self) -> String {
-        let Self {
-            name,
-            path,
-            is_enabled,
-        } = self;
-        format!(
-            "DisplayConfig(name={name:?}, path={path}, is_enabled={is_enabled})",
-            path = path
-                .as_ref()
-                .map(|path| format!("{path:?}"))
-                .unwrap_or("None".to_owned())
-        )
-    }
-
-    fn __repr__(&self) -> String {
-        self.__str__()
-    }
-}
-
-fn try_new_state() -> PyResult<lib::state::State> {
-    lib::state::State::try_new().map_err(|err| PyException::new_err(err.to_string()))
-}
-
-fn _apply(configs: BTreeSet<DisplayConfig>, validate: bool) -> PyResult<()> {
-    let displays = configs
+#[pyfunction]
+fn get(ids: BTreeSet<DisplayIdentifier>) -> PyResult<BTreeMap<DisplayIdentifier, Display>> {
+    let displays = lib::manager::DisplayManager::get(ids.into_iter().map(|id| id.into()).collect())
+        .map_err(|err| PyException::new_err(err.to_string()))?
         .into_iter()
-        .map(|py_display_config| py_display_config.into())
-        .collect();
-    let display_configs = lib::manager::DisplayConfigs { displays };
+        .map(|(id, display)| (id.into(), display.into()))
+        .collect::<BTreeMap<_, _>>();
 
-    let mut state = try_new_state()?;
-
-    state
-        .update(display_configs)
-        .map_err(|err| PyException::new_err(err.to_string()))?;
-    state
-        .apply(validate)
-        .map_err(|err| PyException::new_err(err.to_string()))
+    Ok(displays)
 }
 
 #[pyfunction]
-fn apply(configs: BTreeSet<DisplayConfig>) -> PyResult<()> {
-    _apply(configs, false)
-}
-
-#[pyfunction]
-fn validate(configs: BTreeSet<DisplayConfig>) -> PyResult<()> {
-    _apply(configs, true)
-}
-
-#[pyfunction]
-fn query() -> PyResult<BTreeSet<DisplayConfig>> {
-    let state = try_new_state()?;
-    let configs = state
-        .query()
-        .map_err(|err| PyException::new_err(err.to_string()))?;
-
-    Ok(configs
+fn query() -> PyResult<Vec<Display>> {
+    let displays = lib::manager::DisplayManager::query()
+        .map_err(|err| PyException::new_err(err.to_string()))?
         .into_iter()
-        .map(|config| DisplayConfig {
-            name: config.name,
-            path: config.path,
-            is_enabled: config.is_enabled,
-        })
-        .collect())
+        .map(|display| display.into())
+        .collect::<Vec<_>>();
+
+    Ok(displays)
+}
+
+#[pyfunction]
+fn _apply(updates: Vec<DisplayUpdate>, validate: bool) -> PyResult<Vec<DisplayUpdate>> {
+    let displays = lib::manager::DisplayManager::apply(
+        updates.into_iter().map(|update| update.into()).collect(),
+        validate,
+    )
+    .map_err(|err| PyException::new_err(err.to_string()))?
+    .into_iter()
+    .map(|display| display.into())
+    .collect::<Vec<_>>();
+
+    Ok(displays)
 }
 
 #[pymodule]
 fn displays(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(apply, m)?)?;
-    m.add_function(wrap_pyfunction!(validate, m)?)?;
+    // m.add_function(wrap_pyfunction!(apply, m)?)?;
+    // m.add_function(wrap_pyfunction!(validate, m)?)?;
+    m.add_function(wrap_pyfunction!(get, m)?)?;
     m.add_function(wrap_pyfunction!(query, m)?)?;
-    m.add_class::<DisplayConfig>()?;
+    m.add_class::<DisplayIdentifier>()?;
     Ok(())
 }

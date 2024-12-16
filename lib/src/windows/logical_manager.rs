@@ -12,10 +12,9 @@ use windows::Win32::{
     Graphics::Gdi::{DISPLAYCONFIG_PATH_ACTIVE, DISPLAYCONFIG_PATH_MODE_IDX_INVALID},
 };
 
-use super::{
-    error::WindowsError,
-    logical_display::{LogicalDisplayUpdate, LogicalDisplayWindows},
-};
+use crate::logical_display::LogicalDisplayUpdate;
+
+use super::{error::WindowsError, logical_display::LogicalDisplayWindows};
 
 #[derive(Error, Debug)]
 pub enum LogicalDisplayQueryError {

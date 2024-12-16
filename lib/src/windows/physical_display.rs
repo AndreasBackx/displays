@@ -1,37 +1,8 @@
 use edid_rs::EDID;
 
-use crate::display::{DisplayIdentifierInner, DisplayUpdateInner};
-
 use super::physical_manager::PhysicalDisplayQueryError;
 
-#[derive(Debug, Clone, Default)]
-pub struct PhysicalDisplayUpdate {
-    pub id: DisplayIdentifierInner,
-    pub content: PhysicalDisplayUpdateContent,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct PhysicalDisplayUpdateContent {
-    pub brightness: Option<u32>,
-}
-
-pub struct Brightness(u8);
-
-impl Brightness {
-    pub const fn new(value: u8) -> Self {
-        if value > 100 {
-            // TODO Remove
-            panic!("Brightness needs to be between 0 and 100");
-        }
-        Self(value)
-    }
-
-    pub fn value(&self) -> u8 {
-        self.0
-    }
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhysicalDisplayWindows {
     /// \\?\DISPLAY#LEN66F9#7&289ec95a&0&UID264
     pub(crate) path: String,
@@ -75,15 +46,6 @@ impl TryFrom<(String, EDID)> for PhysicalDisplayWindows {
             path,
             name,
             serial_number,
-        })
-    }
-}
-
-impl From<DisplayUpdateInner> for Option<PhysicalDisplayUpdate> {
-    fn from(value: DisplayUpdateInner) -> Self {
-        value.physical.map(|content| PhysicalDisplayUpdate {
-            id: value.id,
-            content,
         })
     }
 }

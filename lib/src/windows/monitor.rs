@@ -5,8 +5,10 @@ use windows::Win32::{
     Graphics::Gdi::HMONITOR,
 };
 
+use crate::display::Brightness;
+
 use super::{
-    error::WindowsError, physical_display::Brightness, physical_manager::PhysicalDisplayApplyError,
+    error::WindowsError, physical_manager::PhysicalDisplayApplyError,
     physical_monitor::PhysicalMonitor,
 };
 

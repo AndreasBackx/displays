@@ -5,18 +5,18 @@ use std::{
 
 use edid_rs::{Reader, EDID};
 use thiserror::Error;
-use tracing::{debug, field, instrument, trace, Span};
+use tracing::{debug, field, trace, Span};
 use windows::Win32::{
     Foundation::{BOOL, LPARAM, RECT},
     Graphics::Gdi::{EnumDisplayMonitors, HDC, HMONITOR},
 };
 use winreg::{enums::HKEY_LOCAL_MACHINE, RegKey};
 
+use crate::physical_display::PhysicalDisplayUpdate;
+
 use super::{
-    error::WindowsError,
-    monitor::Monitor,
-    monitor_info::MonitorInfo,
-    physical_display::{PhysicalDisplayUpdate, PhysicalDisplayWindows},
+    error::WindowsError, monitor::Monitor, monitor_info::MonitorInfo,
+    physical_display::PhysicalDisplayWindows,
 };
 
 #[derive(Error, Debug)]
@@ -136,7 +136,7 @@ impl PhysicalDisplayManagerWindows {
             .map_err(PhysicalDisplayApplyError::from)
     }
 
-    #[instrument(level = "debug")]
+    #[tracing::instrument(level = "debug")]
     pub fn apply(
         updates: Vec<PhysicalDisplayUpdate>,
     ) -> Result<Vec<PhysicalDisplayUpdate>, PhysicalDisplayApplyError> {

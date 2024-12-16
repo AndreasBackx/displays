@@ -8,22 +8,14 @@ use windows::Win32::{
     Graphics::Gdi::DISPLAYCONFIG_PATH_ACTIVE,
 };
 
-use crate::display::{DisplayIdentifier, DisplayIdentifierInner, DisplayUpdateInner};
+use crate::{
+    display::DisplayUpdateInner,
+    display_identifier::{DisplayIdentifier, DisplayIdentifierInner},
+};
 
 use super::{error::WindowsError, utils::try_utf16_cstring};
 
-#[derive(Debug, Default, Clone)]
-pub struct LogicalDisplayUpdateContent {
-    pub is_enabled: Option<bool>,
-}
-
-#[derive(Debug, Clone)]
-pub struct LogicalDisplayUpdate {
-    pub id: DisplayIdentifierInner,
-    pub content: LogicalDisplayUpdateContent,
-}
-
-#[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub struct LogicalDisplayWindows {
     pub target: TargetDevice,
     pub is_enabled: bool,
@@ -57,7 +49,7 @@ impl LogicalDisplayWindows {
     }
 }
 
-#[derive(Debug, PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub struct TargetDevice {
     pub name: String,
     pub path: String,
@@ -119,15 +111,6 @@ impl TryFrom<(DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_TARGET_DEVICE_NAME)> for Ta
             name,
             path,
             source_id: path_info.sourceInfo.id,
-        })
-    }
-}
-
-impl From<DisplayUpdateInner> for Option<LogicalDisplayUpdate> {
-    fn from(value: DisplayUpdateInner) -> Self {
-        value.logical.map(|content| LogicalDisplayUpdate {
-            id: value.id,
-            content,
         })
     }
 }

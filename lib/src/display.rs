@@ -1,44 +1,9 @@
-use tracing::instrument;
-
-use crate::windows::{
-    logical_display::{LogicalDisplayUpdateContent, LogicalDisplayWindows},
-    physical_display::{PhysicalDisplayUpdateContent, PhysicalDisplayWindows},
+use crate::{
+    display_identifier::{DisplayIdentifier, DisplayIdentifierInner},
+    logical_display::LogicalDisplayUpdateContent,
+    physical_display::PhysicalDisplayUpdateContent,
+    windows::{logical_display::LogicalDisplayWindows, physical_display::PhysicalDisplayWindows},
 };
-
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct DisplayIdentifier {
-    pub name: Option<String>,
-    pub serial_number: Option<String>,
-}
-
-impl DisplayIdentifier {
-    #[instrument(ret, level = "debug")]
-    pub fn is_subset(&self, other: &DisplayIdentifier) -> bool {
-        if let Some(ref name) = self.name {
-            if let Some(ref other_name) = other.name {
-                if name != other_name {
-                    return false;
-                }
-            }
-        }
-
-        if let Some(ref serial_number) = self.serial_number {
-            if let Some(ref other_serial_number) = other.serial_number {
-                if serial_number != other_serial_number {
-                    return false;
-                }
-            }
-        }
-        true
-    }
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct DisplayIdentifierInner {
-    pub outer: DisplayIdentifier,
-    pub path: Option<String>,
-    pub source_id: Option<u32>,
-}
 
 #[derive(Debug)]
 pub struct Display {
@@ -70,8 +35,24 @@ pub struct DisplayUpdate {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct DisplayUpdateInner {
-    pub id: DisplayIdentifierInner,
-    pub logical: Option<LogicalDisplayUpdateContent>,
-    pub physical: Option<PhysicalDisplayUpdateContent>,
+pub(crate) struct DisplayUpdateInner {
+    pub(crate) id: DisplayIdentifierInner,
+    pub(crate) logical: Option<LogicalDisplayUpdateContent>,
+    pub(crate) physical: Option<PhysicalDisplayUpdateContent>,
+}
+
+pub struct Brightness(u8);
+
+impl Brightness {
+    pub const fn new(value: u8) -> Self {
+        if value > 100 {
+            // TODO Remove
+            panic!("Brightness needs to be between 0 and 100");
+        }
+        Self(value)
+    }
+
+    pub fn value(&self) -> u8 {
+        self.0
+    }
 }

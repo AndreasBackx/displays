@@ -172,7 +172,7 @@ fn main() -> Result<()> {
         .map(|id| DisplayUpdate {
             id,
             physical: Some(PhysicalDisplayUpdateContent {
-                brightness: Some(100),
+                brightness: Some(0),
             }),
             logical: Some(LogicalDisplayUpdateContent {
                 // is_enabled: Some(true),
