@@ -3,7 +3,7 @@ use pyo3::prelude::*;
 
 use crate::display_identifier::DisplayIdentifier;
 
-#[pyclass]
+#[pyclass(str)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DisplayUpdate {
     #[pyo3(get, set)]
@@ -14,14 +14,14 @@ pub struct DisplayUpdate {
     physical: Option<PhysicalDisplayUpdateContent>,
 }
 
-#[pyclass]
+#[pyclass(str)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct LogicalDisplayUpdateContent {
     #[pyo3(get, set)]
     is_enabled: Option<bool>,
 }
 
-#[pyclass]
+#[pyclass(str)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhysicalDisplayUpdateContent {
     #[pyo3(get, set)]
@@ -30,12 +30,22 @@ pub struct PhysicalDisplayUpdateContent {
 
 #[pymethods]
 impl DisplayUpdate {
-    pub fn __str__(&self) -> String {
-        format!("{self}",)
+    #[new]
+    #[pyo3(signature = (id, *, logical=None, physical=None))]
+    fn new(
+        id: DisplayIdentifier,
+        logical: Option<LogicalDisplayUpdateContent>,
+        physical: Option<PhysicalDisplayUpdateContent>,
+    ) -> Self {
+        Self {
+            id,
+            logical,
+            physical,
+        }
     }
 
     pub fn __repr__(&self) -> String {
-        self.__str__()
+        format!("{self}")
     }
 }
 
@@ -61,12 +71,14 @@ impl std::fmt::Display for DisplayUpdate {
 
 #[pymethods]
 impl PhysicalDisplayUpdateContent {
-    pub fn __str__(&self) -> String {
-        format!("{self}",)
+    #[new]
+    #[pyo3(signature = (*, brightness))]
+    fn new(brightness: Option<u32>) -> Self {
+        Self { brightness }
     }
 
     pub fn __repr__(&self) -> String {
-        self.__str__()
+        format!("{self}")
     }
 }
 
@@ -85,12 +97,14 @@ impl std::fmt::Display for PhysicalDisplayUpdateContent {
 
 #[pymethods]
 impl LogicalDisplayUpdateContent {
-    pub fn __str__(&self) -> String {
-        format!("{self}",)
+    #[new]
+    #[pyo3(signature = (*, is_enabled))]
+    fn new(is_enabled: Option<bool>) -> Self {
+        Self { is_enabled }
     }
 
     pub fn __repr__(&self) -> String {
-        self.__str__()
+        format!("{self}")
     }
 }
 

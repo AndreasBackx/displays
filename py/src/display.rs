@@ -3,7 +3,7 @@ use pyo3::prelude::*;
 
 use crate::display_identifier::DisplayIdentifier;
 
-#[pyclass]
+#[pyclass(str)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Display {
     #[pyo3(get)]
@@ -14,14 +14,14 @@ pub struct Display {
     physical: PhysicalDisplay,
 }
 
-#[pyclass]
+#[pyclass(str)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct LogicalDisplay {
     #[pyo3(get)]
     is_enabled: bool,
 }
 
-#[pyclass]
+#[pyclass(str)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhysicalDisplay {
     #[pyo3(get)]
@@ -30,12 +30,8 @@ pub struct PhysicalDisplay {
 
 #[pymethods]
 impl Display {
-    pub fn __str__(&self) -> String {
-        format!("{self}",)
-    }
-
     pub fn __repr__(&self) -> String {
-        self.__str__()
+        format!("{self}")
     }
 }
 
@@ -67,12 +63,8 @@ impl From<lib::display::Display> for Display {
 
 #[pymethods]
 impl LogicalDisplay {
-    pub fn __str__(&self) -> String {
-        format!("{self}",)
-    }
-
     pub fn __repr__(&self) -> String {
-        self.__str__()
+        format!("{self}")
     }
 }
 
@@ -88,12 +80,8 @@ impl std::fmt::Display for LogicalDisplay {
 
 #[pymethods]
 impl PhysicalDisplay {
-    pub fn __str__(&self) -> String {
-        format!("{self}",)
-    }
-
     pub fn __repr__(&self) -> String {
-        self.__str__()
+        format!("{self}")
     }
 }
 

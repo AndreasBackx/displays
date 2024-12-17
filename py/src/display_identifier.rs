@@ -1,13 +1,29 @@
 use displays_lib::{self as lib};
 use pyo3::prelude::*;
 
-#[pyclass]
+#[pyclass(str)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DisplayIdentifier {
     #[pyo3(get, set)]
     pub name: Option<String>,
     #[pyo3(get, set)]
     pub serial_number: Option<String>,
+}
+
+#[pymethods]
+impl DisplayIdentifier {
+    #[new]
+    #[pyo3(signature = (*, name=None, serial_number=None))]
+    pub fn new(name: Option<String>, serial_number: Option<String>) -> Self {
+        Self {
+            name,
+            serial_number,
+        }
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!("{self}")
+    }
 }
 
 impl From<DisplayIdentifier> for lib::display_identifier::DisplayIdentifier {
@@ -44,25 +60,5 @@ impl std::fmt::Display for DisplayIdentifier {
                 .map(|serial_number| format!("{serial_number:?}"))
                 .unwrap_or("None".to_owned())
         )
-    }
-}
-
-#[pymethods]
-impl DisplayIdentifier {
-    #[new]
-    #[pyo3(signature = (*, name=None, serial_number=None))]
-    pub fn new(name: Option<String>, serial_number: Option<String>) -> Self {
-        Self {
-            name,
-            serial_number,
-        }
-    }
-
-    pub fn __str__(&self) -> String {
-        format!("{self}",)
-    }
-
-    pub fn __repr__(&self) -> String {
-        self.__str__()
     }
 }
