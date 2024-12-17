@@ -35,7 +35,7 @@ impl Monitor {
             .collect())
     }
 
-    pub(crate) fn get_brightness(&self) -> Result<Brightness, PhysicalDisplayApplyError> {
+    pub(crate) fn get_brightness(&self) -> Result<Brightness, WindowsError> {
         let physical_monitors = self.get_physical_monitors()?;
         if physical_monitors.len() != 1 {
             PhysicalDisplayApplyError::Unsupported {

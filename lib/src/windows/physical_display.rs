@@ -1,17 +1,29 @@
 use edid_rs::EDID;
 
+use crate::display::Brightness;
+
 use super::physical_manager::PhysicalDisplayQueryError;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PhysicalDisplayWindows {
+pub struct PhysicalDisplayWindowsMetadata {
     /// \\?\DISPLAY#LEN66F9#7&289ec95a&0&UID264
     pub(crate) path: String,
     /// E.g: "Lenovo Y32p-30"
     pub(crate) name: String,
     pub(crate) serial_number: String,
 }
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PhysicalDisplayWindowsState {
+    pub brightness: Brightness,
+}
 
-impl TryFrom<(String, EDID)> for PhysicalDisplayWindows {
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PhysicalDisplayWindows {
+    pub metadata: PhysicalDisplayWindowsMetadata,
+    pub state: PhysicalDisplayWindowsState,
+}
+
+impl TryFrom<(String, EDID)> for PhysicalDisplayWindowsMetadata {
     type Error = PhysicalDisplayQueryError;
     fn try_from((path, edid): (String, EDID)) -> Result<Self, Self::Error> {
         let name = edid

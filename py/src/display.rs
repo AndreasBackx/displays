@@ -56,11 +56,10 @@ impl From<lib::display::Display> for Display {
         Display {
             id: value.id().outer.into(),
             logical: LogicalDisplay {
-                is_enabled: value.logical.is_enabled,
+                is_enabled: value.logical.state.is_enabled,
             },
             physical: PhysicalDisplay {
-                // brightness: value.physical.brightness,
-                brightness: 0,
+                brightness: value.physical.state.brightness.value(),
             },
         }
     }

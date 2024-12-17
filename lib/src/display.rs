@@ -2,19 +2,29 @@ use crate::{
     display_identifier::{DisplayIdentifier, DisplayIdentifierInner},
     logical_display::LogicalDisplayUpdateContent,
     physical_display::PhysicalDisplayUpdateContent,
-    windows::{logical_display::LogicalDisplayWindows, physical_display::PhysicalDisplayWindows},
+    windows::{
+        logical_display::{LogicalDisplayWindows, LogicalDisplayWindowsMetadata},
+        physical_display::{PhysicalDisplayWindows, PhysicalDisplayWindowsMetadata},
+    },
 };
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct DisplayMetadata {
+    pub physical: PhysicalDisplayWindowsMetadata,
+    // In the future this should allow for more than one, but that future is
+    // not now.
+    pub logical: LogicalDisplayWindowsMetadata,
+}
 
 #[derive(Debug)]
 pub struct Display {
-    // id: DisplayIdentifier,
     pub physical: PhysicalDisplayWindows,
     // In the future this should allow for more than one, but that future is
     // not now.
     pub logical: LogicalDisplayWindows,
 }
 
-impl Display {
+impl DisplayMetadata {
     pub fn id(&self) -> DisplayIdentifierInner {
         DisplayIdentifierInner {
             outer: DisplayIdentifier {
@@ -22,8 +32,21 @@ impl Display {
                 serial_number: Some(self.physical.serial_number.clone()),
             },
             path: Some(self.physical.path.clone()),
-            source_id: Some(self.logical.target.source_id),
+            source_id: Some(self.logical.source_id),
         }
+    }
+}
+
+impl Display {
+    pub fn metadata(&self) -> DisplayMetadata {
+        DisplayMetadata {
+            physical: self.physical.metadata.clone(),
+            logical: self.logical.metadata.clone(),
+        }
+    }
+
+    pub fn id(&self) -> DisplayIdentifierInner {
+        self.metadata().id()
     }
 }
 
@@ -41,6 +64,7 @@ pub(crate) struct DisplayUpdateInner {
     pub(crate) physical: Option<PhysicalDisplayUpdateContent>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Brightness(u8);
 
 impl Brightness {

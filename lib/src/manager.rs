@@ -4,14 +4,16 @@ use thiserror::Error;
 use tracing::{debug, instrument};
 
 use crate::{
-    display::{Display, DisplayUpdate, DisplayUpdateInner},
+    display::{Display, DisplayMetadata, DisplayUpdate, DisplayUpdateInner},
     display_identifier::{DisplayIdentifier, DisplayIdentifierInner},
     logical_display::LogicalDisplayUpdate,
     physical_display::PhysicalDisplayUpdate,
     windows::{
+        logical_display::LogicalDisplayWindows,
         logical_manager::{
             LogicalDisplayApplyError, LogicalDisplayManagerWindows, LogicalDisplayQueryError,
         },
+        physical_display::PhysicalDisplayWindows,
         physical_manager::{
             PhysicalDisplayApplyError, PhysicalDisplayManagerWindows, PhysicalDisplayQueryError,
         },
@@ -56,27 +58,59 @@ pub struct DisplayManager {}
 impl DisplayManager {
     #[instrument(ret)]
     pub fn query() -> Result<Vec<Display>, DisplayQueryError> {
-        let mut logical_displays: Vec<_> =
-            LogicalDisplayManagerWindows::query()?.into_iter().collect();
+        let mut logical_displays_metadata: Vec<_> = LogicalDisplayManagerWindows::metadata()?
+            .into_iter()
+            .collect();
         // Enabled displays first as we want to return enabled displays ideally.
-        logical_displays.sort_by_key(|logical| !logical.is_enabled);
-        let mut physical_displays = PhysicalDisplayManagerWindows::query()?;
+        logical_displays_metadata.sort_by_key(|logical| !logical.state.is_enabled);
+        let mut physical_metadatas = PhysicalDisplayManagerWindows::metadata()?;
 
-        Ok(logical_displays
+        let logical_state_by_metadata: BTreeMap<_, _> = logical_displays_metadata
             .into_iter()
             .filter_map(|logical_display| {
-                physical_displays
+                physical_metadatas
                     .iter()
-                    .position(|physical_display| {
+                    .position(|physical_metadata| {
                         logical_display
-                            .target
+                            .metadata
                             .path
-                            .starts_with(&physical_display.path)
+                            .starts_with(&physical_metadata.path)
                     })
-                    .map(|position| physical_displays.remove(position))
-                    .map(|physical_display| Display {
-                        logical: logical_display,
-                        physical: physical_display,
+                    .map(|position| physical_metadatas.remove(position))
+                    .map(|physical_metadata| {
+                        (
+                            DisplayMetadata {
+                                logical: logical_display.metadata,
+                                physical: physical_metadata,
+                            },
+                            logical_display.state,
+                        )
+                    })
+            })
+            .collect();
+
+        let ids: Vec<_> = logical_state_by_metadata
+            .iter()
+            .map(|(metadata, _)| metadata.id())
+            .collect();
+
+        let mut physical_states = PhysicalDisplayManagerWindows::state(ids)?;
+
+        Ok(logical_state_by_metadata
+            .into_iter()
+            .filter_map(|(metadata, logical_state)| {
+                physical_states
+                    .remove(&metadata.id())
+                    .map(|physical_state| Display {
+                        logical: LogicalDisplayWindows {
+                            metadata: metadata.logical,
+                            state: logical_state,
+                        },
+
+                        physical: PhysicalDisplayWindows {
+                            metadata: metadata.physical,
+                            state: physical_state,
+                        },
                     })
             })
             .collect())

@@ -44,7 +44,7 @@ struct DisplayConfig {
 
 impl LogicalDisplayManagerWindows {
     #[instrument(ret)]
-    pub fn query() -> Result<BTreeSet<LogicalDisplayWindows>, LogicalDisplayQueryError> {
+    pub fn metadata() -> Result<BTreeSet<LogicalDisplayWindows>, LogicalDisplayQueryError> {
         let display_config = DisplayConfig::try_new()?;
         let logical_displays: Vec<LogicalDisplayWindows> = display_config
             .paths
@@ -56,7 +56,7 @@ impl LogicalDisplayManagerWindows {
 
         let (enabled_displays, disabled_displays): (BTreeSet<_>, BTreeSet<_>) = logical_displays
             .into_iter()
-            .partition(|display| display.is_enabled);
+            .partition(|display| display.state.is_enabled);
 
         // A display may be both in enabled and disabled because it may be represented/stored in
         // more than one. So remove the disables displays that are also in an enabled state.
@@ -65,7 +65,7 @@ impl LogicalDisplayManagerWindows {
             .filter(|disabled_display| {
                 !enabled_displays
                     .iter()
-                    .any(|enabled_display| enabled_display.target == disabled_display.target)
+                    .any(|enabled_display| enabled_display.metadata == disabled_display.metadata)
             })
             .collect();
 
@@ -75,7 +75,7 @@ impl LogicalDisplayManagerWindows {
         Ok(unique_configs)
     }
 
-    pub fn apply(
+    pub(crate) fn apply(
         updates: Vec<LogicalDisplayUpdate>,
         validate: bool,
     ) -> Result<Vec<LogicalDisplayUpdate>, LogicalDisplayApplyError> {
