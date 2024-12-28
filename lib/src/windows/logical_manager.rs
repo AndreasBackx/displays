@@ -119,6 +119,8 @@ impl LogicalDisplayManagerWindows {
                     // Enable the display
                     path.flags |= DISPLAYCONFIG_PATH_ACTIVE;
                     used_source_ids.push(source_id);
+                    // TODO Introduce a check for if the display was already on.
+                    has_changed = true;
                 } else {
                     tracing::trace!("Trying to enable but source {source_id} is not free")
                 }
@@ -127,9 +129,8 @@ impl LogicalDisplayManagerWindows {
 
                 // Disable the display
                 path.flags &= !DISPLAYCONFIG_PATH_ACTIVE;
+                has_changed = true;
             }
-            // TODO Introduce a check for if the display was already on.
-            has_changed = true;
         }
 
         if !has_changed {
