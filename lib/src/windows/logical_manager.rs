@@ -113,11 +113,15 @@ impl LogicalDisplayManagerWindows {
             let source_id = path.sourceInfo.id;
             let source_is_free = !used_source_ids.contains(&source_id);
 
-            if should_enable && source_is_free {
-                info!("Enabling display!");
-                // Enable the display
-                path.flags |= DISPLAYCONFIG_PATH_ACTIVE;
-                used_source_ids.push(source_id);
+            if should_enable {
+                if source_is_free {
+                    info!("Enabling display!");
+                    // Enable the display
+                    path.flags |= DISPLAYCONFIG_PATH_ACTIVE;
+                    used_source_ids.push(source_id);
+                } else {
+                    tracing::trace!("Trying to enable but source {source_id} is not free")
+                }
             } else {
                 info!("Disabling display!");
 

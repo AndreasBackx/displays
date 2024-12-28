@@ -5,11 +5,13 @@ use display_identifier::DisplayIdentifier;
 use display_update::{DisplayUpdate, LogicalDisplayUpdateContent, PhysicalDisplayUpdateContent};
 use displays_lib::{self as lib};
 use pyo3::{exceptions::PyException, prelude::*};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod display;
 mod display_identifier;
 mod display_update;
 
+#[tracing::instrument]
 #[pyfunction]
 fn get(ids: BTreeSet<DisplayIdentifier>) -> PyResult<BTreeMap<DisplayIdentifier, Display>> {
     let displays = lib::manager::DisplayManager::get(ids.into_iter().map(|id| id.into()).collect())
@@ -21,8 +23,11 @@ fn get(ids: BTreeSet<DisplayIdentifier>) -> PyResult<BTreeMap<DisplayIdentifier,
     Ok(displays)
 }
 
+#[tracing::instrument]
 #[pyfunction]
 fn query() -> PyResult<Vec<Display>> {
+    tracing::trace!("TRACE FROM RUST");
+    tracing::error!("ERROR FROM RUST");
     let displays = lib::manager::DisplayManager::query()
         .map_err(|err| PyException::new_err(err.to_string()))?
         .into_iter()
@@ -32,6 +37,7 @@ fn query() -> PyResult<Vec<Display>> {
     Ok(displays)
 }
 
+#[tracing::instrument]
 #[pyfunction]
 fn _apply(updates: Vec<DisplayUpdate>, validate: bool) -> PyResult<Vec<DisplayUpdate>> {
     let displays = lib::manager::DisplayManager::apply(
@@ -56,8 +62,17 @@ fn validate(updates: Vec<DisplayUpdate>) -> PyResult<Vec<DisplayUpdate>> {
     _apply(updates, true)
 }
 
+#[pyfunction]
+pub fn initialize_tracing(py_impl: Bound<'_, PyAny>) {
+    tracing_subscriber::registry()
+        .with(pyo3_python_tracing_subscriber::PythonCallbackLayerBridge::new(py_impl))
+        .init();
+}
+
 #[pymodule]
 fn displays(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(initialize_tracing, m)?)?;
+
     m.add_function(wrap_pyfunction!(apply, m)?)?;
     m.add_function(wrap_pyfunction!(validate, m)?)?;
     m.add_function(wrap_pyfunction!(get, m)?)?;
