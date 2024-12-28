@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use display::Display;
+use display::{Display, LogicalDisplay, PhysicalDisplay};
 use display_identifier::DisplayIdentifier;
 use display_update::{DisplayUpdate, LogicalDisplayUpdateContent, PhysicalDisplayUpdateContent};
 use displays_lib::{self as lib};
@@ -67,5 +67,7 @@ fn displays(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<LogicalDisplayUpdateContent>()?;
     m.add_class::<PhysicalDisplayUpdateContent>()?;
     m.add_class::<Display>()?;
+    m.add_class::<LogicalDisplay>()?;
+    m.add_class::<PhysicalDisplay>()?;
     Ok(())
 }

@@ -98,7 +98,7 @@ impl std::fmt::Display for PhysicalDisplayUpdateContent {
 #[pymethods]
 impl LogicalDisplayUpdateContent {
     #[new]
-    #[pyo3(signature = (*, is_enabled))]
+    #[pyo3(signature = (*, is_enabled=None))]
     fn new(is_enabled: Option<bool>) -> Self {
         Self { is_enabled }
     }
