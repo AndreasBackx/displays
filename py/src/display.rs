@@ -11,7 +11,7 @@ pub struct Display {
     #[pyo3(get)]
     logical: LogicalDisplay,
     #[pyo3(get)]
-    physical: PhysicalDisplay,
+    physical: Option<PhysicalDisplay>,
 }
 
 #[pyclass(str)]
@@ -42,7 +42,11 @@ impl std::fmt::Display for Display {
             "Display(id={id}, logical={logical}, physical={physical})",
             id = self.id,
             logical = self.logical,
-            physical = self.physical,
+            physical = self
+                .physical
+                .as_ref()
+                .map(|value| value.to_string())
+                .unwrap_or("None".to_string()),
         )
     }
 }
@@ -54,9 +58,9 @@ impl From<lib::display::Display> for Display {
             logical: LogicalDisplay {
                 is_enabled: value.logical.state.is_enabled,
             },
-            physical: PhysicalDisplay {
-                brightness: value.physical.state.brightness.value(),
-            },
+            physical: value.physical.map(|physical| PhysicalDisplay {
+                brightness: physical.state.brightness.value(),
+            }),
         }
     }
 }

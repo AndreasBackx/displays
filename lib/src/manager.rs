@@ -65,10 +65,14 @@ impl DisplayManager {
         logical_displays_metadata.sort_by_key(|logical| !logical.state.is_enabled);
         let mut physical_metadatas = PhysicalDisplayManagerWindows::metadata()?;
 
-        let logical_state_by_metadata: BTreeMap<_, _> = logical_displays_metadata
+        tracing::info!("logical_displays_metadata: {logical_displays_metadata:#?}");
+        tracing::info!("physical_metadatas: {physical_metadatas:#?}");
+
+        let mut logical_state_by_metadata = logical_displays_metadata
             .into_iter()
-            .filter_map(|logical_display| {
-                physical_metadatas
+            .map(|logical_display| {
+                tracing::debug!("Logical display: {logical_display:?}");
+                let physical_metadata = physical_metadatas
                     .iter()
                     .position(|physical_metadata| {
                         logical_display
@@ -76,42 +80,61 @@ impl DisplayManager {
                             .path
                             .starts_with(&physical_metadata.path)
                     })
-                    .map(|position| physical_metadatas.remove(position))
-                    .map(|physical_metadata| {
-                        (
-                            DisplayMetadata {
-                                logical: logical_display.metadata,
-                                physical: physical_metadata,
-                            },
-                            logical_display.state,
-                        )
-                    })
+                    .map(|position| physical_metadatas.remove(position));
+
+                if physical_metadata.is_none() {
+                    tracing::debug!("No physical metadata found for logical display");
+                }
+
+                (
+                    DisplayMetadata {
+                        logical: logical_display.metadata,
+                        physical: physical_metadata,
+                    },
+                    logical_display.state,
+                )
             })
-            .collect();
+            .collect::<BTreeMap<_, _>>()
+            .into_iter()
+            .collect::<Vec<(_, _)>>();
+
+        logical_state_by_metadata
+            .sort_by_key(|(display_metadata, _)| display_metadata.physical.is_some());
+        tracing::debug!("logical_state_by_metadata: {logical_state_by_metadata:#?}");
 
         let ids: Vec<_> = logical_state_by_metadata
             .iter()
             .map(|(metadata, _)| metadata.id())
             .collect();
 
+        tracing::debug!("ids: {ids:#?}");
         let mut physical_states = PhysicalDisplayManagerWindows::state(ids)?;
+        tracing::debug!("physical_states: {physical_states:#?}");
 
+        // TODO left off here:
+        // For some reason `physical` is (almost) always `None` here.
         Ok(logical_state_by_metadata
             .into_iter()
-            .filter_map(|(metadata, logical_state)| {
-                physical_states
-                    .remove(&metadata.id())
-                    .map(|physical_state| Display {
-                        logical: LogicalDisplayWindows {
-                            metadata: metadata.logical,
-                            state: logical_state,
-                        },
+            .map(|(metadata, logical_state)| {
+                let id = metadata.id();
+                let physical = metadata.physical.and_then(|physical_metadata| {
+                    physical_states
+                        .remove(&id)
+                        .map(|physical_state| (physical_metadata, physical_state))
+                });
 
-                        physical: PhysicalDisplayWindows {
-                            metadata: metadata.physical,
+                Display {
+                    logical: LogicalDisplayWindows {
+                        metadata: metadata.logical,
+                        state: logical_state,
+                    },
+                    physical: physical.map(|(physical_metadata, physical_state)| {
+                        PhysicalDisplayWindows {
+                            metadata: physical_metadata,
                             state: physical_state,
-                        },
-                    })
+                        }
+                    }),
+                }
             })
             .collect())
     }
@@ -122,15 +145,17 @@ impl DisplayManager {
     ) -> Result<BTreeMap<DisplayIdentifier, (DisplayIdentifierInner, Display)>, DisplayQueryError>
     {
         let displays = Self::query()?;
+        tracing::debug!("Displays: {displays:#?}");
         Ok(displays
             .into_iter()
             .filter_map(|displ| {
                 let id = displ.id();
+                tracing::debug!("Trying to map inner display ID: {:?}", id);
                 ids.iter()
                     .filter(|user_id| user_id.is_subset(&id.outer))
                     .nth(0)
                     .and_then(|user_id| {
-                        debug!("{id:?}: {displ:?}");
+                        tracing::debug!("Mapped to user provided ID: {user_id:?}");
                         Some((user_id.clone(), (id, displ)))
                     })
             })
@@ -152,11 +177,13 @@ impl DisplayManager {
         updates: Vec<DisplayUpdate>,
         validate: bool,
     ) -> Result<Vec<DisplayUpdate>, DisplayApplyError> {
+        tracing::info!("Requested updates: {updates:#?}");
         let ids: BTreeSet<_> = updates
             .clone()
             .into_iter()
             .map(|update| update.id)
             .collect();
+        tracing::debug!("ids: {ids:?}");
         let mut id_mapping = Self::get_inner(ids)?;
         debug!("id_mapping: {id_mapping:#?}");
         let updates_inner: Vec<_> = updates

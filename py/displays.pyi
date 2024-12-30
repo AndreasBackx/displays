@@ -57,7 +57,7 @@ class PhysicalDisplayUpdateContent:
 class Display:
     id: DisplayIdentifier
     logical: LogicalDisplay
-    physical: PhysicalDisplay
+    physical: PhysicalDisplay | None
 
     def __str__(self) -> str: ...
     def __repr__(self) -> str: ...

@@ -10,7 +10,7 @@ use crate::{
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DisplayMetadata {
-    pub physical: PhysicalDisplayWindowsMetadata,
+    pub physical: Option<PhysicalDisplayWindowsMetadata>,
     // In the future this should allow for more than one, but that future is
     // not now.
     pub logical: LogicalDisplayWindowsMetadata,
@@ -18,7 +18,8 @@ pub struct DisplayMetadata {
 
 #[derive(Debug)]
 pub struct Display {
-    pub physical: PhysicalDisplayWindows,
+    // Displays that do not support DDC/CI will not have a physical display.
+    pub physical: Option<PhysicalDisplayWindows>,
     // In the future this should allow for more than one, but that future is
     // not now.
     pub logical: LogicalDisplayWindows,
@@ -28,10 +29,21 @@ impl DisplayMetadata {
     pub fn id(&self) -> DisplayIdentifierInner {
         DisplayIdentifierInner {
             outer: DisplayIdentifier {
-                name: Some(self.physical.name.clone()),
-                serial_number: Some(self.physical.serial_number.clone()),
+                name: self
+                    .physical
+                    .as_ref()
+                    .map(|physical| physical.name.clone())
+                    .or_else(|| Some(self.logical.name.clone())),
+                serial_number: self
+                    .physical
+                    .as_ref()
+                    .map(|physical| physical.serial_number.clone()),
             },
-            path: Some(self.physical.path.clone()),
+            path: self
+                .physical
+                .as_ref()
+                .map(|physical| physical.path.clone())
+                .or_else(|| Some(self.logical.path.clone())),
             source_id: Some(self.logical.source_id),
         }
     }
@@ -40,7 +52,10 @@ impl DisplayMetadata {
 impl Display {
     pub fn metadata(&self) -> DisplayMetadata {
         DisplayMetadata {
-            physical: self.physical.metadata.clone(),
+            physical: self
+                .physical
+                .as_ref()
+                .map(|physical| physical.metadata.clone()),
             logical: self.logical.metadata.clone(),
         }
     }

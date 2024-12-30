@@ -31,13 +31,13 @@ impl LogicalDisplayWindows {
     }
     pub fn matches(&self, id: &DisplayIdentifierInner) -> bool {
         if let Some(ref name) = id.outer.name {
-            if self.metadata.name.starts_with(name) {
+            if !self.metadata.name.starts_with(name) {
                 return false;
             }
         }
 
         if let Some(ref path) = id.path {
-            if self.metadata.path.starts_with(path) {
+            if !self.metadata.path.starts_with(path) {
                 return false;
             }
         }

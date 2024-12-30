@@ -26,8 +26,6 @@ fn get(ids: BTreeSet<DisplayIdentifier>) -> PyResult<BTreeMap<DisplayIdentifier,
 #[tracing::instrument]
 #[pyfunction]
 fn query() -> PyResult<Vec<Display>> {
-    tracing::trace!("TRACE FROM RUST");
-    tracing::error!("ERROR FROM RUST");
     let displays = lib::manager::DisplayManager::query()
         .map_err(|err| PyException::new_err(err.to_string()))?
         .into_iter()

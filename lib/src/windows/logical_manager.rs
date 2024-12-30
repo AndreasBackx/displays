@@ -87,6 +87,9 @@ impl LogicalDisplayManagerWindows {
         let mut used_source_ids = display_config.get_used_source_ids();
         let mut remaining_updates = updates.clone();
         let mut has_changed = false;
+
+        tracing::debug!("Applying updates: {updates:?}");
+
         // TODO Sort by enabled as we want those first!!!
         for path in display_config.paths.iter_mut() {
             // Invalidate all mode configs.
@@ -97,15 +100,22 @@ impl LogicalDisplayManagerWindows {
                 continue;
             };
 
-            let Some(matching_update) = remaining_updates
+            let is_enabled = path.flags & DISPLAYCONFIG_PATH_ACTIVE == DISPLAYCONFIG_PATH_ACTIVE;
+            tracing::debug!("Checking display: {logical_display:?} is_enabled = {is_enabled}");
+
+            let Some((matching_update, matching_index)) = remaining_updates
                 .iter()
                 .position(|update| logical_display.matches(&update.id))
-                .map(|index| remaining_updates.remove(index))
+                .and_then(|index| {
+                    remaining_updates
+                        .get(index)
+                        .map(|matching_update| (matching_update, index))
+                })
             else {
                 continue;
             };
 
-            info!("Found setup: {matching_update:?}");
+            tracing::info!("Found setup: {matching_update:?}");
             let Some(should_enable) = matching_update.content.is_enabled else {
                 continue;
             };
@@ -113,23 +123,40 @@ impl LogicalDisplayManagerWindows {
             let source_id = path.sourceInfo.id;
             let source_is_free = !used_source_ids.contains(&source_id);
 
+            // Whether the display update was used, if so then remove it from the remaining updates.
+            let mut used = false;
             if should_enable {
-                if source_is_free {
-                    info!("Enabling display!");
-                    // Enable the display
-                    path.flags |= DISPLAYCONFIG_PATH_ACTIVE;
-                    used_source_ids.push(source_id);
-                    // TODO Introduce a check for if the display was already on.
-                    has_changed = true;
+                if is_enabled {
+                    tracing::info!("Display is already enabled!");
+                    used = true;
                 } else {
-                    tracing::trace!("Trying to enable but source {source_id} is not free")
+                    if source_is_free {
+                        tracing::info!("Enabling display!");
+                        // Enable the display
+                        path.flags |= DISPLAYCONFIG_PATH_ACTIVE;
+                        used_source_ids.push(source_id);
+                        used = true;
+                        has_changed = true;
+                    } else {
+                        tracing::trace!("Trying to enable but source {source_id} is not free")
+                    }
                 }
             } else {
-                info!("Disabling display!");
+                tracing::info!("Disabling display!");
+                used = true;
 
-                // Disable the display
-                path.flags &= !DISPLAYCONFIG_PATH_ACTIVE;
-                has_changed = true;
+                if !is_enabled {
+                    tracing::info!("Display is already disabled!");
+                } else {
+                    // Disable the display
+                    path.flags &= !DISPLAYCONFIG_PATH_ACTIVE;
+                    // used_source_ids.retain(|used_source_id| used_source_id != &source_id);
+                    has_changed = true;
+                }
+            }
+
+            if used {
+                remaining_updates.remove(matching_index);
             }
         }
 
