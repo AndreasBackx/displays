@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use thiserror::Error;
-use tracing::{debug, instrument};
+use tracing::{debug, instrument, Span};
 
 use crate::{
     display::{Display, DisplayMetadata, DisplayUpdate, DisplayUpdateInner},
@@ -117,11 +117,15 @@ impl DisplayManager {
             .into_iter()
             .map(|(metadata, logical_state)| {
                 let id = metadata.id();
+                tracing::info!("id: {id:#?}");
+                tracing::info!("metadata: {metadata:#?}");
+
                 let physical = metadata.physical.and_then(|physical_metadata| {
                     physical_states
                         .remove(&id)
                         .map(|physical_state| (physical_metadata, physical_state))
                 });
+                tracing::info!("physical: {physical:#?}");
 
                 Display {
                     logical: LogicalDisplayWindows {

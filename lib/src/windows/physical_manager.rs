@@ -118,7 +118,9 @@ impl PhysicalDisplayManagerWindows {
         BTreeMap<DisplayIdentifierInner, PhysicalDisplayWindowsState>,
         PhysicalDisplayQueryError,
     > {
-        let monitor_info_by_id = Self::get_monitor_info_by_id(ids)?;
+        let monitor_info_by_id: BTreeMap<DisplayIdentifierInner, MonitorInfo> =
+            Self::get_monitor_info_by_id(ids)?;
+        tracing::debug!("monitor_info_by_id: {monitor_info_by_id:#?}");
 
         let state = monitor_info_by_id
             .into_iter()
@@ -143,7 +145,8 @@ impl PhysicalDisplayManagerWindows {
         }
 
         let monitor_infos: Vec<MonitorInfo> = Self::get_monitor_infos()?;
-        // let mut remaining_ids = ids.clone();
+        tracing::debug!("monitor_infos: {monitor_infos:#?}");
+
         let mut monitor_info_by_display_id: BTreeMap<_, _> = monitor_infos
             .into_iter()
             .filter_map(|monitor_info| {
@@ -152,6 +155,7 @@ impl PhysicalDisplayManagerWindows {
                     .map(|display_id| (display_id, monitor_info))
             })
             .collect();
+        tracing::debug!("monitor_info_by_display_id: {monitor_info_by_display_id:#?}");
 
         Ok(ids
             .into_iter()

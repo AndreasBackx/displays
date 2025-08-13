@@ -1,10 +1,12 @@
-use std::{fmt::Display, mem};
+use std::{
+    fmt::{self, Display},
+    mem,
+};
 
 use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MONITORINFO, MONITORINFOEXW};
 
 use super::{error::WindowsError, monitor::Monitor, utils::try_utf16_cstring};
 
-#[derive(Debug)]
 pub(crate) struct MonitorInfo {
     pub(crate) monitor: Monitor,
     pub(crate) info: MONITORINFOEXW,
@@ -32,6 +34,17 @@ impl Display for MonitorInfo {
             path = self.path(),
             display_id = self.display_id(),
         )
+    }
+}
+
+impl fmt::Debug for MonitorInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MonitorInfo")
+            .field("monitor", &self.monitor)
+            .field("info", &self.info)
+            .field("path", &self.path())
+            .field("display_id", &self.display_id())
+            .finish()
     }
 }
 
