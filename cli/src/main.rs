@@ -21,7 +21,7 @@ use windows::{
     Win32::{
         Devices::Display::{
             GetNumberOfPhysicalMonitorsFromHMONITOR, GetPhysicalMonitorsFromHMONITOR,
-            PHYSICAL_MONITOR,
+            SetMonitorBrightness, PHYSICAL_MONITOR,
         },
         Foundation::{BOOL, LPARAM, RECT},
         Graphics::Gdi::{
@@ -31,6 +31,8 @@ use windows::{
     },
 };
 use winreg::{enums::HKEY_LOCAL_MACHINE, RegKey};
+
+mod fetch;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -145,46 +147,61 @@ fn get_detailed_monitor_info() -> Result<Vec<MonitorInfo>> {
     Ok(monitor_infos)
 }
 
+fn print_monitor_info(monitor: HMONITOR) -> Result<()> {
+    let mut monitor_info = MONITORINFOEXA {
+        monitorInfo: MONITORINFO {
+            cbSize: mem::size_of::<MONITORINFOEXA>() as u32,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+
+    let monitor_info_base = &mut monitor_info as *mut MONITORINFOEXA as *mut MONITORINFO;
+
+    // Get the monitor info for this monitor
+    unsafe { GetMonitorInfoA(monitor, monitor_info_base) }.ok()?;
+
+    eprintln!("szDevice: {}", convert_utf8(monitor_info.szDevice));
+    // eprintln!("{monitor_info:#?}");
+
+    //
+
+    let mut monitor_count = 1;
+
+    unsafe { GetNumberOfPhysicalMonitorsFromHMONITOR(monitor, &mut monitor_count) }?;
+
+    let mut physical_monitors = vec![PHYSICAL_MONITOR::default(); monitor_count as usize];
+    if let Ok(_) = unsafe {
+        GetPhysicalMonitorsFromHMONITOR(
+            monitor,
+            // &mut monitor_count,
+            physical_monitors.as_mut_slice(),
+        )
+    } {
+        // For each physical monitor, set brightness to 100%
+        for physical_monitor in &physical_monitors {
+            println!(
+                "szPhysicalMonitorDescription: {}",
+                convert_utf16(physical_monitor.szPhysicalMonitorDescription)
+            );
+            unsafe {
+                let _ = SetMonitorBrightness(physical_monitor.hPhysicalMonitor, 0);
+            }
+        }
+    }
+    Ok(())
+}
+
 fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
-    // let displays = Displays::query()?;
-    // println!("{displays:#?}");
-    let left_display = DisplayIdentifier {
-        serial_number: Some("U1HMF6PT".to_string()),
-        ..Default::default()
-    };
-    let center_display = DisplayIdentifier {
-        name: Some("AW3225QF".to_string()),
-        ..Default::default()
-    };
-    let right_display = DisplayIdentifier {
-        serial_number: Some("U1HMF6PN".to_string()),
-        ..Default::default()
-    };
-    let displays = vec![left_display, center_display, right_display];
-
-    let updates = displays
-        .into_iter()
-        .map(|id| DisplayUpdate {
-            id,
-            physical: Some(PhysicalDisplayUpdateContent {
-                brightness: Some(50),
-            }),
-            logical: Some(LogicalDisplayUpdateContent {
-                // is_enabled: Some(true),
-                ..Default::default()
-            }),
-            ..Default::default()
-        })
-        .collect();
-    let remaining_updates: Vec<DisplayUpdate> =
-        DisplayManager::update(updates).context("failed updating displays")?;
-    println!("Remaining updates: {remaining_updates:#?}");
+    let monitor = fetch::get_hmonitor_for_path(
+        "\\\\?\\DISPLAY#LEN66F9#7&3fa91d0&0&UID512#{e6f07b5f-ee97-4a90-b076-33f57bf4eaa7}",
+        0,
+    )?;
+    print_monitor_info(monitor)?;
 
     return Ok(());
-
-    // return Ok(());
 
     // Open the HKEY_LOCAL_MACHINE root key.
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
@@ -241,57 +258,17 @@ fn main() -> Result<()> {
     // Though if it would be xplatform, this would be required.
 
     let devices = enumerate_display_devices();
-    println!("{devices:#?}");
+    println!("devices = {devices:#?}");
 
     let monitors = enumerate_monitors()?;
-    println!("{monitors:#?}");
+    println!("monitors = {monitors:#?}");
 
     let monitor_info = get_detailed_monitor_info()?;
-    println!("{monitor_info:#?}");
+    println!("monitor_info = {monitor_info:#?}");
 
     for monitor in monitors {
         // Prepare to get information about the monitor
-        let mut monitor_info = MONITORINFOEXA {
-            monitorInfo: MONITORINFO {
-                cbSize: mem::size_of::<MONITORINFOEXA>() as u32,
-                ..Default::default()
-            },
-            ..Default::default()
-        };
-
-        let monitor_info_base = &mut monitor_info as *mut MONITORINFOEXA as *mut MONITORINFO;
-
-        // Get the monitor info for this monitor
-        unsafe { GetMonitorInfoA(monitor, monitor_info_base) }.ok()?;
-
-        eprintln!("szDevice: {}", convert_utf8(monitor_info.szDevice));
-        // eprintln!("{monitor_info:#?}");
-
-        //
-
-        let mut monitor_count = 1;
-
-        unsafe { GetNumberOfPhysicalMonitorsFromHMONITOR(monitor, &mut monitor_count) }?;
-
-        let mut physical_monitors = vec![PHYSICAL_MONITOR::default(); monitor_count as usize];
-        if let Ok(_) = unsafe {
-            GetPhysicalMonitorsFromHMONITOR(
-                monitor,
-                // &mut monitor_count,
-                physical_monitors.as_mut_slice(),
-            )
-        } {
-            // For each physical monitor, set brightness to 100%
-            for physical_monitor in &physical_monitors {
-                println!(
-                    "szPhysicalMonitorDescription: {}",
-                    convert_utf16(physical_monitor.szPhysicalMonitorDescription)
-                );
-                // unsafe {
-                //     let _ = SetMonitorBrightness(physical_monitor.hPhysicalMonitor, 100);
-                // }
-            }
-        }
+        print_monitor_info(monitor)?;
     }
 
     // let cli = Cli::parse();

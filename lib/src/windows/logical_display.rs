@@ -116,6 +116,8 @@ impl TryFrom<(DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_TARGET_DEVICE_NAME)>
             });
         }
 
+        tracing::debug!("Found Source ID: {}", path_info.sourceInfo.id);
+        tracing::debug!("Found Target ID: {}", path_info.targetInfo.id);
         Ok(Self {
             name,
             path,
