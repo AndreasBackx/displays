@@ -9,3 +9,10 @@ pub(crate) fn try_utf16_cstring<const N: usize>(
         .unwrap_or(0);
     String::from_utf16(&value[..end_index])
 }
+
+pub(crate) fn get_gdi_device_id(path: &str) -> Option<u32> {
+    path.chars()
+        .last()
+        .and_then(|c| c.to_digit(10))
+        .map(|digit| digit)
+}

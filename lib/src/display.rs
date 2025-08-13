@@ -45,6 +45,7 @@ impl DisplayMetadata {
                 .map(|physical| physical.path.clone())
                 .or_else(|| Some(self.logical.path.clone())),
             source_id: Some(self.logical.source_id),
+            gdi_device_id: Some(self.logical.gdi_device_id),
         }
     }
 }

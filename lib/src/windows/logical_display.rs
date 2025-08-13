@@ -1,14 +1,18 @@
 use tracing::instrument;
 use windows::Win32::{
     Devices::Display::{
-        DisplayConfigGetDeviceInfo, DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME,
-        DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_TARGET_DEVICE_NAME,
+        DisplayConfigGetDeviceInfo, DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME,
+        DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME, DISPLAYCONFIG_PATH_INFO,
+        DISPLAYCONFIG_SOURCE_DEVICE_NAME, DISPLAYCONFIG_TARGET_DEVICE_NAME,
     },
     Foundation::WIN32_ERROR,
     Graphics::Gdi::DISPLAYCONFIG_PATH_ACTIVE,
 };
 
-use crate::display_identifier::{DisplayIdentifier, DisplayIdentifierInner};
+use crate::{
+    display_identifier::{DisplayIdentifier, DisplayIdentifierInner},
+    windows::utils,
+};
 
 use super::{error::WindowsError, utils::try_utf16_cstring};
 
@@ -58,12 +62,15 @@ pub struct LogicalDisplayWindowsMetadata {
     pub name: String,
     pub path: String,
     pub source_id: u32,
+    pub gdi_device_id: u32,
 }
 
 impl TryFrom<DISPLAYCONFIG_PATH_INFO> for LogicalDisplayWindows {
     type Error = WindowsError;
 
     fn try_from(value: DISPLAYCONFIG_PATH_INFO) -> Result<Self, Self::Error> {
+        let is_enabled = value.flags & DISPLAYCONFIG_PATH_ACTIVE == DISPLAYCONFIG_PATH_ACTIVE;
+
         let mut target_device_name = DISPLAYCONFIG_TARGET_DEVICE_NAME {
             header: Default::default(),
             ..Default::default()
@@ -77,8 +84,18 @@ impl TryFrom<DISPLAYCONFIG_PATH_INFO> for LogicalDisplayWindows {
         WIN32_ERROR(unsafe { DisplayConfigGetDeviceInfo(&mut target_device_name.header) } as u32)
             .ok()?;
 
-        let target = (value, target_device_name).try_into()?;
-        let is_enabled = value.flags & DISPLAYCONFIG_PATH_ACTIVE == DISPLAYCONFIG_PATH_ACTIVE;
+        let mut source_device_name: DISPLAYCONFIG_SOURCE_DEVICE_NAME =
+            unsafe { std::mem::zeroed() };
+        source_device_name.header.r#type = DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME;
+        source_device_name.header.size =
+            std::mem::size_of::<DISPLAYCONFIG_SOURCE_DEVICE_NAME>() as u32;
+        source_device_name.header.adapterId = value.sourceInfo.adapterId;
+        source_device_name.header.id = value.sourceInfo.id;
+
+        WIN32_ERROR(unsafe { DisplayConfigGetDeviceInfo(&mut source_device_name.header) } as u32)
+            .ok()?;
+
+        let target = (value, target_device_name, source_device_name).try_into()?;
         Ok(Self {
             metadata: target,
             state: LogicalDisplayWindowsState { is_enabled },
@@ -86,14 +103,22 @@ impl TryFrom<DISPLAYCONFIG_PATH_INFO> for LogicalDisplayWindows {
     }
 }
 
-impl TryFrom<(DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_TARGET_DEVICE_NAME)>
-    for LogicalDisplayWindowsMetadata
+impl
+    TryFrom<(
+        DISPLAYCONFIG_PATH_INFO,
+        DISPLAYCONFIG_TARGET_DEVICE_NAME,
+        DISPLAYCONFIG_SOURCE_DEVICE_NAME,
+    )> for LogicalDisplayWindowsMetadata
 {
     type Error = WindowsError;
 
     #[instrument(ret, skip_all, level = "debug")]
     fn try_from(
-        (path_info, target): (DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_TARGET_DEVICE_NAME),
+        (path_info, target, source): (
+            DISPLAYCONFIG_PATH_INFO,
+            DISPLAYCONFIG_TARGET_DEVICE_NAME,
+            DISPLAYCONFIG_SOURCE_DEVICE_NAME,
+        ),
     ) -> Result<Self, Self::Error> {
         let Ok(name) = try_utf16_cstring(&target.monitorFriendlyDeviceName) else {
             return Err(WindowsError::InvalidUtf16 {
@@ -105,6 +130,19 @@ impl TryFrom<(DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_TARGET_DEVICE_NAME)>
             return Err(WindowsError::InvalidUtf16 {
                 data: target.monitorFriendlyDeviceName.to_vec(),
                 origin: "monitorDevicePath".to_string(),
+            });
+        };
+
+        let Ok(gdi_device_name) = try_utf16_cstring(&source.viewGdiDeviceName) else {
+            return Err(WindowsError::InvalidUtf16 {
+                data: target.monitorFriendlyDeviceName.to_vec(),
+                origin: "monitorDevicePath".to_string(),
+            });
+        };
+
+        let Some(gdi_device_id) = utils::get_gdi_device_id(&gdi_device_name) else {
+            return Err(WindowsError::Other {
+                message: format!("Could not get ID from GDI device name: {gdi_device_name}"),
             });
         };
 
@@ -122,6 +160,7 @@ impl TryFrom<(DISPLAYCONFIG_PATH_INFO, DISPLAYCONFIG_TARGET_DEVICE_NAME)>
             name,
             path,
             source_id: path_info.sourceInfo.id,
+            gdi_device_id,
         })
     }
 }

@@ -147,22 +147,22 @@ impl PhysicalDisplayManagerWindows {
         let monitor_infos: Vec<MonitorInfo> = Self::get_monitor_infos()?;
         tracing::debug!("monitor_infos: {monitor_infos:#?}");
 
-        let mut monitor_info_by_display_id: BTreeMap<_, _> = monitor_infos
+        let mut monitor_info_by_gdi_device_id: BTreeMap<_, _> = monitor_infos
             .into_iter()
             .filter_map(|monitor_info| {
                 monitor_info
-                    .display_id()
+                    .gdi_device_id()
                     .map(|display_id| (display_id, monitor_info))
             })
             .collect();
-        tracing::debug!("monitor_info_by_display_id: {monitor_info_by_display_id:#?}");
+        tracing::debug!("monitor_info_by_display_id: {monitor_info_by_gdi_device_id:#?}");
 
         Ok(ids
             .into_iter()
             .filter_map(|id| {
-                id.source_id
+                id.gdi_device_id
                     .as_ref()
-                    .and_then(|source_id| monitor_info_by_display_id.remove(&(*source_id + 1)))
+                    .and_then(|gdi_device_id| monitor_info_by_gdi_device_id.remove(gdi_device_id))
                     .map(|monitor_info| (id, monitor_info))
             })
             .collect())

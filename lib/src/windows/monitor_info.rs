@@ -5,6 +5,8 @@ use std::{
 
 use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MONITORINFO, MONITORINFOEXW};
 
+use crate::windows::utils;
+
 use super::{error::WindowsError, monitor::Monitor, utils::try_utf16_cstring};
 
 pub(crate) struct MonitorInfo {
@@ -17,12 +19,8 @@ impl MonitorInfo {
         try_utf16_cstring(&self.info.szDevice).unwrap_or_default()
     }
 
-    pub(crate) fn display_id(&self) -> Option<u32> {
-        self.path()
-            .chars()
-            .last()
-            .and_then(|c| c.to_digit(10))
-            .map(|digit| digit)
+    pub(crate) fn gdi_device_id(&self) -> Option<u32> {
+        utils::get_gdi_device_id(&self.path())
     }
 }
 
@@ -32,7 +30,7 @@ impl Display for MonitorInfo {
             f,
             "MonitorInfo {{path: {path}, display_id: {display_id:?}}}",
             path = self.path(),
-            display_id = self.display_id(),
+            display_id = self.gdi_device_id(),
         )
     }
 }
@@ -43,7 +41,7 @@ impl fmt::Debug for MonitorInfo {
             // .field("monitor", &self.monitor)
             // .field("info", &self.info)
             .field("path", &self.path())
-            .field("display_id", &self.display_id())
+            .field("display_id", &self.gdi_device_id())
             .finish()
     }
 }

@@ -9,6 +9,7 @@ pub struct DisplayIdentifierInner {
     pub outer: DisplayIdentifier,
     pub(crate) path: Option<String>,
     pub(crate) source_id: Option<u32>,
+    pub(crate) gdi_device_id: Option<u32>,
 }
 
 impl DisplayIdentifier {

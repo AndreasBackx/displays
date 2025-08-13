@@ -59,7 +59,7 @@ impl LogicalDisplayManagerWindows {
             .partition(|display| display.state.is_enabled);
 
         // A display may be both in enabled and disabled because it may be represented/stored in
-        // more than one. So remove the disables displays that are also in an enabled state.
+        // more than one. So remove the disabled displays that are also in an enabled state.
         let only_disabled_displays: BTreeSet<_> = disabled_displays
             .into_iter()
             .filter(|disabled_display| {

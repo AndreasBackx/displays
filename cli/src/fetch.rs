@@ -9,6 +9,7 @@ use windows::Win32::Graphics::Gdi::{
     EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITORINFOEXW,
 };
 
+#[derive(Debug)]
 struct MonitorInfo {
     hmonitor: HMONITOR,
     device_name: String,
@@ -36,10 +37,7 @@ unsafe extern "system" fn enum_monitors_callback(
     BOOL(1) // Continue enumeration
 }
 
-pub fn get_hmonitor_for_path(
-    device_path: &str,
-    source_id: u32,
-) -> Result<HMONITOR, anyhow::Error> {
+pub fn get_hmonitor_for_path(device_path: &str, source_id: u32) -> Result<HMONITOR, anyhow::Error> {
     let mut path_count = 0;
     let mut mode_count = 0;
 
@@ -70,7 +68,10 @@ pub fn get_hmonitor_for_path(
     };
 
     if result != ERROR_SUCCESS {
-        return Err(anyhow::anyhow!("QueryDisplayConfig failed with {:?}", result));
+        return Err(anyhow::anyhow!(
+            "QueryDisplayConfig failed with {:?}",
+            result
+        ));
     }
 
     paths.truncate(path_count as usize);
@@ -100,6 +101,9 @@ pub fn get_hmonitor_for_path(
                         .trim_end_matches('\0')
                         .to_string();
 
+                tracing::info!("current_device_path: {current_device_path}");
+                tracing::info!("current_device_path_api: {current_device_path_api}");
+
                 if device_path == current_device_path || device_path == current_device_path_api {
                     let mut source_name: DISPLAYCONFIG_SOURCE_DEVICE_NAME =
                         unsafe { std::mem::zeroed() };
@@ -117,6 +121,8 @@ pub fn get_hmonitor_for_path(
                                 .trim_end_matches('\0')
                                 .to_string();
 
+                        tracing::info!("gdi_device_name: {gdi_device_name}");
+
                         let mut monitors: Vec<MonitorInfo> = Vec::new();
                         unsafe {
                             EnumDisplayMonitors(
@@ -126,6 +132,7 @@ pub fn get_hmonitor_for_path(
                                 LPARAM(&mut monitors as *mut _ as isize),
                             );
                         }
+                        tracing::warn!("monitors: {monitors:#?}");
 
                         for monitor in monitors {
                             if monitor.device_name == gdi_device_name {
@@ -142,4 +149,3 @@ pub fn get_hmonitor_for_path(
         "HMonitor not found for the given path and source id"
     ))
 }
-
