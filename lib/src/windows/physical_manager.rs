@@ -155,7 +155,7 @@ impl PhysicalDisplayManagerWindows {
                     .map(|display_id| (display_id, monitor_info))
             })
             .collect();
-        tracing::debug!("monitor_info_by_display_id: {monitor_info_by_gdi_device_id:#?}");
+        tracing::debug!("monitor_info_by_gdi_device_id: {monitor_info_by_gdi_device_id:#?}");
 
         Ok(ids
             .into_iter()

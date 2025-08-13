@@ -61,7 +61,6 @@ pub struct LogicalDisplayWindowsState {
 pub struct LogicalDisplayWindowsMetadata {
     pub name: String,
     pub path: String,
-    pub source_id: u32,
     pub gdi_device_id: u32,
 }
 
@@ -95,7 +94,7 @@ impl TryFrom<DISPLAYCONFIG_PATH_INFO> for LogicalDisplayWindows {
         WIN32_ERROR(unsafe { DisplayConfigGetDeviceInfo(&mut source_device_name.header) } as u32)
             .ok()?;
 
-        let target = (value, target_device_name, source_device_name).try_into()?;
+        let target = (target_device_name, source_device_name).try_into()?;
         Ok(Self {
             metadata: target,
             state: LogicalDisplayWindowsState { is_enabled },
@@ -105,7 +104,6 @@ impl TryFrom<DISPLAYCONFIG_PATH_INFO> for LogicalDisplayWindows {
 
 impl
     TryFrom<(
-        DISPLAYCONFIG_PATH_INFO,
         DISPLAYCONFIG_TARGET_DEVICE_NAME,
         DISPLAYCONFIG_SOURCE_DEVICE_NAME,
     )> for LogicalDisplayWindowsMetadata
@@ -114,8 +112,7 @@ impl
 
     #[instrument(ret, skip_all, level = "debug")]
     fn try_from(
-        (path_info, target, source): (
-            DISPLAYCONFIG_PATH_INFO,
+        (target, source): (
             DISPLAYCONFIG_TARGET_DEVICE_NAME,
             DISPLAYCONFIG_SOURCE_DEVICE_NAME,
         ),
@@ -154,12 +151,9 @@ impl
             });
         }
 
-        tracing::debug!("Found Source ID: {}", path_info.sourceInfo.id);
-        tracing::debug!("Found Target ID: {}", path_info.targetInfo.id);
         Ok(Self {
             name,
             path,
-            source_id: path_info.sourceInfo.id,
             gdi_device_id,
         })
     }

@@ -28,9 +28,9 @@ impl Display for MonitorInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "MonitorInfo {{path: {path}, display_id: {display_id:?}}}",
+            "MonitorInfo {{path: {path}, gdi_device_id: {gdi_device_id:?}}}",
             path = self.path(),
-            display_id = self.gdi_device_id(),
+            gdi_device_id = self.gdi_device_id(),
         )
     }
 }
