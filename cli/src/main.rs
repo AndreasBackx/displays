@@ -8,12 +8,9 @@ use std::{
 use anyhow::{Context, Result};
 use clap::Parser;
 use displays_lib::{
-    display::{DisplayIdentifier, DisplayUpdate},
-    manager::DisplayManager,
-    windows::{
-        logical_display::LogicalDisplayUpdateContent,
-        physical_display::PhysicalDisplayUpdateContent,
-    },
+    display::DisplayUpdate, display_identifier::DisplayIdentifier,
+    logical_display::LogicalDisplayUpdateContent, manager::DisplayManager,
+    physical_display::PhysicalDisplayUpdateContent,
 };
 // use displays_lib::state::State;
 use edid_rs::{Reader, EDID};
@@ -172,7 +169,7 @@ fn main() -> Result<()> {
         .map(|id| DisplayUpdate {
             id,
             physical: Some(PhysicalDisplayUpdateContent {
-                brightness: Some(0),
+                brightness: Some(50),
             }),
             logical: Some(LogicalDisplayUpdateContent {
                 // is_enabled: Some(true),

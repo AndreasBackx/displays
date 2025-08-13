@@ -72,6 +72,18 @@ impl DisplayManager {
             .into_iter()
             .map(|logical_display| {
                 tracing::debug!("Logical display: {logical_display:?}");
+                let matched_physical_metadatas = physical_metadatas
+                    .iter()
+                    .filter(|physical_metadata| {
+                        logical_display
+                            .metadata
+                            .path
+                            .starts_with(&physical_metadata.path)
+                    })
+                    .collect::<Vec<_>>();
+
+                tracing::debug!("matched_physical_metadatas: {matched_physical_metadatas:#?}");
+
                 let physical_metadata = physical_metadatas
                     .iter()
                     .position(|physical_metadata| {
@@ -104,6 +116,8 @@ impl DisplayManager {
 
         let ids: Vec<_> = logical_state_by_metadata
             .iter()
+            // We only want to get the states for the metadata that we've been able to map.
+            .filter(|(metadata, _)| metadata.physical.is_some())
             .map(|(metadata, _)| metadata.id())
             .collect();
 
