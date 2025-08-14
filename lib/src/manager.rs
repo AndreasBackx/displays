@@ -1,7 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use thiserror::Error;
-use tracing::{debug, instrument, Span};
 
 use crate::{
     display::{Display, DisplayMetadata, DisplayUpdate, DisplayUpdateInner},
@@ -56,7 +55,7 @@ pub enum DisplayApplyError {
 pub struct DisplayManager {}
 
 impl DisplayManager {
-    #[instrument(ret, level = "trace")]
+    #[tracing::instrument(ret, level = "trace")]
     pub fn query() -> Result<Vec<Display>, DisplayQueryError> {
         let mut logical_displays_metadata: Vec<_> = LogicalDisplayManagerWindows::metadata()?
             .into_iter()
@@ -126,7 +125,7 @@ impl DisplayManager {
             .collect())
     }
 
-    #[instrument(ret, skip_all, level = "trace")]
+    #[tracing::instrument(ret, skip_all, level = "trace")]
     fn get_inner(
         ids: BTreeSet<DisplayIdentifier>,
     ) -> Result<BTreeMap<DisplayIdentifier, (DisplayIdentifierInner, Display)>, DisplayQueryError>

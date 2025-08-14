@@ -46,12 +46,18 @@ impl LogicalDisplayManagerWindows {
     pub fn metadata() -> Result<BTreeSet<LogicalDisplayWindows>, LogicalDisplayQueryError> {
         let display_config = DisplayConfig::try_new()?;
         let logical_displays: Vec<LogicalDisplayWindows> = display_config
-            .paths
-            .clone()
+            .path_modes()
             .into_iter()
-            .map(|path| -> Result<_, _> { path.try_into() })
+            .map(|path_info| -> Result<_, _> { path_info.try_into() })
             .filter_map(|path| path.ok())
             .collect();
+        // let logical_displays: Vec<LogicalDisplayWindows> = display_config
+        //     .paths
+        //     .clone()
+        //     .into_iter()
+        //     .map(|path| -> Result<_, _> { path.try_into() })
+        //     .filter_map(|path| path.ok())
+        //     .collect();
 
         let (enabled_displays, disabled_displays): (BTreeSet<_>, BTreeSet<_>) = logical_displays
             .into_iter()
@@ -176,6 +182,12 @@ impl LogicalDisplayManagerWindows {
     }
 }
 
+pub(crate) struct PathInfo {
+    pub(crate) path: DISPLAYCONFIG_PATH_INFO,
+    pub(crate) mode_source: Option<DISPLAYCONFIG_MODE_INFO>,
+    pub(crate) mode_target: Option<DISPLAYCONFIG_MODE_INFO>,
+}
+
 impl DisplayConfig {
     fn try_new() -> Result<Self, WindowsError> {
         // Get the current display configuration buffer sizes
@@ -216,6 +228,27 @@ impl DisplayConfig {
         modes.truncate(num_mode_info_array_elements as usize);
 
         Ok(Self { paths, modes })
+    }
+
+    fn path_modes(&self) -> Vec<PathInfo> {
+        self.paths
+            .iter()
+            .map(|path| {
+                let mode_source = self
+                    .modes
+                    .get(unsafe { path.sourceInfo.Anonymous.modeInfoIdx as usize });
+
+                let mode_target = self
+                    .modes
+                    .get(unsafe { path.targetInfo.Anonymous.modeInfoIdx as usize });
+
+                PathInfo {
+                    path: path.clone(),
+                    mode_source: mode_source.copied(),
+                    mode_target: mode_target.copied(),
+                }
+            })
+            .collect()
     }
 
     fn get_used_source_ids(&self) -> Vec<u32> {

@@ -15,6 +15,7 @@ pub struct PhysicalDisplayWindowsMetadata {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhysicalDisplayWindowsState {
     pub brightness: Brightness,
+    pub scale_factor: i32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

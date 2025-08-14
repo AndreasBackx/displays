@@ -6,9 +6,12 @@ use std::{
 
 use edid_rs::{Reader, EDID};
 use thiserror::Error;
-use windows::Win32::{
-    Foundation::{BOOL, LPARAM, RECT},
-    Graphics::Gdi::{EnumDisplayMonitors, HDC, HMONITOR},
+use windows::{
+    core::BOOL,
+    Win32::{
+        Foundation::{LPARAM, RECT},
+        Graphics::Gdi::{EnumDisplayMonitors, HDC, HMONITOR},
+    },
 };
 use winreg::{enums::HKEY_LOCAL_MACHINE, RegKey};
 
@@ -130,6 +133,7 @@ impl PhysicalDisplayManagerWindows {
                     id,
                     PhysicalDisplayWindowsState {
                         brightness: monitor_info.monitor.get_brightness()?,
+                        scale_factor: monitor_info.monitor.get_scale_factor()?,
                     },
                 ))
             })

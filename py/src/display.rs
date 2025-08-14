@@ -19,6 +19,43 @@ pub struct Display {
 pub struct LogicalDisplay {
     #[pyo3(get)]
     is_enabled: bool,
+    #[pyo3(get)]
+    width: Option<u32>,
+    #[pyo3(get)]
+    height: Option<u32>,
+    #[pyo3(get)]
+    position: Option<Point>,
+}
+
+#[pyclass(str)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Point {
+    #[pyo3(get)]
+    x: i32,
+    #[pyo3(get)]
+    y: i32,
+}
+
+impl std::fmt::Display for Point {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Point(x={x}, y={y})", x = self.x, y = self.y,)
+    }
+}
+
+#[pymethods]
+impl Point {
+    pub fn __repr__(&self) -> String {
+        format!("{self}")
+    }
+}
+
+impl From<lib::windows::logical_display::Point> for Point {
+    fn from(value: lib::windows::logical_display::Point) -> Self {
+        Point {
+            x: value.x,
+            y: value.y,
+        }
+    }
 }
 
 #[pyclass(str)]
@@ -26,6 +63,8 @@ pub struct LogicalDisplay {
 pub struct PhysicalDisplay {
     #[pyo3(get)]
     brightness: u8,
+    #[pyo3(get)]
+    scale_factor: i32,
 }
 
 #[pymethods]
@@ -57,9 +96,13 @@ impl From<lib::display::Display> for Display {
             id: value.id().outer.into(),
             logical: LogicalDisplay {
                 is_enabled: value.logical.state.is_enabled,
+                height: value.logical.state.height,
+                width: value.logical.state.width,
+                position: value.logical.state.position.map(|point| point.into()),
             },
             physical: value.physical.map(|physical| PhysicalDisplay {
                 brightness: physical.state.brightness.value(),
+                scale_factor: physical.state.scale_factor,
             }),
         }
     }
@@ -93,8 +136,9 @@ impl std::fmt::Display for PhysicalDisplay {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "PhysicalDisplay(brightness={brightness})",
+            "PhysicalDisplay(brightness={brightness}, scale_factor={scale_factor})",
             brightness = self.brightness,
+            scale_factor = self.scale_factor,
         )
     }
 }
