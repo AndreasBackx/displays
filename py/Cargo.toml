@@ -9,7 +9,7 @@ name = "displays"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = "0.23.3"
+pyo3 = "0.25.1"
 displays-lib = { path = "../lib" }
 # pyo3-python-tracing-subscriber = "0.1.0"
 pyo3-python-tracing-subscriber = { path = "../../../pyo3-python-tracing-subscriber" }

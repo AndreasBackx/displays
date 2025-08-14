@@ -88,8 +88,6 @@ impl LogicalDisplayManagerWindows {
         let mut remaining_updates = updates.clone();
         let mut has_changed = false;
 
-        tracing::debug!("Applying updates: {updates:?}");
-
         // TODO Sort by enabled as we want those first!!!
         for path in display_config.paths.iter_mut() {
             // Invalidate all mode configs.
@@ -101,7 +99,6 @@ impl LogicalDisplayManagerWindows {
             };
 
             let is_enabled = path.flags & DISPLAYCONFIG_PATH_ACTIVE == DISPLAYCONFIG_PATH_ACTIVE;
-            tracing::debug!("Checking display: {logical_display:?} is_enabled = {is_enabled}");
 
             let Some((matching_update, matching_index)) = remaining_updates
                 .iter()
@@ -115,7 +112,6 @@ impl LogicalDisplayManagerWindows {
                 continue;
             };
 
-            tracing::info!("Found setup: {matching_update:?}");
             let Some(should_enable) = matching_update.content.is_enabled else {
                 continue;
             };
@@ -127,11 +123,11 @@ impl LogicalDisplayManagerWindows {
             let mut used = false;
             if should_enable {
                 if is_enabled {
-                    tracing::info!("Display is already enabled!");
+                    tracing::trace!("Display is already enabled!");
                     used = true;
                 } else {
                     if source_is_free {
-                        tracing::info!("Enabling display!");
+                        tracing::trace!("Enabling display!");
                         // Enable the display
                         path.flags |= DISPLAYCONFIG_PATH_ACTIVE;
                         used_source_ids.push(source_id);
@@ -142,11 +138,11 @@ impl LogicalDisplayManagerWindows {
                     }
                 }
             } else {
-                tracing::info!("Disabling display!");
+                tracing::trace!("Disabling display!");
                 used = true;
 
                 if !is_enabled {
-                    tracing::info!("Display is already disabled!");
+                    tracing::trace!("Display is already disabled!");
                 } else {
                     // Disable the display
                     path.flags &= !DISPLAYCONFIG_PATH_ACTIVE;

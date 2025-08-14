@@ -49,6 +49,7 @@ pub enum PhysicalDisplayApplyError {
 pub struct PhysicalDisplayManagerWindows {}
 
 impl PhysicalDisplayManagerWindows {
+    #[tracing::instrument(ret, level = "trace")]
     pub fn metadata() -> Result<Vec<PhysicalDisplayWindowsMetadata>, PhysicalDisplayQueryError> {
         let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
         let display_key_path = r"SYSTEM\CurrentControlSet\Enum\DISPLAY";
@@ -88,7 +89,7 @@ impl PhysicalDisplayManagerWindows {
 
                 // Check if the EDID value exists within this instance key.
                 if let Ok(edid_data) = instance_key.get_raw_value("EDID") {
-                    tracing::debug!("Found EDID for device {}\\{}:", model_id, instance_id);
+                    tracing::trace!("Found EDID for device {}\\{}:", model_id, instance_id);
 
                     let mut cursor = Cursor::new(edid_data.bytes);
                     let reader = &mut Reader::new(&mut cursor);
@@ -104,7 +105,7 @@ impl PhysicalDisplayManagerWindows {
                         physical_displays.push(physical_display);
                     }
                 } else {
-                    tracing::debug!("Device found but without EDID: {display_key_path}\\{model_id}\\{instance_id}");
+                    tracing::trace!("Device found but without EDID: {display_key_path}\\{model_id}\\{instance_id}");
                 }
             }
         }
@@ -112,6 +113,7 @@ impl PhysicalDisplayManagerWindows {
         Ok(physical_displays)
     }
 
+    #[tracing::instrument(ret, level = "trace")]
     pub(crate) fn state(
         ids: Vec<DisplayIdentifierInner>,
     ) -> Result<
@@ -120,7 +122,6 @@ impl PhysicalDisplayManagerWindows {
     > {
         let monitor_info_by_id: BTreeMap<DisplayIdentifierInner, MonitorInfo> =
             Self::get_monitor_info_by_id(ids)?;
-        tracing::debug!("monitor_info_by_id: {monitor_info_by_id:#?}");
 
         let state = monitor_info_by_id
             .into_iter()
@@ -137,6 +138,7 @@ impl PhysicalDisplayManagerWindows {
         Ok(state)
     }
 
+    #[tracing::instrument(ret, level = "trace")]
     pub(crate) fn get_monitor_info_by_id(
         ids: Vec<DisplayIdentifierInner>,
     ) -> Result<BTreeMap<DisplayIdentifierInner, MonitorInfo>, WindowsError> {
@@ -145,7 +147,6 @@ impl PhysicalDisplayManagerWindows {
         }
 
         let monitor_infos: Vec<MonitorInfo> = Self::get_monitor_infos()?;
-        tracing::debug!("monitor_infos: {monitor_infos:#?}");
 
         let mut monitor_info_by_gdi_device_id: BTreeMap<_, _> = monitor_infos
             .into_iter()
@@ -155,7 +156,6 @@ impl PhysicalDisplayManagerWindows {
                     .map(|display_id| (display_id, monitor_info))
             })
             .collect();
-        tracing::debug!("monitor_info_by_gdi_device_id: {monitor_info_by_gdi_device_id:#?}");
 
         Ok(ids
             .into_iter()
@@ -189,6 +189,7 @@ impl PhysicalDisplayManagerWindows {
             .collect())
     }
 
+    #[tracing::instrument(ret, level = "trace")]
     fn get_monitor_infos() -> Result<Vec<MonitorInfo>, WindowsError> {
         Self::get_monitors()?
             .into_iter()
