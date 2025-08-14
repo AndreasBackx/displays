@@ -7,6 +7,8 @@ use displays_lib::{self as lib};
 use pyo3::{exceptions::PyException, prelude::*};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+use crate::display::{Orientation, Point};
+
 mod display;
 mod display_identifier;
 mod display_update;
@@ -82,5 +84,7 @@ fn displays(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Display>()?;
     m.add_class::<LogicalDisplay>()?;
     m.add_class::<PhysicalDisplay>()?;
+    m.add_class::<Orientation>()?;
+    m.add_class::<Point>()?;
     Ok(())
 }

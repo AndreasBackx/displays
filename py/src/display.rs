@@ -3,7 +3,7 @@ use pyo3::prelude::*;
 
 use crate::display_identifier::DisplayIdentifier;
 
-#[pyclass(str)]
+#[pyclass(str, eq, frozen, immutable_type, ord)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Display {
     #[pyo3(get)]
@@ -14,11 +14,13 @@ pub struct Display {
     physical: Option<PhysicalDisplay>,
 }
 
-#[pyclass(str)]
+#[pyclass(str, eq, frozen, immutable_type, ord)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct LogicalDisplay {
     #[pyo3(get)]
     is_enabled: bool,
+    #[pyo3(get)]
+    orientation: Orientation,
     #[pyo3(get)]
     width: Option<u32>,
     #[pyo3(get)]
@@ -27,7 +29,64 @@ pub struct LogicalDisplay {
     position: Option<Point>,
 }
 
-#[pyclass(str)]
+#[pyclass(
+    str,
+    eq,
+    eq_int,
+    frozen,
+    immutable_type,
+    ord,
+    rename_all = "SCREAMING_SNAKE_CASE"
+)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Orientation {
+    Landscape = 0,          // 0° (normal)
+    Portrait = 90,          // 90° clockwise
+    LandscapeFlipped = 180, // 180°
+    PortraitFlipped = 270,  // 270° clockwise
+}
+
+impl std::fmt::Display for Orientation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Orientation({name}, angle={angle})",
+            name = self.name(),
+            angle = self
+        )
+    }
+}
+
+impl From<lib::windows::logical_display::Orientation> for Orientation {
+    fn from(value: lib::windows::logical_display::Orientation) -> Self {
+        match value {
+            lib::windows::logical_display::Orientation::Landscape => Self::Landscape,
+            lib::windows::logical_display::Orientation::Portrait => Self::Portrait,
+            lib::windows::logical_display::Orientation::LandscapeFlipped => Self::LandscapeFlipped,
+            lib::windows::logical_display::Orientation::PortraitFlipped => Self::PortraitFlipped,
+        }
+    }
+}
+
+#[pymethods]
+impl Orientation {
+    #[getter]
+    pub fn name(&self) -> &str {
+        match self {
+            Orientation::Landscape => "Landscape",
+            Orientation::Portrait => "Portrait",
+            Orientation::LandscapeFlipped => "Landscape Flipped",
+            Orientation::PortraitFlipped => "Portrait Flipped",
+        }
+    }
+
+    #[getter]
+    pub fn value(&self) -> i32 {
+        self.clone() as i32
+    }
+}
+
+#[pyclass(str, eq, frozen, immutable_type, ord)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Point {
     #[pyo3(get)]
@@ -58,7 +117,7 @@ impl From<lib::windows::logical_display::Point> for Point {
     }
 }
 
-#[pyclass(str)]
+#[pyclass(str, eq, frozen, immutable_type, ord)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhysicalDisplay {
     #[pyo3(get)]
@@ -96,6 +155,7 @@ impl From<lib::display::Display> for Display {
             id: value.id().outer.into(),
             logical: LogicalDisplay {
                 is_enabled: value.logical.state.is_enabled,
+                orientation: value.logical.state.orientation.into(),
                 height: value.logical.state.height,
                 width: value.logical.state.width,
                 position: value.logical.state.position.map(|point| point.into()),

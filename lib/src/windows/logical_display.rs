@@ -5,7 +5,9 @@ use windows::Win32::{
         DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME, DISPLAYCONFIG_PATH_INFO,
         DISPLAYCONFIG_PIXELFORMAT, DISPLAYCONFIG_PIXELFORMAT_16BPP,
         DISPLAYCONFIG_PIXELFORMAT_24BPP, DISPLAYCONFIG_PIXELFORMAT_32BPP,
-        DISPLAYCONFIG_PIXELFORMAT_8BPP, DISPLAYCONFIG_PIXELFORMAT_NONGDI,
+        DISPLAYCONFIG_PIXELFORMAT_8BPP, DISPLAYCONFIG_PIXELFORMAT_NONGDI, DISPLAYCONFIG_ROTATION,
+        DISPLAYCONFIG_ROTATION_IDENTITY, DISPLAYCONFIG_ROTATION_ROTATE180,
+        DISPLAYCONFIG_ROTATION_ROTATE270, DISPLAYCONFIG_ROTATION_ROTATE90,
         DISPLAYCONFIG_SOURCE_DEVICE_NAME, DISPLAYCONFIG_TARGET_DEVICE_NAME,
     },
     Foundation::{POINTL, WIN32_ERROR},
@@ -57,6 +59,7 @@ impl LogicalDisplayWindows {
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Default)]
 pub struct LogicalDisplayWindowsState {
     pub is_enabled: bool,
+    pub orientation: Orientation,
     pub width: Option<u32>,
     pub height: Option<u32>,
     pub pixel_format: Option<PixelFormat>,
@@ -80,8 +83,34 @@ impl From<DISPLAYCONFIG_PIXELFORMAT> for PixelFormat {
             DISPLAYCONFIG_PIXELFORMAT_24BPP => PixelFormat::BPP24,
             DISPLAYCONFIG_PIXELFORMAT_32BPP => PixelFormat::BPP32,
             DISPLAYCONFIG_PIXELFORMAT_NONGDI => PixelFormat::NONGDI,
-            _ => unimplemented!("Win32API does not have more contstants."),
+            _ => unimplemented!("Nonexistent pixel format."),
         }
+    }
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+pub enum Orientation {
+    Landscape = 0,          // 0° (normal)
+    Portrait = 90,          // 90° clockwise
+    LandscapeFlipped = 180, // 180°
+    PortraitFlipped = 270,  // 270° clockwise
+}
+
+impl From<DISPLAYCONFIG_ROTATION> for Orientation {
+    fn from(value: DISPLAYCONFIG_ROTATION) -> Self {
+        match value {
+            DISPLAYCONFIG_ROTATION_IDENTITY => Orientation::Landscape,
+            DISPLAYCONFIG_ROTATION_ROTATE90 => Orientation::Portrait,
+            DISPLAYCONFIG_ROTATION_ROTATE180 => Orientation::LandscapeFlipped,
+            DISPLAYCONFIG_ROTATION_ROTATE270 => Orientation::PortraitFlipped,
+            _ => unimplemented!("Nonexistent display orientation."),
+        }
+    }
+}
+
+impl Default for Orientation {
+    fn default() -> Self {
+        Self::Landscape
     }
 }
 
@@ -139,6 +168,7 @@ impl TryFrom<DISPLAYCONFIG_PATH_INFO> for LogicalDisplayWindows {
 
     fn try_from(path: DISPLAYCONFIG_PATH_INFO) -> Result<Self, Self::Error> {
         let is_enabled = path.flags & DISPLAYCONFIG_PATH_ACTIVE == DISPLAYCONFIG_PATH_ACTIVE;
+        let orientation = path.targetInfo.rotation.into();
 
         let mut target_device_name = DISPLAYCONFIG_TARGET_DEVICE_NAME {
             header: Default::default(),
@@ -149,12 +179,6 @@ impl TryFrom<DISPLAYCONFIG_PATH_INFO> for LogicalDisplayWindows {
         target_device_name.header.adapterId = path.targetInfo.adapterId;
         target_device_name.header.id = path.targetInfo.id;
         target_device_name.header.r#type = DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME;
-
-        tracing::warn!("outputTechnology = {:?}", path.targetInfo.outputTechnology);
-        tracing::warn!("rotation = {:?}", path.targetInfo.rotation);
-        tracing::warn!("scaling = {:?}", path.targetInfo.scaling);
-        tracing::warn!("refreshRate = {:?}", path.targetInfo.refreshRate);
-        tracing::warn!("targetAvailable = {:?}", path.targetInfo.targetAvailable);
 
         WIN32_ERROR(unsafe { DisplayConfigGetDeviceInfo(&mut target_device_name.header) } as u32)
             .ok()?;
@@ -175,6 +199,7 @@ impl TryFrom<DISPLAYCONFIG_PATH_INFO> for LogicalDisplayWindows {
             metadata: target,
             state: LogicalDisplayWindowsState {
                 is_enabled,
+                orientation,
                 ..Default::default()
             },
         })
