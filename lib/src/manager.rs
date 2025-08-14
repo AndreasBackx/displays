@@ -41,12 +41,12 @@ pub enum DisplayApplyError {
         #[from]
         source: DisplayQueryError,
     },
-    #[error("physical querying error")]
+    #[error("physical applying error: {source}")]
     Physical {
         #[from]
         source: PhysicalDisplayApplyError,
     },
-    #[error("logical querying error")]
+    #[error("logical applying error")]
     Logical {
         #[from]
         source: LogicalDisplayApplyError,

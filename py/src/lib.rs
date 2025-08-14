@@ -15,7 +15,7 @@ mod display_update;
 #[pyfunction]
 fn get(ids: BTreeSet<DisplayIdentifier>) -> PyResult<BTreeMap<DisplayIdentifier, Display>> {
     let displays = lib::manager::DisplayManager::get(ids.into_iter().map(|id| id.into()).collect())
-        .map_err(|err| PyException::new_err(err.to_string()))?
+        .map_err(|err| PyException::new_err(format!("{err:#?}")))?
         .into_iter()
         .map(|(id, display)| (id.into(), display.into()))
         .collect::<BTreeMap<_, _>>();
@@ -27,7 +27,7 @@ fn get(ids: BTreeSet<DisplayIdentifier>) -> PyResult<BTreeMap<DisplayIdentifier,
 #[pyfunction]
 fn query() -> PyResult<Vec<Display>> {
     let displays = lib::manager::DisplayManager::query()
-        .map_err(|err| PyException::new_err(err.to_string()))?
+        .map_err(|err| PyException::new_err(format!("{err:#?}")))?
         .into_iter()
         .map(|display| display.into())
         .collect::<Vec<_>>();
@@ -42,7 +42,7 @@ fn _apply(updates: Vec<DisplayUpdate>, validate: bool) -> PyResult<Vec<DisplayUp
         updates.into_iter().map(|update| update.into()).collect(),
         validate,
     )
-    .map_err(|err| PyException::new_err(err.to_string()))?
+    .map_err(|err| PyException::new_err(format!("{err:#?}")))?
     .into_iter()
     .map(|display| display.into())
     .collect::<Vec<_>>();

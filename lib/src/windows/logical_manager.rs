@@ -1,7 +1,6 @@
 use std::collections::BTreeSet;
 
 use thiserror::Error;
-use tracing::{info, instrument};
 use windows::Win32::{
     Devices::Display::{
         GetDisplayConfigBufferSizes, QueryDisplayConfig, SetDisplayConfig, DISPLAYCONFIG_MODE_INFO,
@@ -43,7 +42,7 @@ struct DisplayConfig {
 }
 
 impl LogicalDisplayManagerWindows {
-    #[instrument(ret)]
+    #[tracing::instrument(ret, level = "trace")]
     pub fn metadata() -> Result<BTreeSet<LogicalDisplayWindows>, LogicalDisplayQueryError> {
         let display_config = DisplayConfig::try_new()?;
         let logical_displays: Vec<LogicalDisplayWindows> = display_config
@@ -86,19 +85,18 @@ impl LogicalDisplayManagerWindows {
         let mut display_config = DisplayConfig::try_new()?;
         let mut used_source_ids = display_config.get_used_source_ids();
         let mut remaining_updates = updates.clone();
-        let mut has_changed = false;
+        let mut any_have_changed = false;
 
-        // TODO Sort by enabled as we want those first!!!
+        // "Should" be sorted by enabled first.
         for path in display_config.paths.iter_mut() {
-            // Invalidate all mode configs.
+            // Invalidate all mode configs, needed to tell Windows to reuse existing configuration.
             path.sourceInfo.Anonymous.modeInfoIdx = DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
             path.targetInfo.Anonymous.modeInfoIdx = DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
 
             let Ok(logical_display): Result<LogicalDisplayWindows, _> = (*path).try_into() else {
                 continue;
             };
-
-            let is_enabled = path.flags & DISPLAYCONFIG_PATH_ACTIVE == DISPLAYCONFIG_PATH_ACTIVE;
+            tracing::debug!("logical_display: {logical_display:#?}");
 
             let Some((matching_update, matching_index)) = remaining_updates
                 .iter()
@@ -117,7 +115,7 @@ impl LogicalDisplayManagerWindows {
             };
 
             let source_id = path.sourceInfo.id;
-            let source_is_free = !used_source_ids.contains(&source_id);
+            let is_enabled = path.flags & DISPLAYCONFIG_PATH_ACTIVE == DISPLAYCONFIG_PATH_ACTIVE;
 
             // Whether the display update was used, if so then remove it from the remaining updates.
             let mut used = false;
@@ -126,13 +124,14 @@ impl LogicalDisplayManagerWindows {
                     tracing::trace!("Display is already enabled!");
                     used = true;
                 } else {
+                    let source_is_free = !used_source_ids.contains(&source_id);
                     if source_is_free {
                         tracing::trace!("Enabling display!");
                         // Enable the display
                         path.flags |= DISPLAYCONFIG_PATH_ACTIVE;
                         used_source_ids.push(source_id);
                         used = true;
-                        has_changed = true;
+                        any_have_changed = true;
                     } else {
                         tracing::trace!("Trying to enable but source {source_id} is not free")
                     }
@@ -146,8 +145,8 @@ impl LogicalDisplayManagerWindows {
                 } else {
                     // Disable the display
                     path.flags &= !DISPLAYCONFIG_PATH_ACTIVE;
-                    // used_source_ids.retain(|used_source_id| used_source_id != &source_id);
-                    has_changed = true;
+                    used_source_ids.retain(|used_source_id| used_source_id != &source_id);
+                    any_have_changed = true;
                 }
             }
 
@@ -156,7 +155,7 @@ impl LogicalDisplayManagerWindows {
             }
         }
 
-        if !has_changed {
+        if !any_have_changed {
             return Ok(remaining_updates);
         }
 
@@ -212,6 +211,9 @@ impl DisplayConfig {
             )
         }
         .ok()?;
+
+        paths.truncate(num_path_array_elements as usize);
+        modes.truncate(num_mode_info_array_elements as usize);
 
         Ok(Self { paths, modes })
     }
