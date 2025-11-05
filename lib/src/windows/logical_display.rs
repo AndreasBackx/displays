@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use tracing::instrument;
 use windows::Win32::{
     Devices::Display::{
@@ -75,15 +77,27 @@ pub enum PixelFormat {
     NONGDI = 5,
 }
 
-impl From<DISPLAYCONFIG_PIXELFORMAT> for PixelFormat {
-    fn from(value: DISPLAYCONFIG_PIXELFORMAT) -> Self {
-        match value {
+impl From<&DISPLAYCONFIG_PIXELFORMAT> for PixelFormat {
+    fn from(value: &DISPLAYCONFIG_PIXELFORMAT) -> Self {
+        match *value {
             DISPLAYCONFIG_PIXELFORMAT_8BPP => PixelFormat::BPP8,
             DISPLAYCONFIG_PIXELFORMAT_16BPP => PixelFormat::BPP16,
             DISPLAYCONFIG_PIXELFORMAT_24BPP => PixelFormat::BPP24,
             DISPLAYCONFIG_PIXELFORMAT_32BPP => PixelFormat::BPP32,
             DISPLAYCONFIG_PIXELFORMAT_NONGDI => PixelFormat::NONGDI,
             _ => unimplemented!("Nonexistent pixel format."),
+        }
+    }
+}
+
+impl From<&PixelFormat> for DISPLAYCONFIG_PIXELFORMAT {
+    fn from(value: &PixelFormat) -> Self {
+        match *value {
+            PixelFormat::BPP8 => DISPLAYCONFIG_PIXELFORMAT_8BPP,
+            PixelFormat::BPP16 => DISPLAYCONFIG_PIXELFORMAT_16BPP,
+            PixelFormat::BPP24 => DISPLAYCONFIG_PIXELFORMAT_24BPP,
+            PixelFormat::BPP32 => DISPLAYCONFIG_PIXELFORMAT_32BPP,
+            PixelFormat::NONGDI => DISPLAYCONFIG_PIXELFORMAT_NONGDI,
         }
     }
 }
@@ -96,14 +110,25 @@ pub enum Orientation {
     PortraitFlipped = 270,  // 270° clockwise
 }
 
-impl From<DISPLAYCONFIG_ROTATION> for Orientation {
-    fn from(value: DISPLAYCONFIG_ROTATION) -> Self {
-        match value {
+impl From<&DISPLAYCONFIG_ROTATION> for Orientation {
+    fn from(value: &DISPLAYCONFIG_ROTATION) -> Self {
+        match *value {
             DISPLAYCONFIG_ROTATION_IDENTITY => Orientation::Landscape,
             DISPLAYCONFIG_ROTATION_ROTATE90 => Orientation::Portrait,
             DISPLAYCONFIG_ROTATION_ROTATE180 => Orientation::LandscapeFlipped,
             DISPLAYCONFIG_ROTATION_ROTATE270 => Orientation::PortraitFlipped,
             _ => unimplemented!("Nonexistent display orientation."),
+        }
+    }
+}
+
+impl From<&Orientation> for DISPLAYCONFIG_ROTATION {
+    fn from(value: &Orientation) -> Self {
+        match *value {
+            Orientation::Landscape => DISPLAYCONFIG_ROTATION_IDENTITY,
+            Orientation::Portrait => DISPLAYCONFIG_ROTATION_ROTATE90,
+            Orientation::LandscapeFlipped => DISPLAYCONFIG_ROTATION_ROTATE180,
+            Orientation::PortraitFlipped => DISPLAYCONFIG_ROTATION_ROTATE270,
         }
     }
 }
@@ -120,8 +145,41 @@ pub struct Point {
     pub y: i32,
 }
 
-impl From<POINTL> for Point {
-    fn from(value: POINTL) -> Self {
+// TODO Should be moved to CLI part.
+impl FromStr for Point {
+    type Err = String;
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let items: Vec<&str> = value.split(',').collect();
+        if items.len() != 2 {
+            return Err(format!("`{value}` needs to be of the format `x,y`."));
+        }
+
+        let numbers: Vec<i32> = items
+            .into_iter()
+            .map(|item| {
+                item.parse::<i32>()
+                    .map_err(|_| format!("`{item}` is not a valid unsigned number"))
+            })
+            .collect::<Result<_, Self::Err>>()?;
+
+        Ok(Point {
+            x: numbers[0],
+            y: numbers[1],
+        })
+    }
+}
+
+impl From<&POINTL> for Point {
+    fn from(value: &POINTL) -> Self {
+        Self {
+            x: value.x,
+            y: value.y,
+        }
+    }
+}
+
+impl From<&Point> for POINTL {
+    fn from(value: &Point) -> Self {
         Self {
             x: value.x,
             y: value.y,
@@ -137,11 +195,11 @@ pub struct LogicalDisplayWindowsMetadata {
     pub gdi_device_id: u32,
 }
 
-impl TryFrom<PathInfo> for LogicalDisplayWindows {
+impl TryFrom<&PathInfo> for LogicalDisplayWindows {
     type Error = WindowsError;
 
-    fn try_from(path_info: PathInfo) -> Result<Self, Self::Error> {
-        let path = path_info.path;
+    fn try_from(path_info: &PathInfo) -> Result<Self, Self::Error> {
+        let path = &path_info.path;
 
         let mut logical_display: LogicalDisplayWindows = path.try_into()?;
 
@@ -150,8 +208,8 @@ impl TryFrom<PathInfo> for LogicalDisplayWindows {
 
             logical_display.state.width = Some(source_mode.width);
             logical_display.state.height = Some(source_mode.height);
-            logical_display.state.pixel_format = Some(source_mode.pixelFormat.into());
-            logical_display.state.position = Some(source_mode.position.into());
+            logical_display.state.pixel_format = Some((&source_mode.pixelFormat).into());
+            logical_display.state.position = Some((&source_mode.position).into());
 
             tracing::warn!("source_mode = {:?}", source_mode);
             // tracing::warn!("targetMode = {:?}", unsafe {
@@ -163,12 +221,12 @@ impl TryFrom<PathInfo> for LogicalDisplayWindows {
     }
 }
 
-impl TryFrom<DISPLAYCONFIG_PATH_INFO> for LogicalDisplayWindows {
+impl TryFrom<&DISPLAYCONFIG_PATH_INFO> for LogicalDisplayWindows {
     type Error = WindowsError;
 
-    fn try_from(path: DISPLAYCONFIG_PATH_INFO) -> Result<Self, Self::Error> {
+    fn try_from(path: &DISPLAYCONFIG_PATH_INFO) -> Result<Self, Self::Error> {
         let is_enabled = path.flags & DISPLAYCONFIG_PATH_ACTIVE == DISPLAYCONFIG_PATH_ACTIVE;
-        let orientation = path.targetInfo.rotation.into();
+        let orientation = (&path.targetInfo.rotation).into();
 
         let mut target_device_name = DISPLAYCONFIG_TARGET_DEVICE_NAME {
             header: Default::default(),

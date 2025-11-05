@@ -185,10 +185,14 @@ impl DisplayManager {
             .collect();
         let remaining_logical_updates =
             LogicalDisplayManagerWindows::apply(logical_updates, validate)?;
-        let physical_updates: Vec<PhysicalDisplayUpdate> = updates_inner
-            .into_iter()
-            .filter_map(|display| display.into())
-            .collect();
+        let physical_updates: Vec<PhysicalDisplayUpdate> = if validate {
+            vec![]
+        } else {
+            updates_inner
+                .into_iter()
+                .filter_map(|display| display.into())
+                .collect()
+        };
         let mut remaining_physical_updates =
             PhysicalDisplayManagerWindows::apply(physical_updates)?;
 
