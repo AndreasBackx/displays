@@ -3,16 +3,11 @@ name = "displays"
 version = "0.1.0"
 edition = "2021"
 
-[features]
-default = ["windows"]
-windows = ["displays-lib/windows"]
-linux = ["displays-lib/linux"]
-
 [dependencies]
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 clap = { version = "4.5.18", features = ["derive"] }
 
-displays-lib = { path = "../lib", default-features = false }
+displays-lib = { path = "../lib" }
 enum_dispatch = "0.3.13"
 color-eyre = "0.6.5"
 eyre = "0.6.12"

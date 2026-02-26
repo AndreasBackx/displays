@@ -10,13 +10,13 @@ use crate::{
     types::Orientation,
 };
 
-#[cfg(feature = "windows")]
+#[cfg(target_os = "windows")]
 use crate::{
     display::DisplayMetadata, logical_display::LogicalDisplayUpdate,
     physical_display::PhysicalDisplay,
 };
 
-#[cfg(feature = "windows")]
+#[cfg(target_os = "windows")]
 use crate::windows::{
     logical_manager::{
         LogicalDisplayApplyError, LogicalDisplayManagerWindows, LogicalDisplayQueryError,
@@ -26,19 +26,19 @@ use crate::windows::{
     },
 };
 
-#[cfg(feature = "linux")]
+#[cfg(target_os = "linux")]
 use crate::linux::physical_manager::{
     PhysicalDisplayApplyError, PhysicalDisplayManagerLinux, PhysicalDisplayQueryError,
 };
 
-#[cfg(feature = "linux")]
+#[cfg(target_os = "linux")]
 #[derive(Error, Debug)]
 pub enum LogicalDisplayQueryError {
     #[error("logical display query is not supported on Linux")]
     Unsupported,
 }
 
-#[cfg(feature = "linux")]
+#[cfg(target_os = "linux")]
 #[derive(Error, Debug)]
 pub enum LogicalDisplayApplyError {
     #[error("logical display updates are not supported on Linux")]
@@ -83,12 +83,12 @@ pub struct DisplayManager;
 impl DisplayManager {
     #[tracing::instrument(ret, level = "trace")]
     pub fn query() -> Result<Vec<Display>, DisplayQueryError> {
-        #[cfg(feature = "windows")]
+        #[cfg(target_os = "windows")]
         {
             return query_windows();
         }
 
-        #[cfg(feature = "linux")]
+        #[cfg(target_os = "linux")]
         {
             return query_linux();
         }
@@ -127,12 +127,12 @@ impl DisplayManager {
         updates: Vec<DisplayUpdate>,
         validate: bool,
     ) -> Result<Vec<DisplayUpdate>, DisplayApplyError> {
-        #[cfg(feature = "windows")]
+        #[cfg(target_os = "windows")]
         {
             return apply_windows(updates, validate);
         }
 
-        #[cfg(feature = "linux")]
+        #[cfg(target_os = "linux")]
         {
             return apply_linux(updates, validate);
         }
@@ -147,7 +147,7 @@ impl DisplayManager {
     }
 }
 
-#[cfg(feature = "windows")]
+#[cfg(target_os = "windows")]
 fn query_windows() -> Result<Vec<Display>, DisplayQueryError> {
     let mut logical_displays_metadata: Vec<_> = LogicalDisplayManagerWindows::metadata()?
         .into_iter()
@@ -213,7 +213,7 @@ fn query_windows() -> Result<Vec<Display>, DisplayQueryError> {
         .collect())
 }
 
-#[cfg(feature = "windows")]
+#[cfg(target_os = "windows")]
 fn apply_windows(
     updates: Vec<DisplayUpdate>,
     validate: bool,
@@ -279,7 +279,7 @@ fn apply_windows(
     Ok(remaining_updates)
 }
 
-#[cfg(feature = "linux")]
+#[cfg(target_os = "linux")]
 fn query_linux() -> Result<Vec<Display>, DisplayQueryError> {
     let physical_displays = PhysicalDisplayManagerLinux::query()?;
 
@@ -306,7 +306,7 @@ fn query_linux() -> Result<Vec<Display>, DisplayQueryError> {
         .collect())
 }
 
-#[cfg(feature = "linux")]
+#[cfg(target_os = "linux")]
 fn apply_linux(
     updates: Vec<DisplayUpdate>,
     validate: bool,

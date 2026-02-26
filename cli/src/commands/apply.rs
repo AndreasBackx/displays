@@ -99,7 +99,7 @@ impl From<PhysicalDisplayUpdateContentArgs> for PhysicalDisplayUpdateContent {
 
 impl Command for ApplyCommand {
     fn run(&self) -> eyre::Result<()> {
-        #[cfg(feature = "linux")]
+        #[cfg(target_os = "linux")]
         if self.update.logical.is_some() {
             eyre::bail!("logical display updates are not supported on Linux");
         }

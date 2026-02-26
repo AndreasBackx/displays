@@ -2,10 +2,8 @@ use clap::Parser;
 
 use crate::commands::Command;
 
-#[cfg(all(feature = "windows", feature = "linux"))]
-compile_error!("features 'windows' and 'linux' are mutually exclusive");
-#[cfg(not(any(feature = "windows", feature = "linux")))]
-compile_error!("enable exactly one backend feature: 'windows' or 'linux'");
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+compile_error!("displays CLI currently supports only Windows and Linux targets");
 
 mod commands;
 

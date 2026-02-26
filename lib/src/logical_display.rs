@@ -28,7 +28,7 @@ pub struct LogicalDisplay {
 }
 
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "linux", allow(dead_code))]
+#[cfg_attr(target_os = "linux", allow(dead_code))]
 pub(crate) struct LogicalDisplayUpdate {
     pub(crate) id: DisplayIdentifierInner,
     pub(crate) content: LogicalDisplayUpdateContent,

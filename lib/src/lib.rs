@@ -1,8 +1,6 @@
 // #![windows_subsystem = "windows"]
-#[cfg(all(feature = "windows", feature = "linux"))]
-compile_error!("features 'windows' and 'linux' are mutually exclusive");
-#[cfg(not(any(feature = "windows", feature = "linux")))]
-compile_error!("enable exactly one backend feature: 'windows' or 'linux'");
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+compile_error!("displays-lib currently supports only Windows and Linux targets");
 
 pub mod display;
 pub mod display_identifier;
@@ -11,8 +9,8 @@ pub mod manager;
 pub mod physical_display;
 pub mod types;
 
-#[cfg(feature = "linux")]
+#[cfg(target_os = "linux")]
 pub mod linux;
 
-#[cfg(feature = "windows")]
+#[cfg(target_os = "windows")]
 pub mod windows;

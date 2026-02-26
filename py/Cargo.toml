@@ -12,9 +12,4 @@ crate-type = ["cdylib"]
 pyo3 = "0.25.1"
 tracing-subscriber = "0.3.19"
 tracing = "0.1.41"
-
-[target.'cfg(target_os = "windows")'.dependencies]
-displays-lib = { path = "../lib", default-features = false, features = ["windows"] }
-
-[target.'cfg(target_os = "linux")'.dependencies]
-displays-lib = { path = "../lib", default-features = false, features = ["linux"] }
+displays-lib = { path = "../lib" }
