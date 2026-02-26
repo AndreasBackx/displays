@@ -1,14 +1,10 @@
-use std::collections::BTreeMap;
-
 use ddc_hi::{Ddc, Display, FeatureCode};
 use thiserror::Error;
 
 use crate::{
-    display::Brightness,
+    display::{Brightness, DisplayUpdate},
     display_identifier::DisplayIdentifierInner,
-    physical_display::{
-        PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdate,
-    },
+    physical_display::{PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState},
 };
 
 #[derive(Error, Debug)]
@@ -48,7 +44,6 @@ pub struct PhysicalDisplayManagerLinux;
 struct LinuxDisplayHandle {
     metadata: PhysicalDisplayMetadata,
     state: PhysicalDisplayState,
-    ddc_id: String,
 }
 
 impl PhysicalDisplayManagerLinux {
@@ -62,33 +57,74 @@ impl PhysicalDisplayManagerLinux {
             .collect())
     }
 
-    pub(crate) fn apply(
-        updates: Vec<PhysicalDisplayUpdate>,
-    ) -> Result<Vec<PhysicalDisplayUpdate>, PhysicalDisplayApplyError> {
+    pub(crate) fn apply_display_updates(
+        updates: Vec<DisplayUpdate>,
+        validate: bool,
+    ) -> Result<Vec<DisplayUpdate>, PhysicalDisplayApplyError> {
         if updates.is_empty() {
-            return Ok(updates);
+            return Ok(Vec::new());
         }
 
-        let handles = Self::enumerate_handles()?;
-        let mut ddc_id_by_identifier = BTreeMap::new();
-        for handle in handles {
-            ddc_id_by_identifier.insert(Self::id_from_metadata(&handle.metadata), handle.ddc_id);
-        }
+        let mut displays = Display::enumerate();
+        let identifiers: Vec<_> = displays
+            .iter()
+            .map(|display| {
+                let metadata = metadata_from_info(&display.info);
+                Self::id_from_metadata(&metadata)
+            })
+            .collect();
 
         let mut remaining_updates = Vec::new();
+        let mut matched_updates = Vec::new();
+
         for update in updates {
-            let Some(brightness) = update.content.brightness else {
+            let matched_indices: Vec<_> = identifiers
+                .iter()
+                .enumerate()
+                .filter_map(|(index, id)| update.id.is_subset(&id.outer).then_some(index))
+                .collect();
+
+            if matched_indices.is_empty() {
+                remaining_updates.push(update);
+                continue;
+            }
+
+            if validate {
+                continue;
+            }
+
+            for index in matched_indices {
+                matched_updates.push(PhysicalApplyUpdate {
+                    id: identifiers[index].clone(),
+                    brightness: update
+                        .physical
+                        .as_ref()
+                        .and_then(|physical| physical.brightness),
+                    display_index: index,
+                });
+            }
+        }
+
+        for update in matched_updates {
+            let Some(brightness) = update.brightness else {
                 continue;
             };
 
-            let Some(ddc_id) = ddc_id_by_identifier.get(&update.id) else {
-                remaining_updates.push(update);
-                continue;
-            };
-
-            if let Err(err) = Self::set_brightness(ddc_id, brightness) {
-                tracing::warn!("Failed to set brightness for display '{}': {}", ddc_id, err);
-                remaining_updates.push(update);
+            let display = &mut displays[update.display_index];
+            let display_id = display.info.id.clone();
+            if let Err(err) = Self::set_brightness(display, brightness) {
+                tracing::warn!(
+                    "Failed to set brightness for display '{}': {}",
+                    display_id,
+                    err
+                );
+                remaining_updates.push(DisplayUpdate {
+                    id: update.id.outer,
+                    logical: None,
+                    physical: Some(crate::physical_display::PhysicalDisplayUpdateContent {
+                        brightness: Some(brightness),
+                    }),
+                });
             }
         }
 
@@ -141,31 +177,26 @@ impl PhysicalDisplayManagerLinux {
                     brightness: Brightness::new(brightness.min(100)),
                     scale_factor: 100,
                 },
-                ddc_id: display_id,
             });
         }
 
         Ok(handles)
     }
 
-    fn set_brightness(ddc_id: &str, brightness: u32) -> Result<(), PhysicalDisplayApplyError> {
-        let mut display = Display::enumerate()
-            .into_iter()
-            .find(|display| display.info.id == ddc_id)
-            .ok_or_else(|| PhysicalDisplayApplyError::DdcOperation {
-                display_id: ddc_id.to_string(),
-                message: "display disappeared while applying update".to_string(),
-            })?;
-
+    fn set_brightness(
+        display: &mut Display,
+        brightness: u32,
+    ) -> Result<(), PhysicalDisplayApplyError> {
+        let ddc_id = display.info.id.clone();
         let vcp = display
             .handle
             .get_vcp_feature(FeatureCode::from(0x10))
-            .map_err(|err| classify_apply_error(ddc_id.to_string(), err.to_string()))?;
+            .map_err(|err| classify_apply_error(ddc_id.clone(), err.to_string()))?;
 
         let max = vcp.maximum();
         if max == 0 {
             return Err(PhysicalDisplayApplyError::UnsupportedMonitor {
-                display_id: ddc_id.to_string(),
+                display_id: ddc_id,
                 message: "reported brightness max value is 0".to_string(),
             });
         }
@@ -176,7 +207,7 @@ impl PhysicalDisplayManagerLinux {
         display
             .handle
             .set_vcp_feature(FeatureCode::from(0x10), target_value)
-            .map_err(|err| classify_apply_error(ddc_id.to_string(), err.to_string()))
+            .map_err(|err| classify_apply_error(display.info.id.clone(), err.to_string()))
     }
 
     fn id_from_metadata(metadata: &PhysicalDisplayMetadata) -> DisplayIdentifierInner {
@@ -189,6 +220,12 @@ impl PhysicalDisplayManagerLinux {
             gdi_device_id: None,
         }
     }
+}
+
+struct PhysicalApplyUpdate {
+    id: DisplayIdentifierInner,
+    brightness: Option<u32>,
+    display_index: usize,
 }
 
 fn metadata_from_info(info: &ddc_hi::DisplayInfo) -> PhysicalDisplayMetadata {

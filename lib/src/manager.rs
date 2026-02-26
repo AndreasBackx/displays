@@ -3,17 +3,18 @@ use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
 use crate::{
-    display::{Display, DisplayUpdate, DisplayUpdateInner},
+    display::{Display, DisplayUpdate},
     display_identifier::{DisplayIdentifier, DisplayIdentifierInner},
     logical_display::{LogicalDisplay, LogicalDisplayMetadata, LogicalDisplayState},
-    physical_display::PhysicalDisplayUpdate,
     types::Orientation,
 };
 
 #[cfg(target_os = "windows")]
 use crate::{
-    display::DisplayMetadata, logical_display::LogicalDisplayUpdate,
-    physical_display::PhysicalDisplay,
+    display::DisplayMetadata,
+    display::DisplayUpdateInner,
+    logical_display::LogicalDisplayUpdate,
+    physical_display::{PhysicalDisplay, PhysicalDisplayUpdate},
 };
 
 #[cfg(target_os = "windows")]
@@ -315,50 +316,7 @@ fn apply_linux(
         return Err(LogicalDisplayApplyError::Unsupported.into());
     }
 
-    let displays = DisplayManager::query()?;
-    let mut updates_inner = Vec::new();
-    let mut unmatched_updates = Vec::new();
-
-    for update in updates {
-        let matched_ids: Vec<_> = displays
-            .iter()
-            .map(|display| display.id())
-            .filter(|id| update.id.is_subset(&id.outer))
-            .collect();
-
-        if matched_ids.is_empty() {
-            unmatched_updates.push(update);
-            continue;
-        }
-
-        for id in matched_ids {
-            updates_inner.push(DisplayUpdateInner {
-                id,
-                logical: None,
-                physical: update.physical.clone(),
-            });
-        }
-    }
-
-    let physical_updates: Vec<PhysicalDisplayUpdate> = if validate {
-        vec![]
-    } else {
-        updates_inner
-            .into_iter()
-            .filter_map(|display| display.into())
-            .collect()
-    };
-
-    let remaining_physical_updates = PhysicalDisplayManagerLinux::apply(physical_updates)?;
-    Ok(remaining_physical_updates
-        .into_iter()
-        .map(|physical_update| DisplayUpdate {
-            id: physical_update.id.outer,
-            physical: Some(physical_update.content),
-            logical: None,
-        })
-        .chain(unmatched_updates)
-        .collect())
+    PhysicalDisplayManagerLinux::apply_display_updates(updates, validate).map_err(Into::into)
 }
 
 pub struct QueryError {}
