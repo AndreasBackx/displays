@@ -188,21 +188,26 @@ impl PhysicalDisplayManagerLinux {
         brightness: u32,
     ) -> Result<(), PhysicalDisplayApplyError> {
         let ddc_id = display.info.id.clone();
-        let vcp = display
-            .handle
-            .get_vcp_feature(FeatureCode::from(0x10))
-            .map_err(|err| classify_apply_error(ddc_id.clone(), err.to_string()))?;
+        let normalized = brightness.min(100);
+        let target_value = if normalized == 0 {
+            0
+        } else {
+            let vcp = display
+                .handle
+                .get_vcp_feature(FeatureCode::from(0x10))
+                .map_err(|err| classify_apply_error(ddc_id.clone(), err.to_string()))?;
 
-        let max = vcp.maximum();
-        if max == 0 {
-            return Err(PhysicalDisplayApplyError::UnsupportedMonitor {
-                display_id: ddc_id,
-                message: "reported brightness max value is 0".to_string(),
-            });
-        }
+            let max = vcp.maximum();
+            if max == 0 {
+                return Err(PhysicalDisplayApplyError::UnsupportedMonitor {
+                    display_id: ddc_id,
+                    message: "reported brightness max value is 0".to_string(),
+                });
+            }
 
-        let percent = brightness.min(100) as f64 / 100.0;
-        let target_value = (percent * max as f64).round() as u16;
+            let percent = normalized as f64 / 100.0;
+            (percent * max as f64).round() as u16
+        };
 
         display
             .handle
