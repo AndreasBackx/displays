@@ -3,24 +3,16 @@ name = "displays"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
-windows = { version = "0.58.0", features = [
-    "Win32_Devices",
-    "Win32_Devices_Display",
-    "Win32_Foundation",
-    "Win32_Graphics",
-    "Win32_Graphics_Gdi",
-    # "Win32_System_DisplayManagement",
-] }
-clap = { version = "4.5.18", features = ["derive"] }
-prettytable = "0.10.0"
-dialoguer = "0.11.0"
+[features]
+default = ["windows"]
+windows = ["displays-lib/windows"]
+linux = ["displays-lib/linux"]
 
-displays-lib = { path = "../lib" }
-winreg = "0.52.0"
-edid-rs = { git = "https://github.com/AndreasBackx/edid-rs", commit = "f083f135e1c7077285b951f25692562f85d1aac1" }
+[dependencies]
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+clap = { version = "4.5.18", features = ["derive"] }
+
+displays-lib = { path = "../lib", default-features = false }
 enum_dispatch = "0.3.13"
 color-eyre = "0.6.5"
 eyre = "0.6.12"

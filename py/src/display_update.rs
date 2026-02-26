@@ -153,6 +153,7 @@ impl From<LogicalDisplayUpdateContent> for lib::logical_display::LogicalDisplayU
     fn from(value: LogicalDisplayUpdateContent) -> Self {
         lib::logical_display::LogicalDisplayUpdateContent {
             is_enabled: value.is_enabled,
+            ..Default::default()
         }
     }
 }

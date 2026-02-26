@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use tracing::instrument;
 use windows::Win32::{
     Devices::Display::{
@@ -18,6 +16,8 @@ use windows::Win32::{
 
 use crate::{
     display_identifier::{DisplayIdentifier, DisplayIdentifierInner},
+    logical_display::{LogicalDisplay, LogicalDisplayMetadata, LogicalDisplayState},
+    types::{Orientation, PixelFormat, Point},
     windows::{logical_manager::PathInfo, utils},
 };
 
@@ -25,8 +25,8 @@ use super::{error::WindowsError, utils::try_utf16_cstring};
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub struct LogicalDisplayWindows {
-    pub metadata: LogicalDisplayWindowsMetadata,
-    pub state: LogicalDisplayWindowsState,
+    pub metadata: LogicalDisplayMetadata,
+    pub state: LogicalDisplayState,
 }
 
 impl LogicalDisplayWindows {
@@ -40,6 +40,7 @@ impl LogicalDisplayWindows {
             ..Default::default()
         }
     }
+
     pub fn matches(&self, id: &DisplayIdentifierInner) -> bool {
         if let Some(ref name) = id.outer.name {
             if !self.metadata.name.starts_with(name) {
@@ -55,26 +56,6 @@ impl LogicalDisplayWindows {
 
         true
     }
-}
-
-/// Wrapper for Windows target device metadata.
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Default)]
-pub struct LogicalDisplayWindowsState {
-    pub is_enabled: bool,
-    pub orientation: Orientation,
-    pub width: Option<u32>,
-    pub height: Option<u32>,
-    pub pixel_format: Option<PixelFormat>,
-    pub position: Option<Point>,
-}
-
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub enum PixelFormat {
-    BPP8 = 1,
-    BPP16 = 2,
-    BPP24 = 3,
-    BPP32 = 4,
-    NONGDI = 5,
 }
 
 impl From<&DISPLAYCONFIG_PIXELFORMAT> for PixelFormat {
@@ -102,14 +83,6 @@ impl From<&PixelFormat> for DISPLAYCONFIG_PIXELFORMAT {
     }
 }
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub enum Orientation {
-    Landscape = 0,          // 0° (normal)
-    Portrait = 90,          // 90° clockwise
-    LandscapeFlipped = 180, // 180°
-    PortraitFlipped = 270,  // 270° clockwise
-}
-
 impl From<&DISPLAYCONFIG_ROTATION> for Orientation {
     fn from(value: &DISPLAYCONFIG_ROTATION) -> Self {
         match *value {
@@ -133,42 +106,6 @@ impl From<&Orientation> for DISPLAYCONFIG_ROTATION {
     }
 }
 
-impl Default for Orientation {
-    fn default() -> Self {
-        Self::Landscape
-    }
-}
-
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub struct Point {
-    pub x: i32,
-    pub y: i32,
-}
-
-// TODO Should be moved to CLI part.
-impl FromStr for Point {
-    type Err = String;
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        let items: Vec<&str> = value.split(',').collect();
-        if items.len() != 2 {
-            return Err(format!("`{value}` needs to be of the format `x,y`."));
-        }
-
-        let numbers: Vec<i32> = items
-            .into_iter()
-            .map(|item| {
-                item.parse::<i32>()
-                    .map_err(|_| format!("`{item}` is not a valid unsigned number"))
-            })
-            .collect::<Result<_, Self::Err>>()?;
-
-        Ok(Point {
-            x: numbers[0],
-            y: numbers[1],
-        })
-    }
-}
-
 impl From<&POINTL> for Point {
     fn from(value: &POINTL) -> Self {
         Self {
@@ -185,14 +122,6 @@ impl From<&Point> for POINTL {
             y: value.y,
         }
     }
-}
-
-/// Wrapper for Windows target device metadata.
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub struct LogicalDisplayWindowsMetadata {
-    pub name: String,
-    pub path: String,
-    pub gdi_device_id: u32,
 }
 
 impl TryFrom<&PathInfo> for LogicalDisplayWindows {
@@ -212,9 +141,6 @@ impl TryFrom<&PathInfo> for LogicalDisplayWindows {
             logical_display.state.position = Some((&source_mode.position).into());
 
             tracing::warn!("source_mode = {:?}", source_mode);
-            // tracing::warn!("targetMode = {:?}", unsafe {
-            //     mode_source.Anonymous.targetMode
-            // });
         }
 
         Ok(logical_display)
@@ -255,7 +181,7 @@ impl TryFrom<&DISPLAYCONFIG_PATH_INFO> for LogicalDisplayWindows {
         let target = (target_device_name, source_device_name).try_into()?;
         Ok(Self {
             metadata: target,
-            state: LogicalDisplayWindowsState {
+            state: LogicalDisplayState {
                 is_enabled,
                 orientation,
                 ..Default::default()
@@ -268,7 +194,7 @@ impl
     TryFrom<(
         DISPLAYCONFIG_TARGET_DEVICE_NAME,
         DISPLAYCONFIG_SOURCE_DEVICE_NAME,
-    )> for LogicalDisplayWindowsMetadata
+    )> for LogicalDisplayMetadata
 {
     type Error = WindowsError;
 
@@ -316,7 +242,16 @@ impl
         Ok(Self {
             name,
             path,
-            gdi_device_id,
+            gdi_device_id: Some(gdi_device_id),
         })
+    }
+}
+
+impl From<LogicalDisplayWindows> for LogicalDisplay {
+    fn from(value: LogicalDisplayWindows) -> Self {
+        Self {
+            metadata: value.metadata,
+            state: value.state,
+        }
     }
 }

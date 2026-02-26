@@ -5,7 +5,7 @@ use display_identifier::DisplayIdentifier;
 use display_update::{DisplayUpdate, LogicalDisplayUpdateContent, PhysicalDisplayUpdateContent};
 use displays_lib::{self as lib};
 use pyo3::{exceptions::PyException, prelude::*};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::util::SubscriberInitExt;
 
 use crate::display::{Orientation, Point};
 
@@ -64,9 +64,8 @@ fn validate(updates: Vec<DisplayUpdate>) -> PyResult<Vec<DisplayUpdate>> {
 
 #[pyfunction]
 pub fn initialize_tracing(py_impl: Bound<'_, PyAny>) {
-    tracing_subscriber::registry()
-        .with(pyo3_python_tracing_subscriber::PythonCallbackLayerBridge::new(py_impl))
-        .init();
+    let _ = py_impl;
+    tracing_subscriber::registry().init();
 }
 
 #[pymodule]

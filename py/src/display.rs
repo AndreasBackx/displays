@@ -57,13 +57,13 @@ impl std::fmt::Display for Orientation {
     }
 }
 
-impl From<lib::windows::logical_display::Orientation> for Orientation {
-    fn from(value: lib::windows::logical_display::Orientation) -> Self {
+impl From<lib::types::Orientation> for Orientation {
+    fn from(value: lib::types::Orientation) -> Self {
         match value {
-            lib::windows::logical_display::Orientation::Landscape => Self::Landscape,
-            lib::windows::logical_display::Orientation::Portrait => Self::Portrait,
-            lib::windows::logical_display::Orientation::LandscapeFlipped => Self::LandscapeFlipped,
-            lib::windows::logical_display::Orientation::PortraitFlipped => Self::PortraitFlipped,
+            lib::types::Orientation::Landscape => Self::Landscape,
+            lib::types::Orientation::Portrait => Self::Portrait,
+            lib::types::Orientation::LandscapeFlipped => Self::LandscapeFlipped,
+            lib::types::Orientation::PortraitFlipped => Self::PortraitFlipped,
         }
     }
 }
@@ -108,8 +108,8 @@ impl Point {
     }
 }
 
-impl From<lib::windows::logical_display::Point> for Point {
-    fn from(value: lib::windows::logical_display::Point) -> Self {
+impl From<lib::types::Point> for Point {
+    fn from(value: lib::types::Point) -> Self {
         Point {
             x: value.x,
             y: value.y,

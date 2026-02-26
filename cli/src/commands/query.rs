@@ -11,6 +11,11 @@ pub struct QueryCommand {
 
 impl Command for QueryCommand {
     fn run(&self) -> eyre::Result<()> {
+        #[cfg(feature = "linux")]
+        if self.is_enabled.is_some() {
+            eyre::bail!("--enabled uses logical display state and is not supported on Linux");
+        }
+
         let displays = lib::manager::DisplayManager::query()?
             .into_iter()
             .collect::<Vec<_>>();

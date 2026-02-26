@@ -1,12 +1,10 @@
-use std::str::FromStr;
-
 use clap::Parser;
 
 use crate::commands::Command;
 use displays_lib::{
     self as lib, display::DisplayUpdate, display_identifier::DisplayIdentifier,
     logical_display::LogicalDisplayUpdateContent, physical_display::PhysicalDisplayUpdateContent,
-    windows::logical_display::Point,
+    types::Point,
 };
 
 #[derive(Parser)]
@@ -101,6 +99,11 @@ impl From<PhysicalDisplayUpdateContentArgs> for PhysicalDisplayUpdateContent {
 
 impl Command for ApplyCommand {
     fn run(&self) -> eyre::Result<()> {
+        #[cfg(feature = "linux")]
+        if self.update.logical.is_some() {
+            eyre::bail!("logical display updates are not supported on Linux");
+        }
+
         let update = self.update.clone().into();
 
         eprintln!("{update:#?}");

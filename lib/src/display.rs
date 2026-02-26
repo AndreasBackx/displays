@@ -1,28 +1,24 @@
 use crate::{
     display_identifier::{DisplayIdentifier, DisplayIdentifierInner},
-    logical_display::LogicalDisplayUpdateContent,
-    physical_display::PhysicalDisplayUpdateContent,
-    windows::{
-        logical_display::{LogicalDisplayWindows, LogicalDisplayWindowsMetadata},
-        physical_display::{PhysicalDisplayWindows, PhysicalDisplayWindowsMetadata},
-    },
+    logical_display::{LogicalDisplay, LogicalDisplayMetadata, LogicalDisplayUpdateContent},
+    physical_display::{PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayUpdateContent},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DisplayMetadata {
-    pub physical: Option<PhysicalDisplayWindowsMetadata>,
+    pub physical: Option<PhysicalDisplayMetadata>,
     // In the future this should allow for more than one, but that future is
     // not now.
-    pub logical: LogicalDisplayWindowsMetadata,
+    pub logical: LogicalDisplayMetadata,
 }
 
 #[derive(Debug)]
 pub struct Display {
     // Displays that do not support DDC/CI will not have a physical display.
-    pub physical: Option<PhysicalDisplayWindows>,
+    pub physical: Option<PhysicalDisplay>,
     // In the future this should allow for more than one, but that future is
     // not now.
-    pub logical: LogicalDisplayWindows,
+    pub logical: LogicalDisplay,
 }
 
 impl DisplayMetadata {
@@ -44,7 +40,7 @@ impl DisplayMetadata {
                 .as_ref()
                 .map(|physical| physical.path.clone())
                 .or_else(|| Some(self.logical.path.clone())),
-            gdi_device_id: Some(self.logical.gdi_device_id),
+            gdi_device_id: self.logical.gdi_device_id,
         }
     }
 }
