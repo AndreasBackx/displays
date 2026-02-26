@@ -86,7 +86,10 @@ impl PhysicalDisplayManagerLinux {
                 continue;
             };
 
-            Self::set_brightness(ddc_id, brightness)?;
+            if let Err(err) = Self::set_brightness(ddc_id, brightness) {
+                tracing::warn!("Failed to set brightness for display '{}': {}", ddc_id, err);
+                remaining_updates.push(update);
+            }
         }
 
         Ok(remaining_updates)
@@ -98,20 +101,38 @@ impl PhysicalDisplayManagerLinux {
         for mut display in Display::enumerate() {
             let info = display.info.clone();
             let display_id = info.id.clone();
-            let vcp = display
-                .handle
-                .get_vcp_feature(FeatureCode::from(0x10))
-                .map_err(|err| classify_query_error(display_id.clone(), err.to_string()))?;
+            let brightness = match display.handle.get_vcp_feature(FeatureCode::from(0x10)) {
+                Ok(vcp) => {
+                    let maximum = vcp.maximum();
+                    if maximum == 0 {
+                        tracing::warn!(
+                            "Skipping display '{}' because brightness max was reported as 0",
+                            display_id
+                        );
+                        continue;
+                    }
+                    ((vcp.value() as f64 / maximum as f64) * 100.0).round() as u8
+                }
+                Err(err) => {
+                    let message = err.to_string();
+                    if is_io_error(&message) {
+                        tracing::warn!(
+                            "Assuming 0% brightness for display '{}' due to I/O error: {}",
+                            display_id,
+                            message
+                        );
+                        0
+                    } else {
+                        tracing::warn!(
+                            "Skipping display '{}' due to query error: {}",
+                            display_id,
+                            message
+                        );
+                        continue;
+                    }
+                }
+            };
 
-            let maximum = vcp.maximum();
-            if maximum == 0 {
-                return Err(PhysicalDisplayQueryError::UnsupportedMonitor {
-                    display_id,
-                    message: "reported brightness max value is 0".to_string(),
-                });
-            }
-
-            let brightness = ((vcp.value() as f64 / maximum as f64) * 100.0).round() as u8;
             let metadata = metadata_from_info(&info);
 
             handles.push(LinuxDisplayHandle {
@@ -198,26 +219,6 @@ fn stable_fallback_id(value: &str) -> String {
     format!("{hash:016x}")
 }
 
-fn classify_query_error(display_id: String, message: String) -> PhysicalDisplayQueryError {
-    let lowercase = message.to_lowercase();
-    if lowercase.contains("permission denied") {
-        return PhysicalDisplayQueryError::PermissionDenied { display_id };
-    }
-    if lowercase.contains("/dev/i2c") || lowercase.contains("no such file") {
-        return PhysicalDisplayQueryError::MissingI2cAccess { display_id };
-    }
-    if lowercase.contains("unsupported") || lowercase.contains("vcp") {
-        return PhysicalDisplayQueryError::UnsupportedMonitor {
-            display_id,
-            message,
-        };
-    }
-    PhysicalDisplayQueryError::DdcOperation {
-        display_id,
-        message,
-    }
-}
-
 fn classify_apply_error(display_id: String, message: String) -> PhysicalDisplayApplyError {
     let lowercase = message.to_lowercase();
     if lowercase.contains("permission denied") {
@@ -236,4 +237,9 @@ fn classify_apply_error(display_id: String, message: String) -> PhysicalDisplayA
         display_id,
         message,
     }
+}
+
+fn is_io_error(message: &str) -> bool {
+    let lowercase = message.to_lowercase();
+    lowercase.contains("input/output error") || lowercase.contains("os error 5")
 }

@@ -315,24 +315,30 @@ fn apply_linux(
         return Err(LogicalDisplayApplyError::Unsupported.into());
     }
 
-    let ids: BTreeSet<_> = updates
-        .clone()
-        .into_iter()
-        .map(|update| update.id)
-        .collect();
-    let mut id_mapping = DisplayManager::get_inner(ids)?;
-    let updates_inner: Vec<_> = updates
-        .into_iter()
-        .filter_map(|update| {
-            id_mapping
-                .remove(&update.id)
-                .map(|(id_inner, _display)| DisplayUpdateInner {
-                    id: id_inner,
-                    logical: None,
-                    physical: update.physical,
-                })
-        })
-        .collect();
+    let displays = DisplayManager::query()?;
+    let mut updates_inner = Vec::new();
+    let mut unmatched_updates = Vec::new();
+
+    for update in updates {
+        let matched_ids: Vec<_> = displays
+            .iter()
+            .map(|display| display.id())
+            .filter(|id| update.id.is_subset(&id.outer))
+            .collect();
+
+        if matched_ids.is_empty() {
+            unmatched_updates.push(update);
+            continue;
+        }
+
+        for id in matched_ids {
+            updates_inner.push(DisplayUpdateInner {
+                id,
+                logical: None,
+                physical: update.physical.clone(),
+            });
+        }
+    }
 
     let physical_updates: Vec<PhysicalDisplayUpdate> = if validate {
         vec![]
@@ -351,6 +357,7 @@ fn apply_linux(
             physical: Some(physical_update.content),
             logical: None,
         })
+        .chain(unmatched_updates)
         .collect())
 }
 
