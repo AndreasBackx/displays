@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::sync::mpsc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use ddc_hi::{Ddc, Display, FeatureCode};
 use thiserror::Error;
@@ -44,7 +44,7 @@ pub enum PhysicalDisplayApplyError {
 
 pub struct PhysicalDisplayManagerLinux;
 
-const PER_MONITOR_APPLY_TIMEOUT: Duration = Duration::from_millis(1500);
+const PER_MONITOR_APPLY_TIMEOUT: Duration = Duration::from_millis(3500);
 
 #[derive(Clone)]
 struct LinuxDisplayHandle {
@@ -78,7 +78,6 @@ impl PhysicalDisplayManagerLinux {
                 let metadata = metadata_from_info(&display.info);
                 ApplyDisplayDescriptor {
                     id: Self::id_from_metadata(&metadata),
-                    ddc_id: display.info.id.clone(),
                 }
             })
             .collect();
@@ -107,7 +106,6 @@ impl PhysicalDisplayManagerLinux {
             for index in matched_indices {
                 matched_updates.push(PhysicalApplyUpdate {
                     id: descriptors[index].id.clone(),
-                    ddc_id: descriptors[index].ddc_id.clone(),
                     brightness: update
                         .physical
                         .as_ref()
@@ -119,27 +117,14 @@ impl PhysicalDisplayManagerLinux {
 
         let mut display_by_index: BTreeMap<usize, Display> =
             displays.into_iter().enumerate().collect();
-        let (result_sender, result_receiver) = mpsc::channel();
-        let mut pending_updates = BTreeMap::new();
 
-        for (index, update) in matched_updates.into_iter().enumerate() {
+        for update in matched_updates.into_iter() {
             let Some(brightness) = update.brightness else {
                 continue;
             };
-            let outer_id = update.id.outer.clone();
-
-            pending_updates.insert(
-                index,
-                PendingApplyUpdate {
-                    id: update.id,
-                    ddc_id: update.ddc_id.clone(),
-                    brightness,
-                    deadline: Instant::now() + PER_MONITOR_APPLY_TIMEOUT,
-                },
-            );
+            let outer_id = update.id.outer;
 
             let Some(display) = display_by_index.remove(&update.display_index) else {
-                pending_updates.remove(&index);
                 remaining_updates.push(DisplayUpdate {
                     id: outer_id,
                     logical: None,
@@ -150,87 +135,20 @@ impl PhysicalDisplayManagerLinux {
                 continue;
             };
 
-            let sender = result_sender.clone();
-            std::thread::spawn(move || {
-                let mut display = display;
-                let result = Self::set_brightness(&mut display, brightness);
-                let _ = sender.send((index, result));
-            });
-        }
-        drop(result_sender);
-
-        while !pending_updates.is_empty() {
-            let now = Instant::now();
-            let next_deadline = pending_updates
-                .values()
-                .map(|pending| pending.deadline)
-                .min()
-                .unwrap_or(now);
-            let wait_time = if next_deadline > now {
-                next_deadline - now
-            } else {
-                Duration::from_millis(0)
-            };
-
-            match result_receiver.recv_timeout(wait_time) {
-                Ok((index, result)) => {
-                    let Some(pending) = pending_updates.remove(&index) else {
-                        continue;
-                    };
-                    if let Err(err) = result {
-                        tracing::warn!(
-                            "Failed to set brightness for display '{}': {}",
-                            pending.ddc_id,
-                            err
-                        );
-                        remaining_updates.push(DisplayUpdate {
-                            id: pending.id.outer,
-                            logical: None,
-                            physical: Some(crate::physical_display::PhysicalDisplayUpdateContent {
-                                brightness: Some(pending.brightness),
-                            }),
-                        });
-                    }
-                }
-                Err(mpsc::RecvTimeoutError::Timeout) => {
-                    let timed_out: Vec<_> = pending_updates
-                        .iter()
-                        .filter_map(|(index, pending)| {
-                            (pending.deadline <= Instant::now()).then_some(*index)
-                        })
-                        .collect();
-
-                    for index in timed_out {
-                        if let Some(pending) = pending_updates.remove(&index) {
-                            tracing::warn!(
-                                "Brightness apply timed out for display '{}' after {:?}",
-                                pending.ddc_id,
-                                PER_MONITOR_APPLY_TIMEOUT
-                            );
-                            remaining_updates.push(DisplayUpdate {
-                                id: pending.id.outer,
-                                logical: None,
-                                physical: Some(
-                                    crate::physical_display::PhysicalDisplayUpdateContent {
-                                        brightness: Some(pending.brightness),
-                                    },
-                                ),
-                            });
-                        }
-                    }
-                }
-                Err(mpsc::RecvTimeoutError::Disconnected) => {
-                    for (_, pending) in pending_updates {
-                        remaining_updates.push(DisplayUpdate {
-                            id: pending.id.outer,
-                            logical: None,
-                            physical: Some(crate::physical_display::PhysicalDisplayUpdateContent {
-                                brightness: Some(pending.brightness),
-                            }),
-                        });
-                    }
-                    break;
-                }
+            let display_id = display.info.id.clone();
+            if let Err(err) = Self::set_brightness_with_timeout(display, brightness) {
+                tracing::warn!(
+                    "Failed to set brightness for display '{}': {}",
+                    display_id,
+                    err
+                );
+                remaining_updates.push(DisplayUpdate {
+                    id: outer_id,
+                    logical: None,
+                    physical: Some(crate::physical_display::PhysicalDisplayUpdateContent {
+                        brightness: Some(brightness),
+                    }),
+                });
             }
         }
 
@@ -321,6 +239,33 @@ impl PhysicalDisplayManagerLinux {
             .map_err(|err| classify_apply_error(display.info.id.clone(), err.to_string()))
     }
 
+    fn set_brightness_with_timeout(
+        display: Display,
+        brightness: u32,
+    ) -> Result<(), PhysicalDisplayApplyError> {
+        let display_id = display.info.id.clone();
+        let (sender, receiver) = mpsc::channel();
+        std::thread::spawn(move || {
+            let mut display = display;
+            let result = Self::set_brightness(&mut display, brightness);
+            let _ = sender.send(result);
+        });
+
+        match receiver.recv_timeout(PER_MONITOR_APPLY_TIMEOUT) {
+            Ok(result) => result,
+            Err(mpsc::RecvTimeoutError::Timeout) => Err(PhysicalDisplayApplyError::DdcOperation {
+                display_id,
+                message: format!("timed out after {:?}", PER_MONITOR_APPLY_TIMEOUT),
+            }),
+            Err(mpsc::RecvTimeoutError::Disconnected) => {
+                Err(PhysicalDisplayApplyError::DdcOperation {
+                    display_id,
+                    message: "apply worker disconnected unexpectedly".to_string(),
+                })
+            }
+        }
+    }
+
     fn id_from_metadata(metadata: &PhysicalDisplayMetadata) -> DisplayIdentifierInner {
         DisplayIdentifierInner {
             outer: crate::display_identifier::DisplayIdentifier {
@@ -335,21 +280,12 @@ impl PhysicalDisplayManagerLinux {
 
 struct PhysicalApplyUpdate {
     id: DisplayIdentifierInner,
-    ddc_id: String,
     brightness: Option<u32>,
     display_index: usize,
 }
 
-struct PendingApplyUpdate {
-    id: DisplayIdentifierInner,
-    ddc_id: String,
-    brightness: u32,
-    deadline: Instant,
-}
-
 struct ApplyDisplayDescriptor {
     id: DisplayIdentifierInner,
-    ddc_id: String,
 }
 
 fn metadata_from_info(info: &ddc_hi::DisplayInfo) -> PhysicalDisplayMetadata {
