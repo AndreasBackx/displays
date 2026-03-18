@@ -46,6 +46,7 @@ pub enum LogicalDisplayApplyError {
     Unsupported,
 }
 
+/// Errors that can occur while querying display state.
 #[derive(Error, Debug)]
 pub enum DisplayQueryError {
     #[error("physical querying error")]
@@ -60,6 +61,7 @@ pub enum DisplayQueryError {
     },
 }
 
+/// Errors that can occur while applying display updates.
 #[derive(Error, Debug)]
 pub enum DisplayApplyError {
     #[error("error while first querying displays")]
@@ -79,9 +81,15 @@ pub enum DisplayApplyError {
     },
 }
 
+/// High-level entry point for querying and updating displays.
+///
+/// On Windows, logical and physical display operations are supported.
+/// On Linux, display querying and brightness updates are supported, but logical
+/// display operations are currently unsupported.
 pub struct DisplayManager;
 
 impl DisplayManager {
+    /// Queries the current display state.
     #[tracing::instrument(ret, level = "trace")]
     pub fn query() -> Result<Vec<Display>, DisplayQueryError> {
         #[cfg(target_os = "windows")]
@@ -112,6 +120,7 @@ impl DisplayManager {
             .collect())
     }
 
+    /// Looks up displays matching the provided user-facing identifiers.
     pub fn get(
         ids: BTreeSet<DisplayIdentifier>,
     ) -> Result<BTreeMap<DisplayIdentifier, Display>, DisplayQueryError> {
@@ -123,6 +132,10 @@ impl DisplayManager {
         })
     }
 
+    /// Applies the requested display updates.
+    ///
+    /// When `validate` is `true`, backends may validate updates without applying
+    /// them if the platform supports that behavior.
     #[tracing::instrument(ret, level = "trace")]
     pub fn apply(
         updates: Vec<DisplayUpdate>,
@@ -139,10 +152,12 @@ impl DisplayManager {
         }
     }
 
+    /// Applies the requested display updates without validation-only mode.
     pub fn update(updates: Vec<DisplayUpdate>) -> Result<Vec<DisplayUpdate>, DisplayApplyError> {
         Self::apply(updates, false)
     }
 
+    /// Validates the requested display updates when supported by the platform backend.
     pub fn validate(updates: Vec<DisplayUpdate>) -> Result<Vec<DisplayUpdate>, DisplayApplyError> {
         Self::apply(updates, true)
     }

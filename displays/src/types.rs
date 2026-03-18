@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+/// Platform pixel format identifiers used by logical display state.
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum PixelFormat {
     BPP8 = 1,
@@ -9,6 +10,7 @@ pub enum PixelFormat {
     NONGDI = 5,
 }
 
+/// Display orientation in degrees clockwise.
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Orientation {
     Landscape = 0,
@@ -23,9 +25,12 @@ impl Default for Orientation {
     }
 }
 
+/// A 2D point used for logical display positioning.
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
 pub struct Point {
+    /// Horizontal position.
     pub x: i32,
+    /// Vertical position.
     pub y: i32,
 }
 

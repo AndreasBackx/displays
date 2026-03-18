@@ -4,24 +4,31 @@ use crate::{
     physical_display::{PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayUpdateContent},
 };
 
+/// Metadata used to identify a display across logical and physical backends.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DisplayMetadata {
+    /// Physical monitor metadata when the display exposes a physical interface.
     pub physical: Option<PhysicalDisplayMetadata>,
     // In the future this should allow for more than one, but that future is
     // not now.
+    /// Logical display metadata reported by the operating system.
     pub logical: LogicalDisplayMetadata,
 }
 
+/// A display with logical state and, when available, physical monitor state.
 #[derive(Debug)]
 pub struct Display {
     // Displays that do not support DDC/CI will not have a physical display.
+    /// Physical monitor state when a physical monitor could be matched.
     pub physical: Option<PhysicalDisplay>,
     // In the future this should allow for more than one, but that future is
     // not now.
+    /// Logical display state reported by the platform backend.
     pub logical: LogicalDisplay,
 }
 
 impl DisplayMetadata {
+    /// Builds the best-effort identifier for this display metadata.
     pub fn id(&self) -> DisplayIdentifierInner {
         DisplayIdentifierInner {
             outer: DisplayIdentifier {
@@ -46,6 +53,7 @@ impl DisplayMetadata {
 }
 
 impl Display {
+    /// Returns the metadata describing this display.
     pub fn metadata(&self) -> DisplayMetadata {
         DisplayMetadata {
             physical: self
@@ -56,15 +64,23 @@ impl Display {
         }
     }
 
+    /// Returns the best-effort identifier for this display.
     pub fn id(&self) -> DisplayIdentifierInner {
         self.metadata().id()
     }
 }
 
+/// A request to update one display.
+///
+/// Logical and physical updates can be combined when the target platform supports
+/// them. On Linux, logical updates are currently unsupported.
 #[derive(Debug, Default, Clone)]
 pub struct DisplayUpdate {
+    /// The user-facing identifier used to match displays.
     pub id: DisplayIdentifier,
+    /// Requested logical display changes.
     pub logical: Option<LogicalDisplayUpdateContent>,
+    /// Requested physical monitor changes.
     pub physical: Option<PhysicalDisplayUpdateContent>,
 }
 
@@ -75,10 +91,14 @@ pub(crate) struct DisplayUpdateInner {
     pub(crate) physical: Option<PhysicalDisplayUpdateContent>,
 }
 
+/// Brightness percentage in the inclusive range `0..=100`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Brightness(u8);
 
 impl Brightness {
+    /// Creates a brightness percentage.
+    ///
+    /// Values above `100` currently panic.
     pub const fn new(value: u8) -> Self {
         if value > 100 {
             // TODO Remove
@@ -87,6 +107,7 @@ impl Brightness {
         Self(value)
     }
 
+    /// Returns the brightness value as a percentage.
     pub fn value(&self) -> u8 {
         self.0
     }

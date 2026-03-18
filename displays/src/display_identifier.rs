@@ -1,6 +1,12 @@
+/// A user-facing identifier used to match one or more displays.
+///
+/// Matching is subset-based: any field set on this identifier must match the
+/// corresponding field on the target display.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DisplayIdentifier {
+    /// Human-readable display name when available.
     pub name: Option<String>,
+    /// Physical serial number when available.
     pub serial_number: Option<String>,
 }
 
@@ -13,6 +19,7 @@ pub struct DisplayIdentifierInner {
 }
 
 impl DisplayIdentifier {
+    /// Returns `true` when this identifier is a subset of `other`.
     #[tracing::instrument(ret, level = "debug")]
     pub fn is_subset(&self, other: &DisplayIdentifier) -> bool {
         if let Some(ref name) = self.name {
