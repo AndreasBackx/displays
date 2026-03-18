@@ -1,6 +1,6 @@
 // #![windows_subsystem = "windows"]
 #[cfg(not(any(target_os = "windows", target_os = "linux")))]
-compile_error!("displays-lib currently supports only Windows and Linux targets");
+compile_error!("displays currently supports only Windows and Linux targets");
 
 pub mod display;
 pub mod display_identifier;

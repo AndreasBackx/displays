@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use display::{Display, LogicalDisplay, PhysicalDisplay};
 use display_identifier::DisplayIdentifier;
 use display_update::{DisplayUpdate, LogicalDisplayUpdateContent, PhysicalDisplayUpdateContent};
-use displays_lib::{self as lib};
+use displays_core::{self as lib};
 use pyo3::{exceptions::PyException, prelude::*};
 use tracing_subscriber::util::SubscriberInitExt;
 

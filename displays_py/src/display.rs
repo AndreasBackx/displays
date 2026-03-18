@@ -1,4 +1,4 @@
-use displays_lib::{self as lib};
+use displays_core::{self as lib};
 use pyo3::prelude::*;
 
 use crate::display_identifier::DisplayIdentifier;

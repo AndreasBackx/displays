@@ -1,5 +1,5 @@
 [package]
-name = "displays-lib"
+name = "displays"
 version = "0.1.0"
 edition = "2021"
 

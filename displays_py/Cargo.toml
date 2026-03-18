@@ -1,5 +1,5 @@
 [package]
-name = "displays-py"
+name = "displays_py"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,4 +12,4 @@ crate-type = ["cdylib"]
 pyo3 = "0.25.1"
 tracing-subscriber = "0.3.19"
 tracing = "0.1.41"
-displays-lib = { path = "../lib" }
+displays_core = { package = "displays", path = "../displays" }

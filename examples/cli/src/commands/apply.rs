@@ -1,7 +1,7 @@
 use clap::Parser;
 
 use crate::commands::Command;
-use displays_lib::{
+use displays::{
     self as lib, display::DisplayUpdate, display_identifier::DisplayIdentifier,
     logical_display::LogicalDisplayUpdateContent, physical_display::PhysicalDisplayUpdateContent,
     types::Point,

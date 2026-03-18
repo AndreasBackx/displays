@@ -1,7 +1,7 @@
 use clap::Parser;
 
 use crate::commands::Command;
-use displays_lib::{self as lib};
+use displays::{self as lib};
 
 #[derive(Parser)]
 pub struct QueryCommand {
