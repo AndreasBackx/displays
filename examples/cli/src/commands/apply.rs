@@ -106,18 +106,28 @@ impl Command for ApplyCommand {
 
         let update = self.update.clone().into();
 
-        eprintln!("{update:#?}");
-
         let remaining_updates = lib::manager::DisplayManager::apply(vec![update], self.validate)?
             .into_iter()
             .collect::<Vec<_>>();
 
         if remaining_updates.is_empty() {
-            println!("No remaining updates!");
+            if self.validate {
+                println!("Validation succeeded; all updates can be applied.");
+            } else {
+                println!("Update applied successfully.");
+            }
+            return Ok(());
         }
 
-        for display in remaining_updates {
-            println!("{display:#?}");
+        println!("Some updates could not be matched or applied:");
+
+        for update in remaining_updates {
+            let target = update
+                .id
+                .name
+                .or(update.id.serial_number)
+                .unwrap_or_else(|| "unknown display".to_string());
+            println!("- {target}");
         }
         Ok(())
     }
