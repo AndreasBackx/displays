@@ -4,7 +4,7 @@ use display::{Display, LogicalDisplay, PhysicalDisplay};
 use display_identifier::DisplayIdentifier;
 use display_update::{DisplayUpdate, LogicalDisplayUpdateContent, PhysicalDisplayUpdateContent};
 use displays_core::{self as lib};
-use pyo3::{exceptions::PyException, prelude::*};
+use pyo3::{exceptions::PyRuntimeError, prelude::*};
 use tracing_subscriber::util::SubscriberInitExt;
 
 use crate::display::{Orientation, Point};
@@ -13,11 +13,15 @@ mod display;
 mod display_identifier;
 mod display_update;
 
+fn into_py_runtime_error(err: impl std::fmt::Display) -> PyErr {
+    PyRuntimeError::new_err(err.to_string())
+}
+
 #[tracing::instrument]
 #[pyfunction]
 fn get(ids: BTreeSet<DisplayIdentifier>) -> PyResult<BTreeMap<DisplayIdentifier, Display>> {
     let displays = lib::manager::DisplayManager::get(ids.into_iter().map(|id| id.into()).collect())
-        .map_err(|err| PyException::new_err(format!("{err:#?}")))?
+        .map_err(into_py_runtime_error)?
         .into_iter()
         .map(|(id, display)| (id.into(), display.into()))
         .collect::<BTreeMap<_, _>>();
@@ -29,7 +33,7 @@ fn get(ids: BTreeSet<DisplayIdentifier>) -> PyResult<BTreeMap<DisplayIdentifier,
 #[pyfunction]
 fn query() -> PyResult<Vec<Display>> {
     let displays = lib::manager::DisplayManager::query()
-        .map_err(|err| PyException::new_err(format!("{err:#?}")))?
+        .map_err(into_py_runtime_error)?
         .into_iter()
         .map(|display| display.into())
         .collect::<Vec<_>>();
@@ -44,7 +48,7 @@ fn _apply(updates: Vec<DisplayUpdate>, validate: bool) -> PyResult<Vec<DisplayUp
         updates.into_iter().map(|update| update.into()).collect(),
         validate,
     )
-    .map_err(|err| PyException::new_err(format!("{err:#?}")))?
+    .map_err(into_py_runtime_error)?
     .into_iter()
     .map(|display| display.into())
     .collect::<Vec<_>>();
@@ -62,16 +66,13 @@ fn validate(updates: Vec<DisplayUpdate>) -> PyResult<Vec<DisplayUpdate>> {
     _apply(updates, true)
 }
 
-#[pyfunction]
-pub fn initialize_tracing(py_impl: Bound<'_, PyAny>) {
-    let _ = py_impl;
+#[allow(dead_code)]
+fn initialize_tracing() {
     tracing_subscriber::registry().init();
 }
 
 #[pymodule]
 fn displays(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(initialize_tracing, m)?)?;
-
     m.add_function(wrap_pyfunction!(apply, m)?)?;
     m.add_function(wrap_pyfunction!(validate, m)?)?;
     m.add_function(wrap_pyfunction!(get, m)?)?;

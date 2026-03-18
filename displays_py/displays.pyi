@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import enum
-from collections.abc import Sequence, Set
-from typing import Any
+from collections.abc import Mapping, Sequence, Set
 
-def initialize_tracing(layer: Any) -> None: ...
 def apply(updates: Sequence[DisplayUpdate]) -> Sequence[DisplayUpdate]: ...
 def validate(updates: Sequence[DisplayUpdate]) -> Sequence[DisplayUpdate]: ...
 def query() -> Sequence[Display]: ...
-def get(ids: Set[DisplayIdentifier]) -> Sequence[Display]: ...
+def get(ids: Set[DisplayIdentifier]) -> Mapping[DisplayIdentifier, Display]: ...
 
 class DisplayIdentifier:
     name: str | None
@@ -93,9 +91,9 @@ class Point:
 class LogicalDisplay:
     is_enabled: bool
     orientation: Orientation
-    width: int
-    height: int
-    position: Point
+    width: int | None
+    height: int | None
+    position: Point | None
 
     def __str__(self) -> str: ...
     def __repr__(self) -> str: ...
