@@ -8,16 +8,9 @@ tracing = "0.1.40"
 thiserror = "2.0.7"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { version = "0.61.3", features = [
-    "Win32_Devices",
-    "Win32_Devices_Display",
-    "Win32_Foundation",
-    "Win32_Graphics",
-    "Win32_Graphics_Gdi",
-    "Win32_UI_Shell_Common",
-] }
-winreg = "0.52.0"
-edid-rs = { git = "https://github.com/AndreasBackx/edid-rs", rev = "f083f135e1c7077285b951f25692562f85d1aac1" }
+displays_logical_windows = { path = "../displays_logical_windows" }
+displays_physical_windows = { path = "../displays_physical_windows" }
+displays_windows_common = { path = "../displays_windows_common" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 displays_physical_linux = { path = "../displays_physical_linux" }

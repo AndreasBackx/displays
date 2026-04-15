@@ -1,3 +1,4 @@
+use displays_windows_common::{error::WindowsError, types::Brightness};
 use windows::Win32::{
     Devices::Display::{
         GetNumberOfPhysicalMonitorsFromHMONITOR, GetPhysicalMonitorsFromHMONITOR, PHYSICAL_MONITOR,
@@ -6,12 +7,7 @@ use windows::Win32::{
     UI::Shell::GetScaleFactorForMonitor,
 };
 
-use crate::display::Brightness;
-
-use super::{
-    error::WindowsError, physical_manager::PhysicalDisplayApplyError,
-    physical_monitor::PhysicalMonitor,
-};
+use crate::{error::ApplyError, physical_monitor::PhysicalMonitor};
 
 #[derive(Debug)]
 pub(crate) struct Monitor(pub(crate) HMONITOR);
@@ -38,28 +34,24 @@ impl Monitor {
 
     pub(crate) fn get_brightness(&self) -> Result<Brightness, WindowsError> {
         let physical_monitors = self.get_physical_monitors()?;
-        if physical_monitors.len() != 1 {
-            PhysicalDisplayApplyError::Unsupported {
-                message: format!(
-                    "{} physical monitors connected to 1 HMONITOR, this is not (yet) supported.",
-                    physical_monitors.len()
-                ),
-            };
-        }
-        let physical_monitor = physical_monitors[0];
+        let physical_monitor = physical_monitors
+            .first()
+            .ok_or_else(|| WindowsError::Other {
+                message: "no physical monitor found for HMONITOR".to_string(),
+            })?;
         let monitor_brightness = physical_monitor.get_brightness()?;
         Ok(Brightness::new(monitor_brightness.current as u8))
     }
 
-    pub(crate) fn set_brightness(&self, brightness: u32) -> Result<(), PhysicalDisplayApplyError> {
+    pub(crate) fn set_brightness(&self, brightness: u32) -> Result<(), ApplyError> {
         let physical_monitors = self.get_physical_monitors()?;
         if physical_monitors.len() != 1 {
-            PhysicalDisplayApplyError::Unsupported {
+            return Err(ApplyError::Unsupported {
                 message: format!(
                     "{} physical monitors connected to 1 HMONITOR, this is not (yet) supported.",
                     physical_monitors.len()
                 ),
-            };
+            });
         }
         let physical_monitor = physical_monitors[0];
         physical_monitor.set_brightness(brightness)?;

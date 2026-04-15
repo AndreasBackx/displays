@@ -1,71 +1,45 @@
 use std::collections::BTreeSet;
 
-use thiserror::Error;
 use windows::Win32::{
     Devices::Display::{
         GetDisplayConfigBufferSizes, QueryDisplayConfig, SetDisplayConfig, DISPLAYCONFIG_MODE_INFO,
-        DISPLAYCONFIG_PATH_INFO, QDC_ALL_PATHS, SDC_ALLOW_CHANGES, SDC_ALLOW_PATH_ORDER_CHANGES,
-        SDC_APPLY, SDC_TOPOLOGY_SUPPLIED, SDC_USE_SUPPLIED_DISPLAY_CONFIG, SDC_VALIDATE,
+        DISPLAYCONFIG_PATH_INFO, QDC_ALL_PATHS, SDC_ALLOW_CHANGES, SDC_APPLY,
+        SDC_USE_SUPPLIED_DISPLAY_CONFIG, SDC_VALIDATE,
     },
     Foundation::WIN32_ERROR,
     Graphics::Gdi::{DISPLAYCONFIG_PATH_ACTIVE, DISPLAYCONFIG_PATH_MODE_IDX_INVALID},
 };
 
-use crate::logical_display::LogicalDisplayUpdate;
-
-use super::{error::WindowsError, logical_display::LogicalDisplayWindows};
-
-#[derive(Error, Debug)]
-pub enum LogicalDisplayQueryError {
-    #[error(transparent)]
-    WindowsError {
-        #[from]
-        source: WindowsError,
-    },
-}
-
-#[derive(Error, Debug)]
-pub enum LogicalDisplayApplyError {
-    #[error(transparent)]
-    WindowsError {
-        #[from]
-        source: WindowsError,
-    },
-}
+use crate::{
+    error::{ApplyError, QueryError},
+    types::{LogicalDisplay, LogicalDisplayUpdate},
+};
+use displays_windows_common::error::WindowsError;
 
 #[derive(Clone)]
-pub struct LogicalDisplayManagerWindows {}
+pub struct LogicalDisplayManager {}
 
 struct DisplayConfig {
     paths: Vec<DISPLAYCONFIG_PATH_INFO>,
     modes: Vec<DISPLAYCONFIG_MODE_INFO>,
 }
 
-impl LogicalDisplayManagerWindows {
+impl LogicalDisplayManager {
     #[tracing::instrument(ret, level = "trace")]
-    pub fn metadata() -> Result<BTreeSet<LogicalDisplayWindows>, LogicalDisplayQueryError> {
+    pub fn query() -> Result<BTreeSet<LogicalDisplay>, QueryError> {
         let display_config = DisplayConfig::try_new()?;
-        let logical_displays: Vec<LogicalDisplayWindows> = display_config
+        let logical_displays: Vec<LogicalDisplay> = display_config
             .get_path_infos()
             .infos
             .iter()
             .map(|path_info| -> Result<_, _> { path_info.try_into() })
             .filter_map(|path| path.ok())
             .collect();
-        // let logical_displays: Vec<LogicalDisplayWindows> = display_config
-        //     .paths
-        //     .clone()
-        //     .into_iter()
-        //     .map(|path| -> Result<_, _> { path.try_into() })
-        //     .filter_map(|path| path.ok())
-        //     .collect();
 
         let (enabled_displays, disabled_displays): (BTreeSet<_>, BTreeSet<_>) = logical_displays
             .into_iter()
             .partition(|display| display.state.is_enabled);
 
-        // A display may be both in enabled and disabled because it may be represented/stored in
-        // more than one. So remove the disabled displays that are also in an enabled state.
         let only_disabled_displays: BTreeSet<_> = disabled_displays
             .into_iter()
             .filter(|disabled_display| {
@@ -81,33 +55,24 @@ impl LogicalDisplayManagerWindows {
         Ok(unique_configs)
     }
 
-    pub(crate) fn apply(
+    pub fn apply(
         updates: Vec<LogicalDisplayUpdate>,
         validate: bool,
-    ) -> Result<Vec<LogicalDisplayUpdate>, LogicalDisplayApplyError> {
-        if updates.len() == 0 {
+    ) -> Result<Vec<LogicalDisplayUpdate>, ApplyError> {
+        if updates.is_empty() {
             return Ok(updates);
         }
 
-        let mut display_config = DisplayConfig::try_new()?;
+        let display_config = DisplayConfig::try_new()?;
         let mut used_source_ids = display_config.get_used_source_ids();
         let mut remaining_updates = updates.clone();
-        let mut any_have_changed = false;
-
         let mut path_infos = PathInfos { infos: vec![] };
-        let mut all_path_infos = display_config.get_path_infos();
+        let all_path_infos = display_config.get_path_infos();
 
-        // "Should" be sorted by enabled first.
         for mut path_info in all_path_infos.infos.clone() {
-            // Invalidate all mode configs, needed to tell Windows to reuse existing configuration.
-            // path_info.path.sourceInfo.Anonymous.modeInfoIdx = DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
-            // path_info.path.targetInfo.Anonymous.modeInfoIdx = DISPLAYCONFIG_PATH_MODE_IDX_INVALID;
-
-            let Ok(logical_display): Result<LogicalDisplayWindows, _> = (&path_info).try_into()
-            else {
+            let Ok(logical_display): Result<LogicalDisplay, _> = (&path_info).try_into() else {
                 continue;
             };
-            tracing::debug!("logical_display: {logical_display:#?}");
 
             let Some((matching_update, matching_index)) = remaining_updates
                 .iter()
@@ -118,7 +83,6 @@ impl LogicalDisplayManagerWindows {
                         .map(|matching_update| (matching_update, index))
                 })
             else {
-                // path_infos.infos.push(path_info);
                 continue;
             };
 
@@ -127,35 +91,20 @@ impl LogicalDisplayManagerWindows {
                 let is_enabled =
                     path_info.path.flags & DISPLAYCONFIG_PATH_ACTIVE == DISPLAYCONFIG_PATH_ACTIVE;
 
-                // Whether the display update was used, if so then remove it from the remaining updates.
                 if should_enable {
-                    if is_enabled {
-                        tracing::trace!("Display is already enabled!");
-                    } else {
+                    if !is_enabled {
                         let source_is_free = !used_source_ids.contains(&source_id);
 
                         if !source_is_free {
-                            tracing::trace!("Trying to enable but source {source_id} is not free");
                             continue;
                         }
 
-                        tracing::trace!("Enabling display!");
-                        // Enable the display
                         path_info.path.flags |= DISPLAYCONFIG_PATH_ACTIVE;
                         used_source_ids.push(source_id);
-                        any_have_changed = true;
                     }
-                } else {
-                    tracing::trace!("Disabling display!");
-
-                    if !is_enabled {
-                        tracing::trace!("Display is already disabled!");
-                    } else {
-                        // Disable the display
-                        path_info.path.flags &= !DISPLAYCONFIG_PATH_ACTIVE;
-                        used_source_ids.retain(|used_source_id| used_source_id != &source_id);
-                        any_have_changed = true;
-                    }
+                } else if is_enabled {
+                    path_info.path.flags &= !DISPLAYCONFIG_PATH_ACTIVE;
+                    used_source_ids.retain(|used_source_id| used_source_id != &source_id);
                 }
             };
 
@@ -182,37 +131,10 @@ impl LogicalDisplayManagerWindows {
                 tracing::warn!("source_mode = {:?}", source_mode);
             }
 
-            // if let Some(mode_target) = path_info.mode_target {
-            //     let target_mode = unsafe { mode_target.Anonymous.targetMode };
-
-            //     // if let Some(orientation) = matching_update.content.orientation {
-            //     //     target_mode.orientation = orientation.into();
-            //     // }
-            // }
-
             remaining_updates.remove(matching_index);
             path_infos.infos.push(path_info);
         }
 
-        // TODO uncommnet again but impleent fully
-        // if !any_have_changed {
-        //     return Ok(remaining_updates);
-        // }
-
-        // let mut sdc_flags = SDC_TOPOLOGY_SUPPLIED | SDC_ALLOW_PATH_ORDER_CHANGES;
-        // if validate {
-        //     sdc_flags |= SDC_VALIDATE;
-        // } else {
-        //     sdc_flags |= SDC_APPLY;
-        // }
-
-        // WIN32_ERROR(
-        //     unsafe { SetDisplayConfig(Some(&display_config.paths), None, sdc_flags) } as u32,
-        // )
-        // .ok()
-        // .map_err(WindowsError::from)?;
-
-        tracing::debug!("Updating {}", path_infos.infos.len());
         let (paths, modes) = path_infos.into_vecs();
 
         let mut sdc_flags = SDC_USE_SUPPLIED_DISPLAY_CONFIG | SDC_ALLOW_CHANGES;
@@ -260,7 +182,7 @@ impl PathInfos {
             paths.push(path_info.path)
         }
 
-        return (paths, modes);
+        (paths, modes)
     }
 }
 
@@ -273,7 +195,6 @@ pub(crate) struct PathInfo {
 
 impl DisplayConfig {
     fn try_new() -> Result<Self, WindowsError> {
-        // Get the current display configuration buffer sizes
         let mut num_path_array_elements: u32 = 0;
         let mut num_mode_info_array_elements: u32 = 0;
 
@@ -288,13 +209,11 @@ impl DisplayConfig {
         }
         .ok()?;
 
-        // Allocate memory for path and mode info arrays
         let mut paths: Vec<DISPLAYCONFIG_PATH_INFO> =
             vec![Default::default(); num_path_array_elements as usize];
         let mut modes: Vec<DISPLAYCONFIG_MODE_INFO> =
             vec![Default::default(); num_mode_info_array_elements as usize];
 
-        // Query the current display configuration
         unsafe {
             QueryDisplayConfig(
                 qdc_flags,
@@ -327,7 +246,6 @@ impl DisplayConfig {
         let mode_source = self
             .modes
             .get(unsafe { path.sourceInfo.Anonymous.modeInfoIdx as usize });
-
         let mode_target = self
             .modes
             .get(unsafe { path.targetInfo.Anonymous.modeInfoIdx as usize });

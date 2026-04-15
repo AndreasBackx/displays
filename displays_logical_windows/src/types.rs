@@ -1,3 +1,6 @@
+use displays_windows_common::types::{
+    DisplayIdentifier, DisplayIdentifierInner, Orientation, PixelFormat, Point,
+};
 use tracing::instrument;
 use windows::Win32::{
     Devices::Display::{
@@ -14,22 +17,49 @@ use windows::Win32::{
     Graphics::Gdi::DISPLAYCONFIG_PATH_ACTIVE,
 };
 
-use crate::{
-    display_identifier::{DisplayIdentifier, DisplayIdentifierInner},
-    logical_display::{LogicalDisplay, LogicalDisplayMetadata, LogicalDisplayState},
-    types::{Orientation, PixelFormat, Point},
-    windows::{logical_manager::PathInfo, utils},
-};
-
-use super::{error::WindowsError, utils::try_utf16_cstring};
+use crate::{error::QueryError, manager::PathInfo};
+use displays_windows_common::{error::WindowsError, utils, utils::try_utf16_cstring};
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub struct LogicalDisplayWindows {
+pub struct LogicalDisplayMetadata {
+    pub name: String,
+    pub path: String,
+    pub gdi_device_id: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Default)]
+pub struct LogicalDisplayState {
+    pub is_enabled: bool,
+    pub orientation: Orientation,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub pixel_format: Option<PixelFormat>,
+    pub position: Option<Point>,
+}
+
+#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+pub struct LogicalDisplay {
     pub metadata: LogicalDisplayMetadata,
     pub state: LogicalDisplayState,
 }
 
-impl LogicalDisplayWindows {
+#[derive(Debug, Clone)]
+pub struct LogicalDisplayUpdate {
+    pub id: DisplayIdentifierInner,
+    pub content: LogicalDisplayUpdateContent,
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct LogicalDisplayUpdateContent {
+    pub is_enabled: Option<bool>,
+    pub orientation: Option<Orientation>,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    pub pixel_format: Option<PixelFormat>,
+    pub position: Option<Point>,
+}
+
+impl LogicalDisplay {
     pub fn id(&self) -> DisplayIdentifierInner {
         DisplayIdentifierInner {
             outer: DisplayIdentifier {
@@ -124,13 +154,13 @@ impl From<&Point> for POINTL {
     }
 }
 
-impl TryFrom<&PathInfo> for LogicalDisplayWindows {
+impl TryFrom<&PathInfo> for LogicalDisplay {
     type Error = WindowsError;
 
     fn try_from(path_info: &PathInfo) -> Result<Self, Self::Error> {
         let path = &path_info.path;
 
-        let mut logical_display: LogicalDisplayWindows = path.try_into()?;
+        let mut logical_display: LogicalDisplay = path.try_into()?;
 
         if let Some(mode_source) = path_info.mode_source {
             let source_mode = unsafe { mode_source.Anonymous.sourceMode };
@@ -147,7 +177,7 @@ impl TryFrom<&PathInfo> for LogicalDisplayWindows {
     }
 }
 
-impl TryFrom<&DISPLAYCONFIG_PATH_INFO> for LogicalDisplayWindows {
+impl TryFrom<&DISPLAYCONFIG_PATH_INFO> for LogicalDisplay {
     type Error = WindowsError;
 
     fn try_from(path: &DISPLAYCONFIG_PATH_INFO) -> Result<Self, Self::Error> {
@@ -244,14 +274,5 @@ impl
             path,
             gdi_device_id: Some(gdi_device_id),
         })
-    }
-}
-
-impl From<LogicalDisplayWindows> for LogicalDisplay {
-    fn from(value: LogicalDisplayWindows) -> Self {
-        Self {
-            metadata: value.metadata,
-            state: value.state,
-        }
     }
 }

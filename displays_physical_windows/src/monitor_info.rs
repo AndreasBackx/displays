@@ -3,11 +3,10 @@ use std::{
     mem,
 };
 
+use displays_windows_common::{error::WindowsError, utils, utils::try_utf16_cstring};
 use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MONITORINFO, MONITORINFOEXW};
 
-use crate::windows::utils;
-
-use super::{error::WindowsError, monitor::Monitor, utils::try_utf16_cstring};
+use crate::monitor::Monitor;
 
 pub(crate) struct MonitorInfo {
     pub(crate) monitor: Monitor,
@@ -38,8 +37,6 @@ impl Display for MonitorInfo {
 impl fmt::Debug for MonitorInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("MonitorInfo")
-            // .field("monitor", &self.monitor)
-            // .field("info", &self.info)
             .field("path", &self.path())
             .field("display_id", &self.gdi_device_id())
             .finish()
@@ -60,7 +57,6 @@ impl TryFrom<Monitor> for MonitorInfo {
 
         let monitor_info_base = &mut monitor_info as *mut MONITORINFOEXW as *mut MONITORINFO;
 
-        // Get the monitor info for this monitor
         unsafe { GetMonitorInfoW(value.0, monitor_info_base) }
             .as_bool()
             .then(|| MonitorInfo {

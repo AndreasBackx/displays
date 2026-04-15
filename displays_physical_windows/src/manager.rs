@@ -4,8 +4,8 @@ use std::{
     ptr,
 };
 
+use displays_windows_common::{error::WindowsError, types::DisplayIdentifierInner};
 use edid_rs::{Reader, EDID};
-use thiserror::Error;
 use windows::{
     core::BOOL,
     Win32::{
@@ -15,49 +15,23 @@ use windows::{
 };
 use winreg::{enums::HKEY_LOCAL_MACHINE, RegKey};
 
-use crate::{display_identifier::DisplayIdentifierInner, physical_display::PhysicalDisplayUpdate};
-
-use super::{
-    error::WindowsError,
+use crate::{
+    error::{ApplyError, QueryError},
     monitor::Monitor,
     monitor_info::MonitorInfo,
-    physical_display::{PhysicalDisplayWindowsMetadata, PhysicalDisplayWindowsState},
+    types::{PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdate},
 };
 
-#[derive(Error, Debug)]
-pub enum PhysicalDisplayQueryError {
-    #[error("expected '{key}' to exist in the registry but was missing")]
-    RegistryKeyMissing { source: io::Error, key: String },
-    #[error("invalid EDID for '{key}': {message}")]
-    EDIDInvalid { message: String, key: String },
-    #[error(transparent)]
-    WindowsError {
-        #[from]
-        source: WindowsError,
-    },
-}
-
-#[derive(Error, Debug)]
-pub enum PhysicalDisplayApplyError {
-    #[error(transparent)]
-    WindowsError {
-        #[from]
-        source: WindowsError,
-    },
-    #[error("the following action is not (yet) supported: {message}")]
-    Unsupported { message: String },
-}
-
 #[derive(Clone)]
-pub struct PhysicalDisplayManagerWindows {}
+pub struct PhysicalDisplayManager {}
 
-impl PhysicalDisplayManagerWindows {
+impl PhysicalDisplayManager {
     #[tracing::instrument(ret, level = "trace")]
-    pub fn metadata() -> Result<Vec<PhysicalDisplayWindowsMetadata>, PhysicalDisplayQueryError> {
+    pub fn metadata() -> Result<Vec<PhysicalDisplayMetadata>, QueryError> {
         let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
         let display_key_path = r"SYSTEM\CurrentControlSet\Enum\DISPLAY";
         let display_key = hklm.open_subkey(display_key_path).map_err(|source| {
-            PhysicalDisplayQueryError::RegistryKeyMissing {
+            QueryError::RegistryKeyMissing {
                 source,
                 key: display_key_path.to_string(),
             }
@@ -65,7 +39,6 @@ impl PhysicalDisplayManagerWindows {
 
         let mut physical_displays = vec![];
 
-        // Iterate over each subkey in DISPLAY (each display device).
         for model_id in display_key.enum_keys() {
             let Ok(model_id) = model_id else {
                 tracing::warn!(
@@ -90,25 +63,17 @@ impl PhysicalDisplayManagerWindows {
                     continue;
                 };
 
-                // Check if the EDID value exists within this instance key.
                 if let Ok(edid_data) = instance_key.get_raw_value("EDID") {
-                    tracing::trace!("Found EDID for device {}\\{}:", model_id, instance_id);
-
                     let mut cursor = Cursor::new(edid_data.bytes);
                     let reader = &mut Reader::new(&mut cursor);
-                    let edid = EDID::parse(reader).map_err(|message| {
-                        PhysicalDisplayQueryError::EDIDInvalid {
-                            message: message.to_string(),
-                            key: format!("{display_key_path}\\{model_id}\\{instance_id}"),
-                        }
+                    let edid = EDID::parse(reader).map_err(|message| QueryError::EDIDInvalid {
+                        message: message.to_string(),
+                        key: format!("{display_key_path}\\{model_id}\\{instance_id}"),
                     })?;
-                    tracing::trace!("{:#?}", edid);
                     let path = format!(r"\\?\DISPLAY#{model_id}#{instance_id}");
                     if let Ok(physical_display) = (path, edid).try_into() {
                         physical_displays.push(physical_display);
                     }
-                } else {
-                    tracing::trace!("Device found but without EDID: {display_key_path}\\{model_id}\\{instance_id}");
                 }
             }
         }
@@ -117,12 +82,9 @@ impl PhysicalDisplayManagerWindows {
     }
 
     #[tracing::instrument(ret, level = "trace")]
-    pub(crate) fn state(
+    pub fn state(
         ids: Vec<DisplayIdentifierInner>,
-    ) -> Result<
-        BTreeMap<DisplayIdentifierInner, PhysicalDisplayWindowsState>,
-        PhysicalDisplayQueryError,
-    > {
+    ) -> Result<BTreeMap<DisplayIdentifierInner, PhysicalDisplayState>, QueryError> {
         let monitor_info_by_id: BTreeMap<DisplayIdentifierInner, MonitorInfo> =
             Self::get_monitor_info_by_id(ids)?;
 
@@ -131,19 +93,19 @@ impl PhysicalDisplayManagerWindows {
             .map(|(id, monitor_info)| {
                 Ok((
                     id,
-                    PhysicalDisplayWindowsState {
+                    PhysicalDisplayState {
                         brightness: monitor_info.monitor.get_brightness()?,
                         scale_factor: monitor_info.monitor.get_scale_factor()?,
                     },
                 ))
             })
-            .collect::<Result<_, PhysicalDisplayQueryError>>()?;
+            .collect::<Result<_, QueryError>>()?;
 
         Ok(state)
     }
 
     #[tracing::instrument(ret, level = "trace")]
-    pub(crate) fn get_monitor_info_by_id(
+    pub fn get_monitor_info_by_id(
         ids: Vec<DisplayIdentifierInner>,
     ) -> Result<BTreeMap<DisplayIdentifierInner, MonitorInfo>, WindowsError> {
         if ids.is_empty() {
@@ -204,7 +166,7 @@ impl PhysicalDisplayManagerWindows {
     #[tracing::instrument(level = "debug")]
     pub fn apply(
         updates: Vec<PhysicalDisplayUpdate>,
-    ) -> Result<Vec<PhysicalDisplayUpdate>, PhysicalDisplayApplyError> {
+    ) -> Result<Vec<PhysicalDisplayUpdate>, ApplyError> {
         if updates.is_empty() {
             return Ok(updates);
         }

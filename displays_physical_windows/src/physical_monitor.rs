@@ -1,9 +1,8 @@
+use displays_windows_common::error::WindowsError;
 use windows::Win32::{
     Devices::Display::{GetMonitorBrightness, SetMonitorBrightness, PHYSICAL_MONITOR},
     Foundation::GetLastError,
 };
-
-use super::error::WindowsError;
 
 #[derive(Clone, Copy)]
 pub(crate) struct PhysicalMonitor(pub(crate) PHYSICAL_MONITOR);

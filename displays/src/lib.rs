@@ -20,6 +20,3 @@ pub mod logical_display;
 pub mod manager;
 pub mod physical_display;
 pub mod types;
-
-#[cfg(target_os = "windows")]
-pub mod windows;

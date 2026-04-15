@@ -12,19 +12,34 @@ use crate::{
 #[cfg(target_os = "windows")]
 use crate::{
     display::DisplayMetadata,
-    display::DisplayUpdateInner,
-    logical_display::LogicalDisplayUpdate,
-    physical_display::{PhysicalDisplay, PhysicalDisplayUpdate},
+    physical_display::{PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState},
 };
 
 #[cfg(target_os = "windows")]
-use crate::windows::{
-    logical_manager::{
-        LogicalDisplayApplyError, LogicalDisplayManagerWindows, LogicalDisplayQueryError,
-    },
-    physical_manager::{
-        PhysicalDisplayApplyError, PhysicalDisplayManagerWindows, PhysicalDisplayQueryError,
-    },
+use displays_logical_windows::{
+    ApplyError as LogicalDisplayApplyError, LogicalDisplayManager as LogicalDisplayManagerWindows,
+    LogicalDisplayMetadata as WindowsLogicalDisplayMetadata,
+    LogicalDisplayState as WindowsLogicalDisplayState,
+    LogicalDisplayUpdate as WindowsLogicalDisplayUpdate,
+    LogicalDisplayUpdateContent as WindowsLogicalDisplayUpdateContent,
+    Orientation as WindowsOrientation, PixelFormat as WindowsPixelFormat, Point as WindowsPoint,
+    QueryError as LogicalDisplayQueryError,
+};
+
+#[cfg(target_os = "windows")]
+use displays_physical_windows::{
+    ApplyError as PhysicalDisplayApplyError,
+    PhysicalDisplayManager as PhysicalDisplayManagerWindows,
+    PhysicalDisplayMetadata as WindowsPhysicalDisplayMetadata,
+    PhysicalDisplayUpdate as WindowsPhysicalDisplayUpdate,
+    PhysicalDisplayUpdateContent as WindowsPhysicalDisplayUpdateContent,
+    QueryError as PhysicalDisplayQueryError,
+};
+
+#[cfg(target_os = "windows")]
+use displays_windows_common::types::{
+    Brightness as WindowsBrightness, DisplayIdentifier as WindowsDisplayIdentifier,
+    DisplayIdentifierInner as WindowsDisplayIdentifierInner,
 };
 
 #[cfg(target_os = "linux")]
@@ -173,9 +188,8 @@ impl DisplayManager {
 
 #[cfg(target_os = "windows")]
 fn query_windows() -> Result<Vec<Display>, DisplayQueryError> {
-    let mut logical_displays_metadata: Vec<_> = LogicalDisplayManagerWindows::metadata()?
-        .into_iter()
-        .collect();
+    let mut logical_displays_metadata: Vec<_> =
+        LogicalDisplayManagerWindows::query()?.into_iter().collect();
     logical_displays_metadata.sort_by_key(|logical| !logical.state.is_enabled);
     let mut physical_metadatas = PhysicalDisplayManagerWindows::metadata()?;
 
@@ -194,10 +208,10 @@ fn query_windows() -> Result<Vec<Display>, DisplayQueryError> {
 
             (
                 DisplayMetadata {
-                    logical: logical_display.metadata,
+                    logical: logical_display.metadata.into(),
                     physical: physical_metadata.map(Into::into),
                 },
-                logical_display.state,
+                logical_display.state.into(),
             )
         })
         .collect::<BTreeMap<_, _>>()
@@ -207,7 +221,7 @@ fn query_windows() -> Result<Vec<Display>, DisplayQueryError> {
     let ids: Vec<_> = logical_state_by_metadata
         .iter()
         .filter(|(metadata, _)| metadata.physical.is_some())
-        .map(|(metadata, _)| metadata.id())
+        .map(|(metadata, _)| to_windows_display_identifier_inner(metadata.id()))
         .collect();
 
     let mut physical_states = PhysicalDisplayManagerWindows::state(ids)?;
@@ -215,12 +229,18 @@ fn query_windows() -> Result<Vec<Display>, DisplayQueryError> {
     Ok(logical_state_by_metadata
         .into_iter()
         .map(|(metadata, logical_state)| {
-            let id = metadata.id();
+            let id = to_windows_display_identifier_inner(metadata.id());
 
             let physical = metadata.physical.and_then(|physical_metadata| {
-                physical_states
-                    .remove(&id)
-                    .map(|physical_state| (physical_metadata, physical_state.into()))
+                physical_states.remove(&id).map(|physical_state| {
+                    (
+                        physical_metadata,
+                        PhysicalDisplayState {
+                            brightness: physical_state.brightness.into(),
+                            scale_factor: physical_state.scale_factor,
+                        },
+                    )
+                })
             });
 
             Display {
@@ -253,27 +273,35 @@ fn apply_windows(
         .filter_map(|update| {
             id_mapping
                 .remove(&update.id)
-                .map(|(id_inner, _display)| DisplayUpdateInner {
-                    id: id_inner,
-                    logical: update.logical,
-                    physical: update.physical,
-                })
+                .map(|(id_inner, _display)| (id_inner, update.logical, update.physical))
         })
         .collect();
 
-    let logical_updates: Vec<LogicalDisplayUpdate> = updates_inner
+    let logical_updates: Vec<WindowsLogicalDisplayUpdate> = updates_inner
         .clone()
         .into_iter()
-        .filter_map(|display| display.into())
+        .filter_map(|(id, logical, _physical)| {
+            logical.map(|content| WindowsLogicalDisplayUpdate {
+                id: to_windows_display_identifier_inner(id),
+                content: to_windows_logical_update_content(content),
+            })
+        })
         .collect();
     let remaining_logical_updates = LogicalDisplayManagerWindows::apply(logical_updates, validate)?;
 
-    let physical_updates: Vec<PhysicalDisplayUpdate> = if validate {
+    let physical_updates: Vec<WindowsPhysicalDisplayUpdate> = if validate {
         vec![]
     } else {
         updates_inner
             .into_iter()
-            .filter_map(|display| display.into())
+            .filter_map(|(id, _logical, physical)| {
+                physical.map(|content| WindowsPhysicalDisplayUpdate {
+                    id: to_windows_display_identifier_inner(id),
+                    content: WindowsPhysicalDisplayUpdateContent {
+                        brightness: content.brightness,
+                    },
+                })
+            })
             .collect()
     };
     let mut remaining_physical_updates = PhysicalDisplayManagerWindows::apply(physical_updates)?;
@@ -281,12 +309,17 @@ fn apply_windows(
     let remaining_updates = remaining_logical_updates
         .into_iter()
         .map(|logical_update| DisplayUpdate {
-            id: logical_update.id.outer.clone(),
-            logical: Some(logical_update.content),
+            id: from_windows_display_identifier(logical_update.id.outer.clone()),
+            logical: Some(from_windows_logical_update_content(logical_update.content)),
             physical: remaining_physical_updates
                 .iter()
                 .position(|physical_update| physical_update.id == logical_update.id)
-                .map(|index| remaining_physical_updates.remove(index).content),
+                .map(|index| {
+                    let content = remaining_physical_updates.remove(index).content;
+                    crate::physical_display::PhysicalDisplayUpdateContent {
+                        brightness: content.brightness,
+                    }
+                }),
         })
         .collect::<Vec<_>>()
         .into_iter()
@@ -294,13 +327,166 @@ fn apply_windows(
             remaining_physical_updates
                 .into_iter()
                 .map(|physical_update| DisplayUpdate {
-                    id: physical_update.id.outer,
-                    physical: Some(physical_update.content),
+                    id: from_windows_display_identifier(physical_update.id.outer),
+                    physical: Some(crate::physical_display::PhysicalDisplayUpdateContent {
+                        brightness: physical_update.content.brightness,
+                    }),
                     logical: None,
                 }),
         )
         .collect();
     Ok(remaining_updates)
+}
+
+#[cfg(target_os = "windows")]
+fn to_windows_display_identifier_inner(
+    id: DisplayIdentifierInner,
+) -> WindowsDisplayIdentifierInner {
+    WindowsDisplayIdentifierInner {
+        outer: WindowsDisplayIdentifier {
+            name: id.outer.name,
+            serial_number: id.outer.serial_number,
+        },
+        path: id.path,
+        gdi_device_id: id.gdi_device_id,
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn from_windows_display_identifier(id: WindowsDisplayIdentifier) -> DisplayIdentifier {
+    DisplayIdentifier {
+        name: id.name,
+        serial_number: id.serial_number,
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn to_windows_logical_update_content(
+    content: crate::logical_display::LogicalDisplayUpdateContent,
+) -> WindowsLogicalDisplayUpdateContent {
+    WindowsLogicalDisplayUpdateContent {
+        is_enabled: content.is_enabled,
+        orientation: content.orientation.map(to_windows_orientation),
+        width: content.width,
+        height: content.height,
+        pixel_format: content.pixel_format.map(to_windows_pixel_format),
+        position: content.position.map(to_windows_point),
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn from_windows_logical_update_content(
+    content: WindowsLogicalDisplayUpdateContent,
+) -> crate::logical_display::LogicalDisplayUpdateContent {
+    crate::logical_display::LogicalDisplayUpdateContent {
+        is_enabled: content.is_enabled,
+        orientation: content.orientation.map(from_windows_orientation),
+        width: content.width,
+        height: content.height,
+        pixel_format: content.pixel_format.map(from_windows_pixel_format),
+        position: content.position.map(from_windows_point),
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn to_windows_orientation(value: Orientation) -> WindowsOrientation {
+    match value {
+        Orientation::Landscape => WindowsOrientation::Landscape,
+        Orientation::Portrait => WindowsOrientation::Portrait,
+        Orientation::LandscapeFlipped => WindowsOrientation::LandscapeFlipped,
+        Orientation::PortraitFlipped => WindowsOrientation::PortraitFlipped,
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn from_windows_orientation(value: WindowsOrientation) -> Orientation {
+    match value {
+        WindowsOrientation::Landscape => Orientation::Landscape,
+        WindowsOrientation::Portrait => Orientation::Portrait,
+        WindowsOrientation::LandscapeFlipped => Orientation::LandscapeFlipped,
+        WindowsOrientation::PortraitFlipped => Orientation::PortraitFlipped,
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn to_windows_pixel_format(value: crate::types::PixelFormat) -> WindowsPixelFormat {
+    match value {
+        crate::types::PixelFormat::BPP8 => WindowsPixelFormat::BPP8,
+        crate::types::PixelFormat::BPP16 => WindowsPixelFormat::BPP16,
+        crate::types::PixelFormat::BPP24 => WindowsPixelFormat::BPP24,
+        crate::types::PixelFormat::BPP32 => WindowsPixelFormat::BPP32,
+        crate::types::PixelFormat::NONGDI => WindowsPixelFormat::NONGDI,
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn from_windows_pixel_format(value: WindowsPixelFormat) -> crate::types::PixelFormat {
+    match value {
+        WindowsPixelFormat::BPP8 => crate::types::PixelFormat::BPP8,
+        WindowsPixelFormat::BPP16 => crate::types::PixelFormat::BPP16,
+        WindowsPixelFormat::BPP24 => crate::types::PixelFormat::BPP24,
+        WindowsPixelFormat::BPP32 => crate::types::PixelFormat::BPP32,
+        WindowsPixelFormat::NONGDI => crate::types::PixelFormat::NONGDI,
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn to_windows_point(value: crate::types::Point) -> WindowsPoint {
+    WindowsPoint {
+        x: value.x,
+        y: value.y,
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn from_windows_point(value: WindowsPoint) -> crate::types::Point {
+    crate::types::Point {
+        x: value.x,
+        y: value.y,
+    }
+}
+
+#[cfg(target_os = "windows")]
+impl From<WindowsLogicalDisplayMetadata> for LogicalDisplayMetadata {
+    fn from(value: WindowsLogicalDisplayMetadata) -> Self {
+        Self {
+            name: value.name,
+            path: value.path,
+            gdi_device_id: value.gdi_device_id,
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+impl From<WindowsLogicalDisplayState> for LogicalDisplayState {
+    fn from(value: WindowsLogicalDisplayState) -> Self {
+        Self {
+            is_enabled: value.is_enabled,
+            orientation: from_windows_orientation(value.orientation),
+            width: value.width,
+            height: value.height,
+            pixel_format: value.pixel_format.map(from_windows_pixel_format),
+            position: value.position.map(from_windows_point),
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+impl From<WindowsPhysicalDisplayMetadata> for PhysicalDisplayMetadata {
+    fn from(value: WindowsPhysicalDisplayMetadata) -> Self {
+        Self {
+            path: value.path,
+            name: value.name,
+            serial_number: value.serial_number,
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+impl From<WindowsBrightness> for crate::display::Brightness {
+    fn from(value: WindowsBrightness) -> Self {
+        crate::display::Brightness::new(value.value())
+    }
 }
 
 #[cfg(target_os = "linux")]
