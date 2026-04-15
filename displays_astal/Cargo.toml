@@ -1,0 +1,17 @@
+[package]
+name = "astal_displays"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "astaldisplays"
+crate-type = ["cdylib"]
+
+[features]
+default = []
+faked = []
+
+[dependencies]
+displays = { path = "../displays" }
+gio = "0.20"
+glib = "0.20"
