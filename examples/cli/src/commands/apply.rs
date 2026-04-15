@@ -125,7 +125,7 @@ impl Command for ApplyCommand {
             let target = update
                 .id
                 .name
-                .or(update.id.serial_number)
+                .or_else(|| update.id.serial_number.filter(|value| !value.is_empty()))
                 .unwrap_or_else(|| "unknown display".to_string());
             println!("- {target}");
         }

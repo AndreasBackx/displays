@@ -1,6 +1,6 @@
-# backlight_linux
+# displays_physical_linux_sys
 
-`backlight_linux` is a small Rust library for querying and updating Linux
+`displays_physical_linux_sys` is a small Rust library for querying and updating Linux
 brightness devices exposed through sysfs.
 
 It currently works with devices under:
@@ -106,12 +106,13 @@ kernel's available brightness-capable devices through one API.
 ```rust,no_run
 use std::collections::BTreeSet;
 
-use backlight_linux::{
-    BacklightManager, BrightnessUpdate, DeviceClass, DeviceIdentifier, DeviceUpdate,
+use displays_physical_linux_sys::{
+    BrightnessUpdate, DeviceClass, DeviceIdentifier, DeviceUpdate,
+    PhysicalDisplayManagerLinuxSys,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let manager = BacklightManager::new();
+    let manager = PhysicalDisplayManagerLinuxSys::new();
 
     for device in manager.list()? {
         println!(

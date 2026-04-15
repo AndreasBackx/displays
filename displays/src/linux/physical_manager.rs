@@ -1,14 +1,23 @@
 use std::collections::BTreeMap;
+use std::io::ErrorKind;
 use std::sync::mpsc;
 use std::time::Duration;
 
-use ddc_hi::{Ddc, Display, FeatureCode};
+use ddc_hi::{Ddc, Display as DdcDisplay, FeatureCode};
+use displays_physical_linux::{
+    BrightnessUpdate as LinuxBrightnessUpdate, Device, DeviceClass, DeviceIdentifier, DeviceUpdate,
+    PhysicalDisplayManagerLinux as LinuxPhysicalDisplayManager,
+    QueryError as LinuxPhysicalQueryError,
+};
 use thiserror::Error;
 
 use crate::{
     display::{Brightness, DisplayUpdate},
-    display_identifier::DisplayIdentifierInner,
-    physical_display::{PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState},
+    display_identifier::{DisplayIdentifier, DisplayIdentifierInner},
+    physical_display::{
+        PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState,
+        PhysicalDisplayUpdateContent,
+    },
 };
 
 #[derive(Error, Debug)]
@@ -23,6 +32,8 @@ pub enum PhysicalDisplayQueryError {
     UnsupportedMonitor { display_id: String, message: String },
     #[error("ddc operation failed for display '{display_id}': {message}")]
     DdcOperation { display_id: String, message: String },
+    #[error("failed to query Linux backlight devices: {message}")]
+    BacklightQuery { message: String },
 }
 
 #[derive(Error, Debug)]
@@ -40,6 +51,8 @@ pub enum PhysicalDisplayApplyError {
     MissingI2cAccess { display_id: String },
     #[error("failed to set brightness for display '{display_id}': {message}")]
     DdcOperation { display_id: String, message: String },
+    #[error("failed to set backlight brightness for display '{display_id}': {message}")]
+    BacklightOperation { display_id: String, message: String },
 }
 
 pub struct PhysicalDisplayManagerLinux;
@@ -50,11 +63,38 @@ const PER_MONITOR_APPLY_TIMEOUT: Duration = Duration::from_millis(3500);
 struct LinuxDisplayHandle {
     metadata: PhysicalDisplayMetadata,
     state: PhysicalDisplayState,
+    backend: LinuxPhysicalBackend,
+}
+
+#[derive(Clone)]
+enum LinuxPhysicalBackend {
+    Ddc { display_index: usize },
+    Backlight { path: String },
+}
+
+#[derive(Clone)]
+struct DdcApplyUpdate {
+    id: DisplayIdentifierInner,
+    brightness: Option<u32>,
+    display_index: usize,
+}
+
+#[derive(Clone)]
+struct BacklightApplyUpdate {
+    id: DisplayIdentifierInner,
+    brightness: Option<u32>,
+    path: String,
+}
+
+impl LinuxDisplayHandle {
+    fn id(&self) -> DisplayIdentifierInner {
+        id_from_metadata(&self.metadata)
+    }
 }
 
 impl PhysicalDisplayManagerLinux {
     pub fn query() -> Result<Vec<PhysicalDisplay>, PhysicalDisplayQueryError> {
-        Ok(Self::enumerate_handles()?
+        Ok(Self::query_handles()?
             .into_iter()
             .map(|handle| PhysicalDisplay {
                 metadata: handle.metadata,
@@ -71,30 +111,18 @@ impl PhysicalDisplayManagerLinux {
             return Ok(Vec::new());
         }
 
-        let displays = Display::enumerate();
-        let descriptors: Vec<_> = displays
-            .iter()
-            .map(|display| {
-                let metadata = metadata_from_info(&display.info);
-                ApplyDisplayDescriptor {
-                    id: Self::id_from_metadata(&metadata),
-                }
-            })
-            .collect();
-
+        let handles = Self::query_handles()?;
         let mut remaining_updates = Vec::new();
-        let mut matched_updates = Vec::new();
+        let mut ddc_updates = Vec::new();
+        let mut backlight_updates = Vec::new();
 
         for update in updates {
-            let matched_indices: Vec<_> = descriptors
+            let matched_handles: Vec<_> = handles
                 .iter()
-                .enumerate()
-                .filter_map(|(index, descriptor)| {
-                    update.id.is_subset(&descriptor.id.outer).then_some(index)
-                })
+                .filter(|handle| update.id.is_subset(&handle.id().outer))
                 .collect();
 
-            if matched_indices.is_empty() {
+            if matched_handles.is_empty() {
                 remaining_updates.push(update);
                 continue;
             }
@@ -103,62 +131,47 @@ impl PhysicalDisplayManagerLinux {
                 continue;
             }
 
-            for index in matched_indices {
-                matched_updates.push(PhysicalApplyUpdate {
-                    id: descriptors[index].id.clone(),
-                    brightness: update
-                        .physical
-                        .as_ref()
-                        .and_then(|physical| physical.brightness),
-                    display_index: index,
-                });
+            for handle in matched_handles {
+                let brightness = update
+                    .physical
+                    .as_ref()
+                    .and_then(|physical| physical.brightness);
+
+                match &handle.backend {
+                    LinuxPhysicalBackend::Ddc { display_index } => {
+                        ddc_updates.push(DdcApplyUpdate {
+                            id: handle.id(),
+                            brightness,
+                            display_index: *display_index,
+                        });
+                    }
+                    LinuxPhysicalBackend::Backlight { path } => {
+                        backlight_updates.push(BacklightApplyUpdate {
+                            id: handle.id(),
+                            brightness,
+                            path: path.clone(),
+                        });
+                    }
+                }
             }
         }
 
-        let mut display_by_index: BTreeMap<usize, Display> =
-            displays.into_iter().enumerate().collect();
-
-        for update in matched_updates.into_iter() {
-            let Some(brightness) = update.brightness else {
-                continue;
-            };
-            let outer_id = update.id.outer;
-
-            let Some(display) = display_by_index.remove(&update.display_index) else {
-                remaining_updates.push(DisplayUpdate {
-                    id: outer_id,
-                    logical: None,
-                    physical: Some(crate::physical_display::PhysicalDisplayUpdateContent {
-                        brightness: Some(brightness),
-                    }),
-                });
-                continue;
-            };
-
-            let display_id = display.info.id.clone();
-            if let Err(err) = Self::set_brightness_with_timeout(display, brightness) {
-                tracing::warn!(
-                    "Failed to set brightness for display '{}': {}",
-                    display_id,
-                    err
-                );
-                remaining_updates.push(DisplayUpdate {
-                    id: outer_id,
-                    logical: None,
-                    physical: Some(crate::physical_display::PhysicalDisplayUpdateContent {
-                        brightness: Some(brightness),
-                    }),
-                });
-            }
-        }
-
+        remaining_updates.extend(Self::apply_ddc_updates(ddc_updates));
+        remaining_updates.extend(Self::apply_backlight_updates(backlight_updates)?);
         Ok(remaining_updates)
     }
 
-    fn enumerate_handles() -> Result<Vec<LinuxDisplayHandle>, PhysicalDisplayQueryError> {
+    fn query_handles() -> Result<Vec<LinuxDisplayHandle>, PhysicalDisplayQueryError> {
+        let mut handles = Self::enumerate_ddc_handles()?;
+        handles.extend(Self::enumerate_backlight_handles()?);
+        handles.sort_by(|left, right| left.metadata.cmp(&right.metadata));
+        Ok(handles)
+    }
+
+    fn enumerate_ddc_handles() -> Result<Vec<LinuxDisplayHandle>, PhysicalDisplayQueryError> {
         let mut handles = Vec::new();
 
-        for mut display in Display::enumerate() {
+        for (display_index, mut display) in DdcDisplay::enumerate().into_iter().enumerate() {
             let info = display.info.clone();
             let display_id = info.id.clone();
             let brightness = match display.handle.get_vcp_feature(FeatureCode::from(0x10)) {
@@ -201,14 +214,134 @@ impl PhysicalDisplayManagerLinux {
                     brightness: Brightness::new(brightness.min(100)),
                     scale_factor: 100,
                 },
+                backend: LinuxPhysicalBackend::Ddc { display_index },
             });
         }
 
         Ok(handles)
     }
 
+    fn enumerate_backlight_handles() -> Result<Vec<LinuxDisplayHandle>, PhysicalDisplayQueryError> {
+        let manager = LinuxPhysicalDisplayManager::new();
+        // Only surface `/sys/class/backlight` devices through `displays` for now.
+        // If we later decide LED brightness belongs here too, widen this class list
+        // and add an explicit conversion path instead of silently folding LEDs into
+        // monitor-like metadata.
+        match manager.list_by_classes([DeviceClass::Backlight]) {
+            Ok(devices) => devices
+                .into_iter()
+                .map(backlight_handle_from_device)
+                .collect(),
+            Err(LinuxPhysicalQueryError::ReadClassDirectory { source, .. })
+                if source.kind() == ErrorKind::NotFound =>
+            {
+                Ok(Vec::new())
+            }
+            Err(err) => Err(PhysicalDisplayQueryError::BacklightQuery {
+                message: err.to_string(),
+            }),
+        }
+    }
+
+    #[cfg(test)]
+    fn enumerate_backlight_handles_with_manager(
+        manager: &displays_physical_linux_sys::PhysicalDisplayManagerLinuxSys,
+    ) -> Result<Vec<LinuxDisplayHandle>, PhysicalDisplayQueryError> {
+        match manager.list_by_classes([DeviceClass::Backlight]) {
+            Ok(devices) => devices
+                .into_iter()
+                .map(backlight_handle_from_device)
+                .collect(),
+            Err(displays_physical_linux_sys::QueryError::ReadClassDirectory { source, .. })
+                if source.kind() == ErrorKind::NotFound =>
+            {
+                Ok(Vec::new())
+            }
+            Err(err) => Err(PhysicalDisplayQueryError::BacklightQuery {
+                message: err.to_string(),
+            }),
+        }
+    }
+
+    fn apply_ddc_updates(updates: Vec<DdcApplyUpdate>) -> Vec<DisplayUpdate> {
+        if updates.is_empty() {
+            return Vec::new();
+        }
+
+        let mut remaining_updates = Vec::new();
+        let mut display_by_index: BTreeMap<usize, DdcDisplay> =
+            DdcDisplay::enumerate().into_iter().enumerate().collect();
+
+        for update in updates {
+            let Some(brightness) = update.brightness else {
+                continue;
+            };
+            let outer_id = update.id.outer;
+
+            let Some(display) = display_by_index.remove(&update.display_index) else {
+                remaining_updates.push(display_update_with_brightness(outer_id, brightness));
+                continue;
+            };
+
+            let display_id = display.info.id.clone();
+            if let Err(err) = Self::set_brightness_with_timeout(display, brightness) {
+                tracing::warn!(
+                    "Failed to set brightness for display '{}': {}",
+                    display_id,
+                    err
+                );
+                remaining_updates.push(display_update_with_brightness(outer_id, brightness));
+            }
+        }
+
+        remaining_updates
+    }
+
+    fn apply_backlight_updates(
+        updates: Vec<BacklightApplyUpdate>,
+    ) -> Result<Vec<DisplayUpdate>, PhysicalDisplayApplyError> {
+        if updates.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let manager = LinuxPhysicalDisplayManager::new();
+        let mut remaining_updates = Vec::new();
+
+        for update in updates {
+            let Some(brightness) = update.brightness else {
+                continue;
+            };
+
+            let request = DeviceUpdate {
+                id: DeviceIdentifier {
+                    class: Some(DeviceClass::Backlight),
+                    id: None,
+                    path: Some(update.path.clone()),
+                },
+                brightness: Some(LinuxBrightnessUpdate::Percent(brightness.min(100) as u8)),
+            };
+
+            match manager.update(vec![request]) {
+                Ok(remaining) if remaining.is_empty() => {}
+                Ok(_) => remaining_updates
+                    .push(display_update_with_brightness(update.id.outer, brightness)),
+                Err(err) => {
+                    tracing::warn!(
+                        "Failed to set backlight brightness for display '{}': {}",
+                        update.path,
+                        err
+                    );
+                    remaining_updates
+                        .push(display_update_with_brightness(update.id.outer, brightness));
+                }
+            }
+        }
+
+        Ok(remaining_updates)
+    }
+
     fn set_brightness(
-        display: &mut Display,
+        display: &mut DdcDisplay,
         brightness: u32,
     ) -> Result<(), PhysicalDisplayApplyError> {
         let ddc_id = display.info.id.clone();
@@ -240,7 +373,7 @@ impl PhysicalDisplayManagerLinux {
     }
 
     fn set_brightness_with_timeout(
-        display: Display,
+        display: DdcDisplay,
         brightness: u32,
     ) -> Result<(), PhysicalDisplayApplyError> {
         let display_id = display.info.id.clone();
@@ -265,27 +398,49 @@ impl PhysicalDisplayManagerLinux {
             }
         }
     }
+}
 
-    fn id_from_metadata(metadata: &PhysicalDisplayMetadata) -> DisplayIdentifierInner {
-        DisplayIdentifierInner {
-            outer: crate::display_identifier::DisplayIdentifier {
-                name: Some(metadata.name.clone()),
-                serial_number: Some(metadata.serial_number.clone()),
-            },
-            path: Some(metadata.path.clone()),
-            gdi_device_id: None,
-        }
+fn backlight_handle_from_device(
+    device: Device,
+) -> Result<LinuxDisplayHandle, PhysicalDisplayQueryError> {
+    let path = device.metadata.path;
+    let name = device.metadata.id;
+
+    let metadata = PhysicalDisplayMetadata {
+        path: path.clone(),
+        name,
+        serial_number: String::new(),
+    };
+
+    Ok(LinuxDisplayHandle {
+        metadata,
+        state: PhysicalDisplayState {
+            brightness: Brightness::new(device.state.brightness_percent),
+            scale_factor: 100,
+        },
+        backend: LinuxPhysicalBackend::Backlight { path },
+    })
+}
+
+fn display_update_with_brightness(id: DisplayIdentifier, brightness: u32) -> DisplayUpdate {
+    DisplayUpdate {
+        id,
+        logical: None,
+        physical: Some(PhysicalDisplayUpdateContent {
+            brightness: Some(brightness),
+        }),
     }
 }
 
-struct PhysicalApplyUpdate {
-    id: DisplayIdentifierInner,
-    brightness: Option<u32>,
-    display_index: usize,
-}
-
-struct ApplyDisplayDescriptor {
-    id: DisplayIdentifierInner,
+fn id_from_metadata(metadata: &PhysicalDisplayMetadata) -> DisplayIdentifierInner {
+    DisplayIdentifierInner {
+        outer: DisplayIdentifier {
+            name: Some(metadata.name.clone()),
+            serial_number: Some(metadata.serial_number.clone()),
+        },
+        path: Some(metadata.path.clone()),
+        gdi_device_id: None,
+    }
 }
 
 fn metadata_from_info(info: &ddc_hi::DisplayInfo) -> PhysicalDisplayMetadata {
@@ -339,4 +494,180 @@ fn classify_apply_error(display_id: String, message: String) -> PhysicalDisplayA
 fn is_io_error(message: &str) -> bool {
     let lowercase = message.to_lowercase();
     lowercase.contains("input/output error") || lowercase.contains("os error 5")
+}
+
+#[cfg(test)]
+mod tests {
+    use tempfile::TempDir;
+
+    use super::{BacklightFixture, PhysicalDisplayManagerLinux};
+    use crate::{
+        display::DisplayUpdate, display_identifier::DisplayIdentifier,
+        physical_display::PhysicalDisplayUpdateContent,
+    };
+
+    #[test]
+    fn enumerate_backlights_ignores_missing_class_directory() {
+        let tempdir = TempDir::new().unwrap();
+        let manager = displays_physical_linux_sys::PhysicalDisplayManagerLinuxSys::with_sysfs_root(
+            tempdir.path(),
+        );
+
+        let displays =
+            PhysicalDisplayManagerLinux::enumerate_backlight_handles_with_manager(&manager)
+                .unwrap();
+
+        assert!(displays.is_empty());
+    }
+
+    #[test]
+    fn enumerate_backlights_only_surfaces_backlight_devices() {
+        let fixture = BacklightFixture::new();
+        fixture.add_backlight("intel_backlight", 300, 1200);
+        fixture.add_led("asus::kbd_backlight", 1, 3);
+
+        let displays = PhysicalDisplayManagerLinux::enumerate_backlight_handles_with_manager(
+            &fixture.manager(),
+        )
+        .unwrap();
+
+        assert_eq!(displays.len(), 1);
+        assert_eq!(displays[0].metadata.name, "intel_backlight");
+        assert_eq!(displays[0].metadata.serial_number, "");
+        assert_eq!(displays[0].state.brightness.value(), 25);
+    }
+
+    #[test]
+    fn apply_backlight_updates_writes_percent_brightness() {
+        let fixture = BacklightFixture::new();
+        fixture.add_backlight("intel_backlight", 100, 400);
+
+        let update = DisplayUpdate {
+            id: DisplayIdentifier {
+                name: Some("intel_backlight".to_string()),
+                serial_number: None,
+            },
+            logical: None,
+            physical: Some(PhysicalDisplayUpdateContent {
+                brightness: Some(50),
+            }),
+        };
+
+        let handles = PhysicalDisplayManagerLinux::enumerate_backlight_handles_with_manager(
+            &fixture.manager(),
+        )
+        .unwrap();
+        let matched = handles
+            .iter()
+            .find(|handle| update.id.is_subset(&handle.id().outer))
+            .unwrap();
+
+        let remaining = PhysicalDisplayManagerLinux::apply_backlight_updates_with_manager(
+            vec![super::BacklightApplyUpdate {
+                id: matched.id(),
+                brightness: Some(50),
+                path: matched.metadata.path.clone(),
+            }],
+            &fixture.manager(),
+        )
+        .unwrap();
+
+        assert!(remaining.is_empty());
+        assert_eq!(fixture.read_brightness("intel_backlight"), 200);
+    }
+}
+
+#[cfg(test)]
+impl PhysicalDisplayManagerLinux {
+    fn apply_backlight_updates_with_manager(
+        updates: Vec<BacklightApplyUpdate>,
+        manager: &displays_physical_linux_sys::PhysicalDisplayManagerLinuxSys,
+    ) -> Result<Vec<DisplayUpdate>, PhysicalDisplayApplyError> {
+        if updates.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut remaining_updates = Vec::new();
+
+        for update in updates {
+            let Some(brightness) = update.brightness else {
+                continue;
+            };
+
+            let request = DeviceUpdate {
+                id: DeviceIdentifier {
+                    class: Some(DeviceClass::Backlight),
+                    id: None,
+                    path: Some(update.path.clone()),
+                },
+                brightness: Some(LinuxBrightnessUpdate::Percent(brightness.min(100) as u8)),
+            };
+
+            match manager.update(vec![request]) {
+                Ok(remaining) if remaining.is_empty() => {}
+                Ok(_) => remaining_updates
+                    .push(display_update_with_brightness(update.id.outer, brightness)),
+                Err(err) => {
+                    return Err(PhysicalDisplayApplyError::BacklightOperation {
+                        display_id: update.path.clone(),
+                        message: err.to_string(),
+                    })
+                }
+            }
+        }
+
+        Ok(remaining_updates)
+    }
+}
+
+#[cfg(test)]
+struct BacklightFixture {
+    tempdir: tempfile::TempDir,
+}
+
+#[cfg(test)]
+impl BacklightFixture {
+    fn new() -> Self {
+        let tempdir = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tempdir.path().join("backlight")).unwrap();
+        std::fs::create_dir_all(tempdir.path().join("leds")).unwrap();
+        Self { tempdir }
+    }
+
+    fn manager(&self) -> displays_physical_linux_sys::PhysicalDisplayManagerLinuxSys {
+        displays_physical_linux_sys::PhysicalDisplayManagerLinuxSys::with_sysfs_root(
+            self.tempdir.path(),
+        )
+    }
+
+    fn add_backlight(&self, id: &str, brightness: u32, max_brightness: u32) {
+        self.add_device("backlight", id, brightness, max_brightness);
+    }
+
+    fn add_led(&self, id: &str, brightness: u32, max_brightness: u32) {
+        self.add_device("leds", id, brightness, max_brightness);
+    }
+
+    fn add_device(&self, class: &str, id: &str, brightness: u32, max_brightness: u32) {
+        let device_path = self.tempdir.path().join(class).join(id);
+        std::fs::create_dir_all(&device_path).unwrap();
+        std::fs::write(device_path.join("brightness"), brightness.to_string()).unwrap();
+        std::fs::write(
+            device_path.join("max_brightness"),
+            max_brightness.to_string(),
+        )
+        .unwrap();
+    }
+
+    fn read_brightness(&self, id: &str) -> u32 {
+        let content = std::fs::read_to_string(
+            self.tempdir
+                .path()
+                .join("backlight")
+                .join(id)
+                .join("brightness"),
+        )
+        .unwrap();
+        content.trim().parse().unwrap()
+    }
 }

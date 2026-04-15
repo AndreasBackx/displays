@@ -10,17 +10,17 @@ use crate::types::{
 
 /// High-level entry point for querying and updating Linux brightness devices.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct BacklightManager {
+pub struct PhysicalDisplayManagerLinuxSys {
     sysfs_root: PathBuf,
 }
 
-impl Default for BacklightManager {
+impl Default for PhysicalDisplayManagerLinuxSys {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl BacklightManager {
+impl PhysicalDisplayManagerLinuxSys {
     /// Creates a manager that reads devices from `/sys/class`.
     ///
     /// This is the normal constructor for real Linux systems.
@@ -45,8 +45,16 @@ impl BacklightManager {
     /// Devices are read from both `/sys/class/backlight` and `/sys/class/leds`
     /// beneath the configured sysfs root.
     pub fn list(&self) -> Result<Vec<Device>, QueryError> {
+        self.list_by_classes([DeviceClass::Backlight, DeviceClass::Leds])
+    }
+
+    /// Lists detected brightness devices from the requested classes.
+    pub fn list_by_classes(
+        &self,
+        classes: impl IntoIterator<Item = DeviceClass>,
+    ) -> Result<Vec<Device>, QueryError> {
         let mut devices = Vec::new();
-        for class in [DeviceClass::Backlight, DeviceClass::Leds] {
+        for class in classes {
             devices.extend(self.list_class(class)?);
         }
         devices.sort_by(|left, right| left.metadata.cmp(&right.metadata));
@@ -114,12 +122,12 @@ impl BacklightManager {
             };
 
             for device in matched_devices {
-                let target_raw = normalized_raw_value(&device.state, &brightness_update);
+                let target_raw = normalize_brightness_update(&device.state, &brightness_update);
                 if validate {
                     continue;
                 }
 
-                self.write_brightness(&device.metadata, target_raw)?;
+                self.set_brightness_raw(&device.metadata, target_raw)?;
             }
         }
 
@@ -162,7 +170,7 @@ impl BacklightManager {
                         path: device_path.clone(),
                         source,
                     })?;
-            if !file_type.is_dir() {
+            if !file_type.is_dir() && !file_type.is_symlink() {
                 continue;
             }
 
@@ -181,7 +189,12 @@ impl BacklightManager {
         Ok(devices)
     }
 
-    fn write_brightness(&self, metadata: &DeviceMetadata, value: u32) -> Result<(), ApplyError> {
+    /// Writes a raw brightness value directly to the sysfs `brightness` file.
+    pub fn set_brightness_raw(
+        &self,
+        metadata: &DeviceMetadata,
+        value: u32,
+    ) -> Result<(), ApplyError> {
         let brightness_path = Path::new(&metadata.path).join("brightness");
         fs::write(&brightness_path, value.to_string()).map_err(|source| ApplyError::WriteFile {
             path: brightness_path,
@@ -228,7 +241,8 @@ fn read_u32_file(path: &Path) -> Result<u32, QueryError> {
     })
 }
 
-fn normalized_raw_value(state: &DeviceState, update: &BrightnessUpdate) -> u32 {
+/// Normalizes a brightness update into the raw value expected by Linux sysfs.
+pub fn normalize_brightness_update(state: &DeviceState, update: &BrightnessUpdate) -> u32 {
     let max = state.max_brightness_raw;
     if max == 0 {
         return 0;
@@ -279,7 +293,7 @@ mod tests {
 
     use tempfile::TempDir;
 
-    use super::BacklightManager;
+    use super::PhysicalDisplayManagerLinuxSys;
     use crate::{BrightnessUpdate, DeviceClass, DeviceIdentifier, DeviceUpdate};
 
     #[test]
@@ -305,6 +319,19 @@ mod tests {
         assert_eq!(devices[1].metadata.class, DeviceClass::Leds);
         assert_eq!(devices[1].metadata.id, "asus::kbd_backlight");
         assert_eq!(devices[1].state.brightness_percent, 33);
+    }
+
+    #[test]
+    fn list_follows_sysfs_class_symlinks() {
+        let fixture = Fixture::new();
+        fixture.add_symlinked_device(DeviceClass::Backlight, "intel_backlight", 300, 1200, None);
+
+        let devices = fixture.manager().list().unwrap();
+
+        assert_eq!(devices.len(), 1);
+        assert_eq!(devices[0].metadata.class, DeviceClass::Backlight);
+        assert_eq!(devices[0].metadata.id, "intel_backlight");
+        assert_eq!(devices[0].state.brightness_percent, 25);
     }
 
     #[test]
@@ -508,8 +535,8 @@ mod tests {
             Self { tempdir }
         }
 
-        fn manager(&self) -> BacklightManager {
-            BacklightManager::with_sysfs_root(self.tempdir.path())
+        fn manager(&self) -> PhysicalDisplayManagerLinuxSys {
+            PhysicalDisplayManagerLinuxSys::with_sysfs_root(self.tempdir.path())
         }
 
         fn add_device(
@@ -535,6 +562,34 @@ mod tests {
                 )
                 .unwrap();
             }
+        }
+
+        fn add_symlinked_device(
+            &self,
+            class: DeviceClass,
+            id: &str,
+            brightness: u32,
+            max_brightness: u32,
+            actual_brightness: Option<u32>,
+        ) {
+            let target_path = self.tempdir.path().join("devices").join(id);
+            fs::create_dir_all(&target_path).unwrap();
+            fs::write(target_path.join("brightness"), brightness.to_string()).unwrap();
+            fs::write(
+                target_path.join("max_brightness"),
+                max_brightness.to_string(),
+            )
+            .unwrap();
+            if let Some(actual_brightness) = actual_brightness {
+                fs::write(
+                    target_path.join("actual_brightness"),
+                    actual_brightness.to_string(),
+                )
+                .unwrap();
+            }
+
+            let class_entry_path = self.tempdir.path().join(class.directory_name()).join(id);
+            std::os::unix::fs::symlink(&target_path, &class_entry_path).unwrap();
         }
 
         fn read_brightness(&self, class: DeviceClass, id: &str) -> u32 {

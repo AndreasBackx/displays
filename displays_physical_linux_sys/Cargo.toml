@@ -1,5 +1,5 @@
 [package]
-name = "backlight_linux"
+name = "displays_physical_linux_sys"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.81"
@@ -7,7 +7,7 @@ description = "Rust library for querying and updating Linux backlight and LED br
 license = "MIT"
 repository = "https://github.com/AndreasBackx/displays"
 homepage = "https://github.com/AndreasBackx/displays"
-documentation = "https://docs.rs/backlight_linux"
+documentation = "https://docs.rs/displays_physical_linux_sys"
 readme = "README.md"
 keywords = ["linux", "backlight", "brightness", "led", "sysfs"]
 categories = ["os::linux-apis", "hardware-support", "api-bindings"]
@@ -17,10 +17,8 @@ include = [
     "/README.md",
 ]
 
-[workspace]
-
 [lib]
-name = "backlight_linux"
+name = "displays_physical_linux_sys"
 path = "src/lib.rs"
 
 [dependencies]

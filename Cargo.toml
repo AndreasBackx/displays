@@ -1,3 +1,11 @@
 [workspace]
 resolver = "2"
-members = ["backlight_linux", "displays", "displays_py", "displays_astal", "examples/cli"]
+members = [
+    "displays_physical_linux_sys",
+    "displays_physical_linux_logind",
+    "displays_physical_linux",
+    "displays",
+    "displays_py",
+    "displays_astal",
+    "examples/cli",
+]

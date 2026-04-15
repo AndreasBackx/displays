@@ -43,7 +43,8 @@ pub enum DeviceClass {
 }
 
 impl DeviceClass {
-    pub(crate) const fn directory_name(self) -> &'static str {
+    /// Returns the sysfs class directory name for this device class.
+    pub const fn directory_name(self) -> &'static str {
         match self {
             DeviceClass::Backlight => "backlight",
             DeviceClass::Leds => "leds",
@@ -63,7 +64,8 @@ pub struct DeviceIdentifier {
 }
 
 impl DeviceIdentifier {
-    pub(crate) fn is_subset(&self, metadata: &DeviceMetadata) -> bool {
+    /// Returns whether this identifier matches the provided device metadata.
+    pub fn is_subset(&self, metadata: &DeviceMetadata) -> bool {
         if let Some(class) = self.class {
             if class != metadata.class {
                 return false;

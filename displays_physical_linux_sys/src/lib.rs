@@ -1,7 +1,7 @@
 #![warn(missing_docs)]
 //! Linux brightness device query and update primitives.
 //!
-//! `backlight_linux` provides a small manager-oriented API for working with
+//! `displays_physical_linux_sys` provides a small manager-oriented API for working with
 //! devices exposed under `/sys/class/backlight` and `/sys/class/leds`.
 //!
 //! The crate is intentionally library-focused rather than CLI-shaped:
@@ -52,22 +52,23 @@
 //!
 //! # Overview
 //!
-//! The primary entry point is [`BacklightManager`].
+//! The primary entry point is [`PhysicalDisplayManagerLinuxSys`].
 //! It can:
 //!
-//! - enumerate brightness-capable devices with [`BacklightManager::list`]
-//! - look up devices by identifier with [`BacklightManager::get`]
-//! - apply brightness changes with [`BacklightManager::update`]
-//! - validate update requests without writing with [`BacklightManager::validate`]
+//! - enumerate brightness-capable devices with [`PhysicalDisplayManagerLinuxSys::list`]
+//! - look up devices by identifier with [`PhysicalDisplayManagerLinuxSys::get`]
+//! - apply brightness changes with [`PhysicalDisplayManagerLinuxSys::update`]
+//! - validate update requests without writing with [`PhysicalDisplayManagerLinuxSys::validate`]
 //!
 //! # Example
 //!
 //! ```rust,no_run
-//! use backlight_linux::{
-//!     BacklightManager, BrightnessUpdate, DeviceClass, DeviceIdentifier, DeviceUpdate,
+//! use displays_physical_linux_sys::{
+//!     BrightnessUpdate, DeviceClass, DeviceIdentifier, DeviceUpdate,
+//!     PhysicalDisplayManagerLinuxSys,
 //! };
 //!
-//! let manager = BacklightManager::new();
+//! let manager = PhysicalDisplayManagerLinuxSys::new();
 //! let devices = manager.list()?;
 //!
 //! for device in &devices {
@@ -100,7 +101,7 @@ mod manager;
 mod types;
 
 pub use error::{ApplyError, QueryError};
-pub use manager::BacklightManager;
+pub use manager::{normalize_brightness_update, PhysicalDisplayManagerLinuxSys};
 pub use types::{
     BrightnessUpdate, Device, DeviceClass, DeviceIdentifier, DeviceMetadata, DeviceState,
     DeviceUpdate,

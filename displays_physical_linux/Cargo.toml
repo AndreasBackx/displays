@@ -1,0 +1,19 @@
+[package]
+name = "displays_physical_linux"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.81"
+description = "Wrapper around Linux physical brightness backends"
+license = "MIT"
+repository = "https://github.com/AndreasBackx/displays"
+homepage = "https://github.com/AndreasBackx/displays"
+documentation = "https://docs.rs/displays_physical_linux"
+
+[lib]
+name = "displays_physical_linux"
+path = "src/lib.rs"
+
+[dependencies]
+thiserror = "2.0.17"
+displays_physical_linux_sys = { path = "../displays_physical_linux_sys" }
+displays_physical_linux_logind = { path = "../displays_physical_linux_logind" }

@@ -30,6 +30,10 @@ impl Command for QueryCommand {
             found_match = true;
 
             let id = display.id().outer;
+            let serial_number = id
+                .serial_number
+                .filter(|value| !value.is_empty())
+                .unwrap_or_else(|| "unknown".to_string());
             let brightness = display
                 .physical
                 .as_ref()
@@ -39,7 +43,7 @@ impl Command for QueryCommand {
             println!(
                 "Display: {}\n  Serial: {}\n  Enabled: {}\n  Resolution: {}x{}\n  Brightness: {}\n",
                 id.name.unwrap_or_else(|| "unknown".to_string()),
-                id.serial_number.unwrap_or_else(|| "unknown".to_string()),
+                serial_number,
                 display.logical.state.is_enabled,
                 display
                     .logical
