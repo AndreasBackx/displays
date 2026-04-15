@@ -1,12 +1,14 @@
 #![warn(missing_docs)]
-//! Linux brightness device facade combining sysfs and logind backends.
+//! Linux physical display facade combining DDC, sysfs, and logind backends.
 
+mod ddc;
 mod error;
 mod manager;
+mod types;
 
-pub use error::ApplyError;
-pub use manager::PhysicalDisplayManagerLinux;
-pub use displays_physical_linux_sys::{
-    normalize_brightness_update, BrightnessUpdate, Device, DeviceClass, DeviceIdentifier,
-    DeviceMetadata, DeviceState, DeviceUpdate, QueryError,
+pub use error::{ApplyError, QueryError};
+pub use manager::PhysicalDisplayManager;
+pub use types::{
+    PhysicalDisplay, PhysicalDisplayIdentifier, PhysicalDisplayMetadata, PhysicalDisplayState,
+    PhysicalDisplayUpdate,
 };

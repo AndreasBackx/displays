@@ -28,8 +28,16 @@ use crate::windows::{
 };
 
 #[cfg(target_os = "linux")]
-use crate::linux::physical_manager::{
-    PhysicalDisplayApplyError, PhysicalDisplayManagerLinux, PhysicalDisplayQueryError,
+use crate::physical_display::{
+    PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdateContent,
+};
+
+#[cfg(target_os = "linux")]
+use displays_physical_linux::{
+    ApplyError as PhysicalDisplayApplyError,
+    PhysicalDisplayIdentifier as LinuxPhysicalDisplayIdentifier,
+    PhysicalDisplayManager as PhysicalDisplayManagerLinux,
+    PhysicalDisplayUpdate as LinuxPhysicalDisplayUpdate, QueryError as PhysicalDisplayQueryError,
 };
 
 #[cfg(target_os = "linux")]
@@ -301,23 +309,39 @@ fn query_linux() -> Result<Vec<Display>, DisplayQueryError> {
 
     Ok(physical_displays
         .into_iter()
-        .map(|physical| Display {
-            logical: LogicalDisplay {
-                metadata: LogicalDisplayMetadata {
-                    name: physical.metadata.name.clone(),
-                    path: physical.metadata.path.clone(),
-                    gdi_device_id: None,
+        .map(|physical| {
+            let logical_name = physical.metadata.name.clone();
+            let logical_path = physical.metadata.path.clone();
+            Display {
+                logical: LogicalDisplay {
+                    metadata: LogicalDisplayMetadata {
+                        name: logical_name,
+                        path: logical_path,
+                        gdi_device_id: None,
+                    },
+                    state: LogicalDisplayState {
+                        is_enabled: true,
+                        orientation: Orientation::Landscape,
+                        width: None,
+                        height: None,
+                        pixel_format: None,
+                        position: None,
+                    },
                 },
-                state: LogicalDisplayState {
-                    is_enabled: true,
-                    orientation: Orientation::Landscape,
-                    width: None,
-                    height: None,
-                    pixel_format: None,
-                    position: None,
-                },
-            },
-            physical: Some(physical),
+                physical: Some(PhysicalDisplay {
+                    metadata: PhysicalDisplayMetadata {
+                        path: physical.metadata.path,
+                        name: physical.metadata.name,
+                        serial_number: physical.metadata.serial_number,
+                    },
+                    state: PhysicalDisplayState {
+                        brightness: crate::display::Brightness::new(
+                            physical.state.brightness_percent,
+                        ),
+                        scale_factor: physical.state.scale_factor,
+                    },
+                }),
+            }
         })
         .collect())
 }
@@ -331,7 +355,37 @@ fn apply_linux(
         return Err(LogicalDisplayApplyError::Unsupported.into());
     }
 
-    PhysicalDisplayManagerLinux::apply_display_updates(updates, validate).map_err(Into::into)
+    let linux_updates = updates
+        .into_iter()
+        .map(|update| LinuxPhysicalDisplayUpdate {
+            id: LinuxPhysicalDisplayIdentifier {
+                name: update.id.name,
+                serial_number: update.id.serial_number,
+            },
+            brightness_percent: update
+                .physical
+                .as_ref()
+                .and_then(|physical| physical.brightness),
+        })
+        .collect();
+
+    PhysicalDisplayManagerLinux::apply(linux_updates, validate)
+        .map(|remaining| {
+            remaining
+                .into_iter()
+                .map(|update| DisplayUpdate {
+                    id: DisplayIdentifier {
+                        name: update.id.name,
+                        serial_number: update.id.serial_number,
+                    },
+                    logical: None,
+                    physical: Some(PhysicalDisplayUpdateContent {
+                        brightness: update.brightness_percent,
+                    }),
+                })
+                .collect()
+        })
+        .map_err(Into::into)
 }
 
 pub struct QueryError {}

@@ -1,134 +1,223 @@
-use std::collections::{BTreeMap, BTreeSet};
-use std::io::ErrorKind;
-use std::path::PathBuf;
-
 use displays_physical_linux_logind::PhysicalDisplayManagerLinuxLogind;
 use displays_physical_linux_sys::{
-    normalize_brightness_update, Device, DeviceIdentifier, DeviceMetadata, DeviceState,
-    DeviceUpdate, PhysicalDisplayManagerLinuxSys, QueryError,
+    BrightnessUpdate, Device, DeviceClass, DeviceIdentifier, DeviceUpdate,
+    PhysicalDisplayManagerLinuxSys,
+};
+use std::io::ErrorKind;
+
+use crate::ddc;
+use crate::error::{ApplyError, QueryError};
+use crate::types::{
+    Backend, BacklightApplyUpdate, DdcApplyUpdate, DisplayHandle, PhysicalDisplay,
+    PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdate,
 };
 
-use crate::error::ApplyError;
+/// High-level entry point for querying and updating Linux physical displays.
+pub struct PhysicalDisplayManager;
 
-/// High-level entry point for querying and updating Linux brightness devices.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct PhysicalDisplayManagerLinux {
-    sys: PhysicalDisplayManagerLinuxSys,
-    logind: PhysicalDisplayManagerLinuxLogind,
-}
-
-impl Default for PhysicalDisplayManagerLinux {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl PhysicalDisplayManagerLinux {
-    /// Creates a manager that reads devices from `/sys/class` and falls back to logind for writes.
-    pub fn new() -> Self {
-        Self {
-            sys: PhysicalDisplayManagerLinuxSys::new(),
-            logind: PhysicalDisplayManagerLinuxLogind::new(),
-        }
+impl PhysicalDisplayManager {
+    /// Queries the current Linux physical display state.
+    pub fn query() -> Result<Vec<PhysicalDisplay>, QueryError> {
+        Ok(Self::query_handles()?
+            .into_iter()
+            .map(|handle| handle.display())
+            .collect())
     }
 
-    /// Creates a manager using a custom sysfs root.
-    pub fn with_sysfs_root(path: impl Into<PathBuf>) -> Self {
-        Self {
-            sys: PhysicalDisplayManagerLinuxSys::with_sysfs_root(path),
-            logind: PhysicalDisplayManagerLinuxLogind::new(),
-        }
-    }
-
-    /// Lists all detected brightness-capable Linux devices.
-    pub fn list(&self) -> Result<Vec<Device>, QueryError> {
-        self.sys.list()
-    }
-
-    /// Lists detected Linux brightness devices from the requested classes.
-    pub fn list_by_classes(
-        &self,
-        classes: impl IntoIterator<Item = displays_physical_linux_sys::DeviceClass>,
-    ) -> Result<Vec<Device>, QueryError> {
-        self.sys.list_by_classes(classes)
-    }
-
-    /// Looks up devices matching the provided identifiers.
-    pub fn get(
-        &self,
-        ids: BTreeSet<DeviceIdentifier>,
-    ) -> Result<BTreeMap<DeviceIdentifier, Device>, QueryError> {
-        self.sys.get(ids)
-    }
-
-    /// Applies the requested device updates.
+    /// Applies the requested Linux physical display updates.
     pub fn apply(
-        &self,
-        updates: Vec<DeviceUpdate>,
+        updates: Vec<PhysicalDisplayUpdate>,
         validate: bool,
-    ) -> Result<Vec<DeviceUpdate>, ApplyError> {
+    ) -> Result<Vec<PhysicalDisplayUpdate>, ApplyError> {
         if updates.is_empty() {
             return Ok(Vec::new());
         }
 
-        let devices = self.sys.list()?;
-        let mut remaining = Vec::new();
+        let handles = Self::query_handles()?;
+        let mut remaining_updates = Vec::new();
+        let mut ddc_updates = Vec::new();
+        let mut backlight_updates = Vec::new();
 
         for update in updates {
-            let matched_devices: Vec<_> = devices
+            let matched_handles: Vec<_> = handles
                 .iter()
-                .filter(|device| update.id.is_subset(&device.metadata))
-                .cloned()
+                .filter(|handle| update.id.is_subset(&handle.id().outer))
                 .collect();
 
-            if matched_devices.is_empty() {
-                remaining.push(update);
+            if matched_handles.is_empty() {
+                remaining_updates.push(update);
                 continue;
             }
-
-            let Some(brightness_update) = update.brightness.clone() else {
-                continue;
-            };
 
             if validate {
                 continue;
             }
 
-            for device in matched_devices {
-                self.apply_to_device(&device.metadata, &device.state, &brightness_update)?;
+            for handle in matched_handles {
+                match &handle.backend {
+                    Backend::Ddc { display_index } => {
+                        ddc_updates.push(DdcApplyUpdate {
+                            id: handle.id(),
+                            brightness_percent: update.brightness_percent,
+                            display_index: *display_index,
+                        });
+                    }
+                    Backend::Backlight { path } => {
+                        backlight_updates.push(BacklightApplyUpdate {
+                            id: handle.id(),
+                            brightness_percent: update.brightness_percent,
+                            path: path.clone(),
+                        });
+                    }
+                }
             }
         }
 
-        Ok(remaining)
+        remaining_updates.extend(ddc::apply_updates(ddc_updates));
+        remaining_updates.extend(Self::apply_backlight_updates(backlight_updates)?);
+        Ok(remaining_updates)
     }
 
-    /// Applies device updates without validation-only mode.
-    pub fn update(&self, updates: Vec<DeviceUpdate>) -> Result<Vec<DeviceUpdate>, ApplyError> {
-        self.apply(updates, false)
+    /// Applies the requested Linux physical display updates without validation-only mode.
+    pub fn update(
+        updates: Vec<PhysicalDisplayUpdate>,
+    ) -> Result<Vec<PhysicalDisplayUpdate>, ApplyError> {
+        Self::apply(updates, false)
     }
 
-    /// Validates device updates without writing to sysfs or logind.
-    pub fn validate(&self, updates: Vec<DeviceUpdate>) -> Result<Vec<DeviceUpdate>, ApplyError> {
-        self.apply(updates, true)
+    /// Validates the requested Linux physical display updates.
+    pub fn validate(
+        updates: Vec<PhysicalDisplayUpdate>,
+    ) -> Result<Vec<PhysicalDisplayUpdate>, ApplyError> {
+        Self::apply(updates, true)
     }
 
-    fn apply_to_device(
-        &self,
-        metadata: &DeviceMetadata,
-        state: &DeviceState,
-        update: &displays_physical_linux_sys::BrightnessUpdate,
-    ) -> Result<(), ApplyError> {
-        let target_raw = normalize_brightness_update(state, update);
-        match self.sys.set_brightness_raw(metadata, target_raw) {
-            Ok(()) => Ok(()),
-            Err(displays_physical_linux_sys::ApplyError::WriteFile { source, .. })
-                if source.kind() == ErrorKind::PermissionDenied =>
+    fn query_handles() -> Result<Vec<DisplayHandle>, QueryError> {
+        let mut handles = ddc::enumerate_handles()?;
+        handles.extend(Self::enumerate_backlight_handles()?);
+        handles.sort_by(|left, right| left.metadata.cmp(&right.metadata));
+        Ok(handles)
+    }
+
+    fn enumerate_backlight_handles() -> Result<Vec<DisplayHandle>, QueryError> {
+        let manager = PhysicalDisplayManagerLinuxSys::new();
+        match manager.list_by_classes([DeviceClass::Backlight]) {
+            Ok(devices) => devices
+                .into_iter()
+                .map(backlight_handle_from_device)
+                .collect(),
+            Err(displays_physical_linux_sys::QueryError::ReadClassDirectory { source, .. })
+                if source.kind() == ErrorKind::NotFound =>
             {
-                self.logind
-                    .set_brightness(metadata.class, &metadata.id, target_raw)
-                    .map_err(Into::into)
+                Ok(Vec::new())
             }
-            Err(err) => Err(err.into()),
+            Err(err) => Err(QueryError::BacklightQuery {
+                message: err.to_string(),
+            }),
         }
     }
+
+    fn apply_backlight_updates(
+        updates: Vec<BacklightApplyUpdate>,
+    ) -> Result<Vec<PhysicalDisplayUpdate>, ApplyError> {
+        if updates.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let sys = PhysicalDisplayManagerLinuxSys::new();
+        let logind = PhysicalDisplayManagerLinuxLogind::new();
+        let mut remaining_updates = Vec::new();
+
+        for update in updates {
+            let Some(brightness_percent) = update.brightness_percent else {
+                continue;
+            };
+
+            let request = DeviceUpdate {
+                id: DeviceIdentifier {
+                    class: Some(DeviceClass::Backlight),
+                    id: None,
+                    path: Some(update.path.clone()),
+                },
+                brightness: Some(BrightnessUpdate::Percent(brightness_percent.min(100) as u8)),
+            };
+
+            match sys.update(vec![request.clone()]) {
+                Ok(remaining) if remaining.is_empty() => {}
+                Ok(_) => remaining_updates.push(PhysicalDisplayUpdate {
+                    id: update.id.outer,
+                    brightness_percent: Some(brightness_percent),
+                }),
+                Err(displays_physical_linux_sys::ApplyError::WriteFile { source, .. })
+                    if source.kind() == ErrorKind::PermissionDenied =>
+                {
+                    let devices = sys
+                        .list_by_classes([DeviceClass::Backlight])
+                        .map_err(|err| ApplyError::BacklightOperation {
+                            display_id: update.path.clone(),
+                            message: err.to_string(),
+                        })?;
+                    let Some(device) = devices
+                        .iter()
+                        .find(|device| request.id.is_subset(&device.metadata))
+                    else {
+                        remaining_updates.push(PhysicalDisplayUpdate {
+                            id: update.id.outer,
+                            brightness_percent: Some(brightness_percent),
+                        });
+                        continue;
+                    };
+                    let target_raw = displays_physical_linux_sys::normalize_brightness_update(
+                        &device.state,
+                        request
+                            .brightness
+                            .as_ref()
+                            .expect("backlight request has brightness"),
+                    );
+
+                    if let Err(err) = logind.set_brightness(
+                        device.metadata.class,
+                        &device.metadata.id,
+                        target_raw,
+                    ) {
+                        return Err(ApplyError::BacklightOperation {
+                            display_id: device.metadata.path.clone(),
+                            message: err.to_string(),
+                        });
+                    }
+                }
+                Err(err) => {
+                    tracing::warn!(
+                        "Failed to set backlight brightness for display '{}': {}",
+                        update.path,
+                        err
+                    );
+                    remaining_updates.push(PhysicalDisplayUpdate {
+                        id: update.id.outer,
+                        brightness_percent: Some(brightness_percent),
+                    });
+                }
+            }
+        }
+
+        Ok(remaining_updates)
+    }
+}
+
+fn backlight_handle_from_device(device: Device) -> Result<DisplayHandle, QueryError> {
+    let path = device.metadata.path;
+    let name = device.metadata.id;
+
+    Ok(DisplayHandle {
+        metadata: PhysicalDisplayMetadata {
+            path: path.clone(),
+            name,
+            serial_number: String::new(),
+        },
+        state: PhysicalDisplayState {
+            brightness_percent: device.state.brightness_percent,
+            scale_factor: 100,
+        },
+        backend: Backend::Backlight { path },
+    })
 }
