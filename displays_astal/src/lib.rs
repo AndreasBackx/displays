@@ -17,7 +17,15 @@ pub mod manager;
 pub mod physical_display;
 pub mod point;
 
-use glib::{ffi::GError, translate::IntoGlibPtr};
+#[cfg(test)]
+mod tests;
+
+use std::{mem::size_of, ptr};
+
+use glib::{
+    ffi::{g_malloc, GError},
+    translate::IntoGlibPtr,
+};
 
 pub(crate) unsafe fn write_error(error: *mut *mut GError, err: glib::Error) {
     if !error.is_null() {
@@ -29,13 +37,23 @@ pub(crate) fn object_vec_to_ptr_array<T, P: 'static>(items: Vec<T>) -> *mut *mut
 where
     T: IntoGlibPtr<*mut P>,
 {
-    let mut ptrs = items
+    if items.is_empty() {
+        return ptr::null_mut();
+    }
+
+    let ptrs = items
         .into_iter()
         .map(|item| unsafe { item.into_glib_ptr() })
         .collect::<Vec<_>>();
-    let ptr = ptrs.as_mut_ptr();
-    std::mem::forget(ptrs);
-    ptr
+
+    let bytes = ptrs.len() * size_of::<*mut P>();
+    let array = unsafe { g_malloc(bytes) as *mut *mut P };
+
+    unsafe {
+        ptr::copy_nonoverlapping(ptrs.as_ptr(), array, ptrs.len());
+    }
+
+    array
 }
 
 pub(crate) unsafe fn read_object_array<T, P: 'static>(items: *mut *mut P, len: usize) -> Vec<T>
