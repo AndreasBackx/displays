@@ -103,8 +103,23 @@ impl std::fmt::Display for Point {
 
 #[pymethods]
 impl Point {
+    #[new]
+    #[pyo3(signature = (*, x, y))]
+    fn new(x: i32, y: i32) -> Self {
+        Self { x, y }
+    }
+
     pub fn __repr__(&self) -> String {
         format!("{self}")
+    }
+}
+
+impl From<Point> for lib::types::Point {
+    fn from(value: Point) -> Self {
+        Self {
+            x: value.x,
+            y: value.y,
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 use displays_core::{self as lib};
 use pyo3::prelude::*;
 
-use crate::display_identifier::DisplayIdentifier;
+use crate::{display::Point, display_identifier::DisplayIdentifier};
 
 #[pyclass(str)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -19,6 +19,12 @@ pub struct DisplayUpdate {
 pub struct LogicalDisplayUpdateContent {
     #[pyo3(get, set)]
     is_enabled: Option<bool>,
+    #[pyo3(get, set)]
+    width: Option<u32>,
+    #[pyo3(get, set)]
+    height: Option<u32>,
+    #[pyo3(get, set)]
+    position: Option<Point>,
 }
 
 #[pyclass(str)]
@@ -98,9 +104,19 @@ impl std::fmt::Display for PhysicalDisplayUpdateContent {
 #[pymethods]
 impl LogicalDisplayUpdateContent {
     #[new]
-    #[pyo3(signature = (*, is_enabled=None))]
-    fn new(is_enabled: Option<bool>) -> Self {
-        Self { is_enabled }
+    #[pyo3(signature = (*, is_enabled=None, width=None, height=None, position=None))]
+    fn new(
+        is_enabled: Option<bool>,
+        width: Option<u32>,
+        height: Option<u32>,
+        position: Option<Point>,
+    ) -> Self {
+        Self {
+            is_enabled,
+            width,
+            height,
+            position,
+        }
     }
 
     pub fn __repr__(&self) -> String {
@@ -112,11 +128,24 @@ impl std::fmt::Display for LogicalDisplayUpdateContent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "LogicalDisplayUpdateContent(is_enabled={is_enabled})",
+            "LogicalDisplayUpdateContent(is_enabled={is_enabled}, width={width}, height={height}, position={position})",
             is_enabled = self
                 .is_enabled
                 .map(|value| if value { "True" } else { "False" })
                 .unwrap_or("None"),
+            width = self
+                .width
+                .map(|value| value.to_string())
+                .unwrap_or("None".to_string()),
+            height = self
+                .height
+                .map(|value| value.to_string())
+                .unwrap_or("None".to_string()),
+            position = self
+                .position
+                .as_ref()
+                .map(|value| value.to_string())
+                .unwrap_or("None".to_string()),
         )
     }
 }
@@ -145,6 +174,9 @@ impl From<lib::logical_display::LogicalDisplayUpdateContent> for LogicalDisplayU
     fn from(value: lib::logical_display::LogicalDisplayUpdateContent) -> Self {
         LogicalDisplayUpdateContent {
             is_enabled: value.is_enabled,
+            width: value.width,
+            height: value.height,
+            position: value.position.map(Into::into),
         }
     }
 }
@@ -153,6 +185,9 @@ impl From<LogicalDisplayUpdateContent> for lib::logical_display::LogicalDisplayU
     fn from(value: LogicalDisplayUpdateContent) -> Self {
         lib::logical_display::LogicalDisplayUpdateContent {
             is_enabled: value.is_enabled,
+            width: value.width,
+            height: value.height,
+            position: value.position.map(Into::into),
             ..Default::default()
         }
     }
