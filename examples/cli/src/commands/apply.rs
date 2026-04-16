@@ -153,9 +153,8 @@ impl Command for ApplyCommand {
             for failure in result.failed {
                 let display_name = failure
                     .matched_id
-                    .outer
                     .name
-                    .or(failure.matched_id.outer.serial_number)
+                    .or(failure.matched_id.serial_number)
                     .unwrap_or_else(|| "unknown display".to_string());
                 println!("- {display_name}: {}", failure.message);
             }

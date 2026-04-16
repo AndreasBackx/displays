@@ -9,6 +9,8 @@ pub struct DisplayMatch {
     #[pyo3(get, set)]
     requested_id: DisplayIdentifier,
     #[pyo3(get, set)]
+    matched_id: DisplayIdentifier,
+    #[pyo3(get, set)]
     display: Display,
 }
 
@@ -23,8 +25,9 @@ impl std::fmt::Display for DisplayMatch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "DisplayMatch(requested_id={requested_id}, display={display})",
+            "DisplayMatch(requested_id={requested_id}, matched_id={matched_id}, display={display})",
             requested_id = self.requested_id,
+            matched_id = self.matched_id,
             display = self.display,
         )
     }
@@ -34,6 +37,7 @@ impl From<lib::manager::DisplayMatch> for DisplayMatch {
     fn from(value: lib::manager::DisplayMatch) -> Self {
         Self {
             requested_id: value.requested_id.into(),
+            matched_id: value.matched_id.into(),
             display: value.display.into(),
         }
     }

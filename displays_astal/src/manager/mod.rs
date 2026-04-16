@@ -4,7 +4,7 @@ use glib::Object;
 
 use crate::{
     backend, display::Display, display_identifier::DisplayIdentifier, display_match::DisplayMatch,
-    display_update::DisplayUpdate,
+    display_update::DisplayUpdate, display_update_result::DisplayUpdateResult,
 };
 
 pub mod ffi;
@@ -37,18 +37,27 @@ impl Manager {
         &self,
         updates: Vec<DisplayUpdate>,
         validate: bool,
-    ) -> Result<Vec<DisplayUpdate>, glib::Error> {
+    ) -> Result<Vec<DisplayUpdateResult>, glib::Error> {
         let updates = updates.into_iter().map(|update| update.to_data()).collect();
-        backend::active()
-            .apply(updates, validate)
-            .map(|items| items.into_iter().map(DisplayUpdate::from_data).collect())
+        backend::active().apply(updates, validate).map(|items| {
+            items
+                .into_iter()
+                .map(DisplayUpdateResult::from_data)
+                .collect()
+        })
     }
 
-    pub fn update(&self, updates: Vec<DisplayUpdate>) -> Result<Vec<DisplayUpdate>, glib::Error> {
+    pub fn update(
+        &self,
+        updates: Vec<DisplayUpdate>,
+    ) -> Result<Vec<DisplayUpdateResult>, glib::Error> {
         self.apply(updates, false)
     }
 
-    pub fn validate(&self, updates: Vec<DisplayUpdate>) -> Result<Vec<DisplayUpdate>, glib::Error> {
+    pub fn validate(
+        &self,
+        updates: Vec<DisplayUpdate>,
+    ) -> Result<Vec<DisplayUpdateResult>, glib::Error> {
         self.apply(updates, true)
     }
 }

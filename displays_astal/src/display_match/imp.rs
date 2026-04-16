@@ -10,6 +10,8 @@ pub struct DisplayMatch {
     #[property(get, set, construct_only)]
     pub requested_id: RefCell<Option<DisplayIdentifier>>,
     #[property(get, set, construct_only)]
+    pub matched_id: RefCell<Option<DisplayIdentifier>>,
+    #[property(get, set, construct_only)]
     pub display: RefCell<Option<Display>>,
 }
 

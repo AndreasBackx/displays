@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use thiserror::Error;
 
 use crate::{
@@ -8,6 +6,9 @@ use crate::{
     logical_display::{LogicalDisplay, LogicalDisplayMetadata, LogicalDisplayState},
     types::Orientation,
 };
+
+#[cfg(target_os = "windows")]
+use std::collections::BTreeMap;
 
 #[cfg(target_os = "windows")]
 use crate::{
@@ -43,9 +44,7 @@ use displays_windows_common::types::{
 };
 
 #[cfg(target_os = "linux")]
-use crate::physical_display::{
-    PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdateContent,
-};
+use crate::physical_display::{PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState};
 
 #[cfg(target_os = "linux")]
 use displays_physical_linux::{
@@ -108,14 +107,14 @@ pub enum DisplayApplyError {
 #[derive(Debug, Clone)]
 pub struct DisplayMatch {
     pub requested_id: DisplayIdentifier,
-    pub matched_id: DisplayIdentifierInner,
+    pub matched_id: DisplayIdentifier,
     pub display: Display,
 }
 
 /// A per-display failure encountered while applying an update.
 #[derive(Debug, Clone)]
 pub struct FailedDisplayUpdate {
-    pub matched_id: DisplayIdentifierInner,
+    pub matched_id: DisplayIdentifier,
     pub message: String,
 }
 
@@ -123,7 +122,7 @@ pub struct FailedDisplayUpdate {
 #[derive(Debug, Clone)]
 pub struct DisplayUpdateResult {
     pub requested_update: DisplayUpdate,
-    pub applied: Vec<DisplayIdentifierInner>,
+    pub applied: Vec<DisplayIdentifier>,
     pub failed: Vec<FailedDisplayUpdate>,
 }
 
@@ -160,7 +159,7 @@ impl DisplayManager {
                     .filter(|display| requested_id.is_subset(&display.id().outer))
                     .map(|display| DisplayMatch {
                         requested_id: requested_id.clone(),
-                        matched_id: display.id(),
+                        matched_id: display.id().outer,
                         display: display.clone(),
                     })
                     .collect::<Vec<_>>()
@@ -305,14 +304,14 @@ fn apply_windows(
                     Ok(remaining) if remaining.is_empty() => {}
                     Ok(_) => {
                         result.failed.push(FailedDisplayUpdate {
-                            matched_id,
+                            matched_id: matched_id.outer,
                             message: "logical update was not applied".to_string(),
                         });
                         continue;
                     }
                     Err(err) => {
                         result.failed.push(FailedDisplayUpdate {
-                            matched_id,
+                            matched_id: matched_id.outer,
                             message: err.to_string(),
                         });
                         continue;
@@ -322,7 +321,7 @@ fn apply_windows(
 
             if validate || requested_update.physical.is_none() {
                 if !result.applied.contains(&matched_id) {
-                    result.applied.push(matched_id);
+                    result.applied.push(matched_id.outer);
                 }
                 continue;
             }
@@ -336,13 +335,13 @@ fn apply_windows(
             };
 
             match PhysicalDisplayManagerWindows::apply(vec![physical_update]) {
-                Ok(remaining) if remaining.is_empty() => result.applied.push(matched_id),
+                Ok(remaining) if remaining.is_empty() => result.applied.push(matched_id.outer),
                 Ok(_) => result.failed.push(FailedDisplayUpdate {
-                    matched_id,
+                    matched_id: matched_id.outer,
                     message: "physical update was not applied".to_string(),
                 }),
                 Err(err) => result.failed.push(FailedDisplayUpdate {
-                    matched_id,
+                    matched_id: matched_id.outer,
                     message: err.to_string(),
                 }),
             }
@@ -558,13 +557,13 @@ fn apply_linux(
             };
 
             match PhysicalDisplayManagerLinux::apply(vec![linux_update], validate) {
-                Ok(remaining) if remaining.is_empty() => result.applied.push(matched_id),
+                Ok(remaining) if remaining.is_empty() => result.applied.push(matched_id.outer),
                 Ok(_) => result.failed.push(FailedDisplayUpdate {
-                    matched_id,
+                    matched_id: matched_id.outer,
                     message: "physical update was not applied".to_string(),
                 }),
                 Err(err) => result.failed.push(FailedDisplayUpdate {
-                    matched_id,
+                    matched_id: matched_id.outer,
                     message: err.to_string(),
                 }),
             }
@@ -579,14 +578,14 @@ fn apply_linux(
 fn matched_updates(
     updates: Vec<DisplayUpdate>,
 ) -> Result<Vec<(DisplayUpdate, Vec<DisplayIdentifierInner>)>, DisplayQueryError> {
-    let matches = DisplayManager::get(updates.iter().map(|update| update.id.clone()).collect())?;
+    let displays = DisplayManager::query()?;
     Ok(updates
         .into_iter()
         .map(|update| {
-            let matched_ids = matches
+            let matched_ids = displays
                 .iter()
-                .filter(|item| item.requested_id == update.id)
-                .map(|item| item.matched_id.clone())
+                .filter(|display| update.id.is_subset(&display.id().outer))
+                .map(Display::id)
                 .collect();
             (update, matched_ids)
         })

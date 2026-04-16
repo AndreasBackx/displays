@@ -23,6 +23,7 @@ impl Backend for FakeBackend {
                     .cloned()
                     .map(|display| DisplayMatchData {
                         requested_id: requested_id.clone(),
+                        matched_id: display.id.clone(),
                         display,
                     })
                     .collect::<Vec<_>>()
@@ -34,15 +35,22 @@ impl Backend for FakeBackend {
         &self,
         updates: Vec<DisplayUpdateData>,
         _validate: bool,
-    ) -> Result<Vec<DisplayUpdateData>, glib::Error> {
+    ) -> Result<Vec<DisplayUpdateResultData>, glib::Error> {
         let displays = fake_displays();
         Ok(updates
             .into_iter()
-            .filter_map(|update| {
-                (!displays
+            .map(|update| {
+                let applied = displays
                     .iter()
-                    .any(|display| update.id.is_subset_of(&display.id)))
-                .then_some(update)
+                    .filter(|display| update.id.is_subset_of(&display.id))
+                    .map(|display| display.id.clone())
+                    .collect();
+
+                DisplayUpdateResultData {
+                    requested_update: update,
+                    applied,
+                    failed: Vec::new(),
+                }
             })
             .collect())
     }

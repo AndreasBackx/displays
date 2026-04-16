@@ -42,6 +42,12 @@ G_DECLARE_FINAL_TYPE(AstalDisplaysDisplay, astal_displays_display, ASTAL_DISPLAY
 #define ASTAL_DISPLAYS_TYPE_DISPLAY_UPDATE (astal_displays_display_update_get_type())
 G_DECLARE_FINAL_TYPE(AstalDisplaysDisplayUpdate, astal_displays_display_update, ASTAL_DISPLAYS, DISPLAY_UPDATE, GObject)
 
+#define ASTAL_DISPLAYS_TYPE_FAILED_DISPLAY_UPDATE (astal_displays_failed_display_update_get_type())
+G_DECLARE_FINAL_TYPE(AstalDisplaysFailedDisplayUpdate, astal_displays_failed_display_update, ASTAL_DISPLAYS, FAILED_DISPLAY_UPDATE, GObject)
+
+#define ASTAL_DISPLAYS_TYPE_DISPLAY_UPDATE_RESULT (astal_displays_display_update_result_get_type())
+G_DECLARE_FINAL_TYPE(AstalDisplaysDisplayUpdateResult, astal_displays_display_update_result, ASTAL_DISPLAYS, DISPLAY_UPDATE_RESULT, GObject)
+
 #define ASTAL_DISPLAYS_TYPE_DISPLAY_MATCH (astal_displays_display_match_get_type())
 G_DECLARE_FINAL_TYPE(AstalDisplaysDisplayMatch, astal_displays_display_match, ASTAL_DISPLAYS, DISPLAY_MATCH, GObject)
 
@@ -87,35 +93,35 @@ AstalDisplaysDisplayMatch **astal_displays_manager_get(AstalDisplaysManager *sel
  * @updates: (array length=n_updates) (element-type AstalDisplaysDisplayUpdate): requested updates
  * @n_updates: number of updates
  * @validate: whether to validate without applying
- * @n_results: (out): number of remaining updates
+ * @n_results: (out): number of update results
  * @error: return location for a #GError
  *
- * Returns: (transfer full) (array length=n_results) (element-type AstalDisplaysDisplayUpdate): unresolved updates
+ * Returns: (transfer full) (array length=n_results) (element-type AstalDisplaysDisplayUpdateResult): apply results
  */
-AstalDisplaysDisplayUpdate **astal_displays_manager_apply(AstalDisplaysManager *self, AstalDisplaysDisplayUpdate **updates, gsize n_updates, gboolean validate, gsize *n_results, GError **error);
+AstalDisplaysDisplayUpdateResult **astal_displays_manager_apply(AstalDisplaysManager *self, AstalDisplaysDisplayUpdate **updates, gsize n_updates, gboolean validate, gsize *n_results, GError **error);
 
 /**
  * astal_displays_manager_update:
  * @self: the manager
  * @updates: (array length=n_updates) (element-type AstalDisplaysDisplayUpdate): requested updates
  * @n_updates: number of updates
- * @n_results: (out): number of remaining updates
+ * @n_results: (out): number of update results
  * @error: return location for a #GError
  *
- * Returns: (transfer full) (array length=n_results) (element-type AstalDisplaysDisplayUpdate): unresolved updates
+ * Returns: (transfer full) (array length=n_results) (element-type AstalDisplaysDisplayUpdateResult): apply results
  */
-AstalDisplaysDisplayUpdate **astal_displays_manager_update(AstalDisplaysManager *self, AstalDisplaysDisplayUpdate **updates, gsize n_updates, gsize *n_results, GError **error);
+AstalDisplaysDisplayUpdateResult **astal_displays_manager_update(AstalDisplaysManager *self, AstalDisplaysDisplayUpdate **updates, gsize n_updates, gsize *n_results, GError **error);
 
 /**
  * astal_displays_manager_validate:
  * @self: the manager
  * @updates: (array length=n_updates) (element-type AstalDisplaysDisplayUpdate): requested updates
  * @n_updates: number of updates
- * @n_results: (out): number of remaining updates
+ * @n_results: (out): number of update results
  * @error: return location for a #GError
  *
- * Returns: (transfer full) (array length=n_results) (element-type AstalDisplaysDisplayUpdate): unresolved updates
+ * Returns: (transfer full) (array length=n_results) (element-type AstalDisplaysDisplayUpdateResult): apply results
  */
-AstalDisplaysDisplayUpdate **astal_displays_manager_validate(AstalDisplaysManager *self, AstalDisplaysDisplayUpdate **updates, gsize n_updates, gsize *n_results, GError **error);
+AstalDisplaysDisplayUpdateResult **astal_displays_manager_validate(AstalDisplaysManager *self, AstalDisplaysDisplayUpdate **updates, gsize n_updates, gsize *n_results, GError **error);
 
 G_END_DECLS

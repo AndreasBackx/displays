@@ -22,7 +22,7 @@ pub trait Backend {
         &self,
         updates: Vec<types::DisplayUpdateData>,
         validate: bool,
-    ) -> Result<Vec<types::DisplayUpdateData>, Error>;
+    ) -> Result<Vec<types::DisplayUpdateResultData>, Error>;
 }
 
 /// Returns the backend that should satisfy manager requests for this build.

@@ -161,7 +161,14 @@ impl From<&displays::display::Display> for DisplayData {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DisplayMatchData {
     pub requested_id: DisplayIdentifierData,
+    pub matched_id: DisplayIdentifierData,
     pub display: DisplayData,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct FailedDisplayUpdateData {
+    pub matched_id: DisplayIdentifierData,
+    pub message: String,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -232,6 +239,13 @@ pub struct DisplayUpdateData {
     pub id: DisplayIdentifierData,
     pub logical: Option<LogicalDisplayUpdateContentData>,
     pub physical: Option<PhysicalDisplayUpdateContentData>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct DisplayUpdateResultData {
+    pub requested_update: DisplayUpdateData,
+    pub applied: Vec<DisplayIdentifierData>,
+    pub failed: Vec<FailedDisplayUpdateData>,
 }
 
 impl From<DisplayUpdateData> for displays::display::DisplayUpdate {

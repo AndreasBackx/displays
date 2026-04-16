@@ -9,6 +9,7 @@ use crate::{
     display_identifier::{ffi::AstalDisplaysDisplayIdentifier, DisplayIdentifier},
     display_match::ffi::AstalDisplaysDisplayMatch,
     display_update::{ffi::AstalDisplaysDisplayUpdate, DisplayUpdate},
+    display_update_result::ffi::AstalDisplaysDisplayUpdateResult,
     object_vec_to_ptr_array, write_error,
 };
 
@@ -89,7 +90,7 @@ pub unsafe extern "C" fn astal_displays_manager_apply(
     validate: bool,
     n_results: *mut usize,
     error: *mut *mut glib::ffi::GError,
-) -> *mut *mut AstalDisplaysDisplayUpdate {
+) -> *mut *mut AstalDisplaysDisplayUpdateResult {
     let manager = super::Manager::from_glib_none(manager);
     let updates =
         crate::read_object_array::<DisplayUpdate, AstalDisplaysDisplayUpdate>(updates, n_updates);
@@ -117,7 +118,7 @@ pub unsafe extern "C" fn astal_displays_manager_update(
     n_updates: usize,
     n_results: *mut usize,
     error: *mut *mut glib::ffi::GError,
-) -> *mut *mut AstalDisplaysDisplayUpdate {
+) -> *mut *mut AstalDisplaysDisplayUpdateResult {
     astal_displays_manager_apply(manager, updates, n_updates, false, n_results, error)
 }
 
@@ -128,6 +129,6 @@ pub unsafe extern "C" fn astal_displays_manager_validate(
     n_updates: usize,
     n_results: *mut usize,
     error: *mut *mut glib::ffi::GError,
-) -> *mut *mut AstalDisplaysDisplayUpdate {
+) -> *mut *mut AstalDisplaysDisplayUpdateResult {
     astal_displays_manager_apply(manager, updates, n_updates, true, n_results, error)
 }

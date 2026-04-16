@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("{display:#?}");
     }
 
-    let remaining_updates = DisplayManager::apply(
+    let results = DisplayManager::apply(
         vec![DisplayUpdate {
             id: DisplayIdentifier {
                 name: Some("DELL U2720Q".to_string()),
@@ -39,7 +39,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         false,
     )?;
 
-    assert!(remaining_updates.is_empty());
+    assert_eq!(results.len(), 1);
+    assert!(!results[0].applied.is_empty());
     Ok(())
 }
 ```

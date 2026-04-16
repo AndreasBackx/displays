@@ -18,6 +18,7 @@ impl DisplayMatch {
                 "requested-id",
                 DisplayIdentifier::from_data(value.requested_id),
             )
+            .property("matched-id", DisplayIdentifier::from_data(value.matched_id))
             .property("display", Display::from_data(value.display))
             .build()
     }

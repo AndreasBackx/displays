@@ -26,6 +26,7 @@ impl Backend for RealBackend {
             .into_iter()
             .map(|display_match| DisplayMatchData {
                 requested_id: display_match.requested_id.into(),
+                matched_id: display_match.matched_id.into(),
                 display: display_match.display.into(),
             })
             .collect())
@@ -35,7 +36,7 @@ impl Backend for RealBackend {
         &self,
         updates: Vec<DisplayUpdateData>,
         validate: bool,
-    ) -> Result<Vec<DisplayUpdateData>, glib::Error> {
+    ) -> Result<Vec<DisplayUpdateResultData>, glib::Error> {
         displays::manager::DisplayManager::apply(
             updates.into_iter().map(Into::into).collect(),
             validate,
@@ -43,8 +44,18 @@ impl Backend for RealBackend {
         .map(|items| {
             items
                 .into_iter()
-                .filter(|result| result.applied.is_empty())
-                .map(|result| result.requested_update.into())
+                .map(|result| DisplayUpdateResultData {
+                    requested_update: result.requested_update.into(),
+                    applied: result.applied.into_iter().map(Into::into).collect(),
+                    failed: result
+                        .failed
+                        .into_iter()
+                        .map(|failed| FailedDisplayUpdateData {
+                            matched_id: failed.matched_id.into(),
+                            message: failed.message,
+                        })
+                        .collect(),
+                })
                 .collect()
         })
         .map_err(map_error)

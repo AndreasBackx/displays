@@ -1,5 +1,6 @@
 use std::{env, process::Command, ptr};
 
+use gio::prelude::ListModelExt;
 use glib::{ffi::GError, prelude::ObjectExt, Object};
 
 use crate::{
@@ -102,14 +103,19 @@ fn run_real_backlight_round_trip() {
         .property("physical", update_content)
         .build();
 
-    let unresolved = manager
+    let results = manager
         .update(vec![update])
         .expect("update current backlight brightness");
     assert!(
-        unresolved.is_empty(),
-        "expected update to fully resolve, got {} unresolved updates",
-        unresolved.len()
+        results.len() == 1,
+        "expected one update result, got {}",
+        results.len()
     );
+
+    let applied = get_property::<gio::ListStore>(&results[0], "applied");
+    let failed = get_property::<gio::ListStore>(&results[0], "failed");
+    assert_eq!(applied.n_items(), 1, "expected one applied display");
+    assert_eq!(failed.n_items(), 0, "expected no failed displays");
 
     let refreshed = manager.query().expect("query displays after update");
     let Some((_, refreshed_brightness)) = built_in_backlight_display(refreshed) else {
@@ -120,6 +126,36 @@ fn run_real_backlight_round_trip() {
         refreshed_brightness, current_brightness,
         "no-op backlight update should preserve brightness"
     );
+}
+
+#[cfg(feature = "faked")]
+#[test]
+fn fake_update_result_contains_applied_matches() {
+    let update = Object::builder::<DisplayUpdate>()
+        .property(
+            "id",
+            DisplayIdentifier::new(Some("Dell U2720Q"), Some("DELLA1")),
+        )
+        .property(
+            "physical",
+            Object::builder::<PhysicalDisplayUpdateContent>()
+                .property("has-brightness", true)
+                .property("brightness", 50u32)
+                .build(),
+        )
+        .build();
+
+    let results = Manager::get_default()
+        .update(vec![update])
+        .expect("update fake displays");
+
+    assert_eq!(results.len(), 1);
+
+    let applied = get_property::<gio::ListStore>(&results[0], "applied");
+    let failed = get_property::<gio::ListStore>(&results[0], "failed");
+
+    assert_eq!(applied.n_items(), 1);
+    assert_eq!(failed.n_items(), 0);
 }
 
 #[test]

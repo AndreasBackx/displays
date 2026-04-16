@@ -1,9 +1,8 @@
-use std::collections::BTreeSet;
-
 use display::{Display, LogicalDisplay, PhysicalDisplay};
 use display_identifier::DisplayIdentifier;
 use display_match::DisplayMatch;
 use display_update::{DisplayUpdate, LogicalDisplayUpdateContent, PhysicalDisplayUpdateContent};
+use display_update_result::{DisplayUpdateResult, FailedDisplayUpdate};
 use displays_core::{self as lib};
 use pyo3::{exceptions::PyRuntimeError, prelude::*};
 use tracing_subscriber::util::SubscriberInitExt;
@@ -14,6 +13,7 @@ mod display;
 mod display_identifier;
 mod display_match;
 mod display_update;
+mod display_update_result;
 
 fn into_py_runtime_error(err: impl std::fmt::Display) -> PyErr {
     PyRuntimeError::new_err(err.to_string())
@@ -21,7 +21,7 @@ fn into_py_runtime_error(err: impl std::fmt::Display) -> PyErr {
 
 #[tracing::instrument]
 #[pyfunction]
-fn get(ids: BTreeSet<DisplayIdentifier>) -> PyResult<Vec<DisplayMatch>> {
+fn get(ids: Vec<DisplayIdentifier>) -> PyResult<Vec<DisplayMatch>> {
     let displays = lib::manager::DisplayManager::get(ids.into_iter().map(|id| id.into()).collect())
         .map_err(into_py_runtime_error)?
         .into_iter()
@@ -45,27 +45,26 @@ fn query() -> PyResult<Vec<Display>> {
 
 #[tracing::instrument]
 #[pyfunction]
-fn _apply(updates: Vec<DisplayUpdate>, validate: bool) -> PyResult<Vec<DisplayUpdate>> {
+fn _apply(updates: Vec<DisplayUpdate>, validate: bool) -> PyResult<Vec<DisplayUpdateResult>> {
     let displays = lib::manager::DisplayManager::apply(
         updates.into_iter().map(|update| update.into()).collect(),
         validate,
     )
     .map_err(into_py_runtime_error)?
     .into_iter()
-    .filter(|result| result.applied.is_empty())
-    .map(|result| result.requested_update.into())
+    .map(Into::into)
     .collect::<Vec<_>>();
 
     Ok(displays)
 }
 
 #[pyfunction]
-fn apply(updates: Vec<DisplayUpdate>) -> PyResult<Vec<DisplayUpdate>> {
+fn apply(updates: Vec<DisplayUpdate>) -> PyResult<Vec<DisplayUpdateResult>> {
     _apply(updates, false)
 }
 
 #[pyfunction]
-fn validate(updates: Vec<DisplayUpdate>) -> PyResult<Vec<DisplayUpdate>> {
+fn validate(updates: Vec<DisplayUpdate>) -> PyResult<Vec<DisplayUpdateResult>> {
     _apply(updates, true)
 }
 
@@ -83,6 +82,8 @@ fn displays(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<DisplayIdentifier>()?;
     m.add_class::<DisplayMatch>()?;
     m.add_class::<DisplayUpdate>()?;
+    m.add_class::<DisplayUpdateResult>()?;
+    m.add_class::<FailedDisplayUpdate>()?;
     m.add_class::<LogicalDisplayUpdateContent>()?;
     m.add_class::<PhysicalDisplayUpdateContent>()?;
     m.add_class::<Display>()?;
