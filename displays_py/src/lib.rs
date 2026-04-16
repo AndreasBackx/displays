@@ -1,7 +1,8 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use display::{Display, LogicalDisplay, PhysicalDisplay};
 use display_identifier::DisplayIdentifier;
+use display_match::DisplayMatch;
 use display_update::{DisplayUpdate, LogicalDisplayUpdateContent, PhysicalDisplayUpdateContent};
 use displays_core::{self as lib};
 use pyo3::{exceptions::PyRuntimeError, prelude::*};
@@ -11,6 +12,7 @@ use crate::display::{Orientation, Point};
 
 mod display;
 mod display_identifier;
+mod display_match;
 mod display_update;
 
 fn into_py_runtime_error(err: impl std::fmt::Display) -> PyErr {
@@ -19,12 +21,12 @@ fn into_py_runtime_error(err: impl std::fmt::Display) -> PyErr {
 
 #[tracing::instrument]
 #[pyfunction]
-fn get(ids: BTreeSet<DisplayIdentifier>) -> PyResult<BTreeMap<DisplayIdentifier, Display>> {
+fn get(ids: BTreeSet<DisplayIdentifier>) -> PyResult<Vec<DisplayMatch>> {
     let displays = lib::manager::DisplayManager::get(ids.into_iter().map(|id| id.into()).collect())
         .map_err(into_py_runtime_error)?
         .into_iter()
-        .map(|(id, display)| (id.into(), display.into()))
-        .collect::<BTreeMap<_, _>>();
+        .map(Into::into)
+        .collect::<Vec<_>>();
 
     Ok(displays)
 }
@@ -50,7 +52,8 @@ fn _apply(updates: Vec<DisplayUpdate>, validate: bool) -> PyResult<Vec<DisplayUp
     )
     .map_err(into_py_runtime_error)?
     .into_iter()
-    .map(|display| display.into())
+    .filter(|result| result.applied.is_empty())
+    .map(|result| result.requested_update.into())
     .collect::<Vec<_>>();
 
     Ok(displays)
@@ -78,6 +81,7 @@ fn displays(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get, m)?)?;
     m.add_function(wrap_pyfunction!(query, m)?)?;
     m.add_class::<DisplayIdentifier>()?;
+    m.add_class::<DisplayMatch>()?;
     m.add_class::<DisplayUpdate>()?;
     m.add_class::<LogicalDisplayUpdateContent>()?;
     m.add_class::<PhysicalDisplayUpdateContent>()?;

@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use super::{types::*, Backend};
 use crate::error::{error_message, AstalDisplaysError};
 
@@ -18,25 +16,17 @@ impl Backend for RealBackend {
     }
 
     fn get(&self, ids: Vec<DisplayIdentifierData>) -> Result<Vec<DisplayMatchData>, glib::Error> {
-        let requested_ids = ids.clone();
         let ids = ids
             .into_iter()
             .map(displays::display_identifier::DisplayIdentifier::from)
-            .collect::<BTreeSet<_>>();
+            .collect::<Vec<_>>();
 
-        let display_by_id = displays::manager::DisplayManager::get(ids).map_err(map_error)?;
-
-        Ok(requested_ids
+        Ok(displays::manager::DisplayManager::get(ids)
+            .map_err(map_error)?
             .into_iter()
-            .filter_map(|requested_id| {
-                display_by_id
-                    .get(&displays::display_identifier::DisplayIdentifier::from(
-                        requested_id.clone(),
-                    ))
-                    .map(|display| DisplayMatchData {
-                        requested_id,
-                        display: display.into(),
-                    })
+            .map(|display_match| DisplayMatchData {
+                requested_id: display_match.requested_id.into(),
+                display: display_match.display.into(),
             })
             .collect())
     }
@@ -50,7 +40,13 @@ impl Backend for RealBackend {
             updates.into_iter().map(Into::into).collect(),
             validate,
         )
-        .map(|items| items.into_iter().map(Into::into).collect())
+        .map(|items| {
+            items
+                .into_iter()
+                .filter(|result| result.applied.is_empty())
+                .map(|result| result.requested_update.into())
+                .collect()
+        })
         .map_err(map_error)
     }
 }

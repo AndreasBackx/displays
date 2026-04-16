@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use thiserror::Error;
 
@@ -104,6 +104,29 @@ pub enum DisplayApplyError {
     },
 }
 
+/// A concrete display matched by a user-facing identifier.
+#[derive(Debug, Clone)]
+pub struct DisplayMatch {
+    pub requested_id: DisplayIdentifier,
+    pub matched_id: DisplayIdentifierInner,
+    pub display: Display,
+}
+
+/// A per-display failure encountered while applying an update.
+#[derive(Debug, Clone)]
+pub struct FailedDisplayUpdate {
+    pub matched_id: DisplayIdentifierInner,
+    pub message: String,
+}
+
+/// Best-effort result for a single requested display update.
+#[derive(Debug, Clone)]
+pub struct DisplayUpdateResult {
+    pub requested_update: DisplayUpdate,
+    pub applied: Vec<DisplayIdentifierInner>,
+    pub failed: Vec<FailedDisplayUpdate>,
+}
+
 /// High-level entry point for querying and updating displays.
 ///
 /// On Windows, logical and physical display operations are supported.
@@ -127,32 +150,27 @@ impl DisplayManager {
     }
 
     #[tracing::instrument(ret, skip_all, level = "trace")]
-    fn get_inner(
-        ids: BTreeSet<DisplayIdentifier>,
-    ) -> Result<BTreeMap<DisplayIdentifier, (DisplayIdentifierInner, Display)>, DisplayQueryError>
-    {
+    fn get_inner(ids: Vec<DisplayIdentifier>) -> Result<Vec<DisplayMatch>, DisplayQueryError> {
         let displays = Self::query()?;
-        Ok(displays
+        Ok(ids
             .into_iter()
-            .filter_map(|display| {
-                let id = display.id();
-                ids.iter()
-                    .find(|user_id| user_id.is_subset(&id.outer))
-                    .map(|user_id| (user_id.clone(), (id, display)))
+            .flat_map(|requested_id| {
+                displays
+                    .iter()
+                    .filter(|display| requested_id.is_subset(&display.id().outer))
+                    .map(|display| DisplayMatch {
+                        requested_id: requested_id.clone(),
+                        matched_id: display.id(),
+                        display: display.clone(),
+                    })
+                    .collect::<Vec<_>>()
             })
             .collect())
     }
 
     /// Looks up displays matching the provided user-facing identifiers.
-    pub fn get(
-        ids: BTreeSet<DisplayIdentifier>,
-    ) -> Result<BTreeMap<DisplayIdentifier, Display>, DisplayQueryError> {
-        Self::get_inner(ids).map(|display_by_id| {
-            display_by_id
-                .into_iter()
-                .map(|(id, (_, display))| (id, display))
-                .collect()
-        })
+    pub fn get(ids: Vec<DisplayIdentifier>) -> Result<Vec<DisplayMatch>, DisplayQueryError> {
+        Self::get_inner(ids)
     }
 
     /// Applies the requested display updates.
@@ -163,7 +181,7 @@ impl DisplayManager {
     pub fn apply(
         updates: Vec<DisplayUpdate>,
         validate: bool,
-    ) -> Result<Vec<DisplayUpdate>, DisplayApplyError> {
+    ) -> Result<Vec<DisplayUpdateResult>, DisplayApplyError> {
         #[cfg(target_os = "windows")]
         {
             return apply_windows(updates, validate);
@@ -176,12 +194,16 @@ impl DisplayManager {
     }
 
     /// Applies the requested display updates without validation-only mode.
-    pub fn update(updates: Vec<DisplayUpdate>) -> Result<Vec<DisplayUpdate>, DisplayApplyError> {
+    pub fn update(
+        updates: Vec<DisplayUpdate>,
+    ) -> Result<Vec<DisplayUpdateResult>, DisplayApplyError> {
         Self::apply(updates, false)
     }
 
     /// Validates the requested display updates when supported by the platform backend.
-    pub fn validate(updates: Vec<DisplayUpdate>) -> Result<Vec<DisplayUpdate>, DisplayApplyError> {
+    pub fn validate(
+        updates: Vec<DisplayUpdate>,
+    ) -> Result<Vec<DisplayUpdateResult>, DisplayApplyError> {
         Self::apply(updates, true)
     }
 }
@@ -261,81 +283,75 @@ fn query_windows() -> Result<Vec<Display>, DisplayQueryError> {
 fn apply_windows(
     updates: Vec<DisplayUpdate>,
     validate: bool,
-) -> Result<Vec<DisplayUpdate>, DisplayApplyError> {
-    let ids: BTreeSet<_> = updates
-        .clone()
-        .into_iter()
-        .map(|update| update.id)
-        .collect();
-    let mut id_mapping = DisplayManager::get_inner(ids)?;
-    let updates_inner: Vec<_> = updates
-        .into_iter()
-        .filter_map(|update| {
-            id_mapping
-                .remove(&update.id)
-                .map(|(id_inner, _display)| (id_inner, update.logical, update.physical))
-        })
-        .collect();
+) -> Result<Vec<DisplayUpdateResult>, DisplayApplyError> {
+    let matched_updates = matched_updates(updates)?;
+    let mut results = Vec::with_capacity(matched_updates.len());
 
-    let logical_updates: Vec<WindowsLogicalDisplayUpdate> = updates_inner
-        .clone()
-        .into_iter()
-        .filter_map(|(id, logical, _physical)| {
-            logical.map(|content| WindowsLogicalDisplayUpdate {
-                id: to_windows_display_identifier_inner(id),
-                content: to_windows_logical_update_content(content),
-            })
-        })
-        .collect();
-    let remaining_logical_updates = LogicalDisplayManagerWindows::apply(logical_updates, validate)?;
+    for (requested_update, matched_ids) in matched_updates {
+        let mut result = DisplayUpdateResult {
+            requested_update: requested_update.clone(),
+            applied: Vec::new(),
+            failed: Vec::new(),
+        };
 
-    let physical_updates: Vec<WindowsPhysicalDisplayUpdate> = if validate {
-        vec![]
-    } else {
-        updates_inner
-            .into_iter()
-            .filter_map(|(id, _logical, physical)| {
-                physical.map(|content| WindowsPhysicalDisplayUpdate {
-                    id: to_windows_display_identifier_inner(id),
-                    content: WindowsPhysicalDisplayUpdateContent {
-                        brightness: content.brightness,
-                    },
-                })
-            })
-            .collect()
-    };
-    let mut remaining_physical_updates = PhysicalDisplayManagerWindows::apply(physical_updates)?;
+        for matched_id in matched_ids {
+            if let Some(logical_content) = requested_update.logical.clone() {
+                let logical_update = WindowsLogicalDisplayUpdate {
+                    id: to_windows_display_identifier_inner(matched_id.clone()),
+                    content: to_windows_logical_update_content(logical_content),
+                };
 
-    let remaining_updates = remaining_logical_updates
-        .into_iter()
-        .map(|logical_update| DisplayUpdate {
-            id: from_windows_display_identifier(logical_update.id.outer.clone()),
-            logical: Some(from_windows_logical_update_content(logical_update.content)),
-            physical: remaining_physical_updates
-                .iter()
-                .position(|physical_update| physical_update.id == logical_update.id)
-                .map(|index| {
-                    let content = remaining_physical_updates.remove(index).content;
-                    crate::physical_display::PhysicalDisplayUpdateContent {
-                        brightness: content.brightness,
+                match LogicalDisplayManagerWindows::apply(vec![logical_update], validate) {
+                    Ok(remaining) if remaining.is_empty() => {}
+                    Ok(_) => {
+                        result.failed.push(FailedDisplayUpdate {
+                            matched_id,
+                            message: "logical update was not applied".to_string(),
+                        });
+                        continue;
                     }
+                    Err(err) => {
+                        result.failed.push(FailedDisplayUpdate {
+                            matched_id,
+                            message: err.to_string(),
+                        });
+                        continue;
+                    }
+                }
+            }
+
+            if validate || requested_update.physical.is_none() {
+                if !result.applied.contains(&matched_id) {
+                    result.applied.push(matched_id);
+                }
+                continue;
+            }
+
+            let physical_content = requested_update.physical.clone().expect("checked above");
+            let physical_update = WindowsPhysicalDisplayUpdate {
+                id: to_windows_display_identifier_inner(matched_id.clone()),
+                content: WindowsPhysicalDisplayUpdateContent {
+                    brightness: physical_content.brightness,
+                },
+            };
+
+            match PhysicalDisplayManagerWindows::apply(vec![physical_update]) {
+                Ok(remaining) if remaining.is_empty() => result.applied.push(matched_id),
+                Ok(_) => result.failed.push(FailedDisplayUpdate {
+                    matched_id,
+                    message: "physical update was not applied".to_string(),
                 }),
-        })
-        .collect::<Vec<_>>()
-        .into_iter()
-        .chain(
-            remaining_physical_updates
-                .into_iter()
-                .map(|physical_update| DisplayUpdate {
-                    id: from_windows_display_identifier(physical_update.id.outer),
-                    physical: Some(crate::physical_display::PhysicalDisplayUpdateContent {
-                        brightness: physical_update.content.brightness,
-                    }),
-                    logical: None,
+                Err(err) => result.failed.push(FailedDisplayUpdate {
+                    matched_id,
+                    message: err.to_string(),
                 }),
-        )
-        .collect();
-    Ok(remaining_updates)
+            }
+        }
+
+        results.push(result);
+    }
+
+    Ok(results)
 }
 
 #[cfg(target_os = "windows")]
@@ -353,14 +369,6 @@ fn to_windows_display_identifier_inner(
 }
 
 #[cfg(target_os = "windows")]
-fn from_windows_display_identifier(id: WindowsDisplayIdentifier) -> DisplayIdentifier {
-    DisplayIdentifier {
-        name: id.name,
-        serial_number: id.serial_number,
-    }
-}
-
-#[cfg(target_os = "windows")]
 fn to_windows_logical_update_content(
     content: crate::logical_display::LogicalDisplayUpdateContent,
 ) -> WindowsLogicalDisplayUpdateContent {
@@ -371,20 +379,6 @@ fn to_windows_logical_update_content(
         height: content.height,
         pixel_format: content.pixel_format.map(to_windows_pixel_format),
         position: content.position.map(to_windows_point),
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn from_windows_logical_update_content(
-    content: WindowsLogicalDisplayUpdateContent,
-) -> crate::logical_display::LogicalDisplayUpdateContent {
-    crate::logical_display::LogicalDisplayUpdateContent {
-        is_enabled: content.is_enabled,
-        orientation: content.orientation.map(from_windows_orientation),
-        width: content.width,
-        height: content.height,
-        pixel_format: content.pixel_format.map(from_windows_pixel_format),
-        position: content.position.map(from_windows_point),
     }
 }
 
@@ -536,42 +530,67 @@ fn query_linux() -> Result<Vec<Display>, DisplayQueryError> {
 fn apply_linux(
     updates: Vec<DisplayUpdate>,
     validate: bool,
-) -> Result<Vec<DisplayUpdate>, DisplayApplyError> {
+) -> Result<Vec<DisplayUpdateResult>, DisplayApplyError> {
     if updates.iter().any(|update| update.logical.is_some()) {
         return Err(LogicalDisplayApplyError::Unsupported.into());
     }
 
-    let linux_updates = updates
-        .into_iter()
-        .map(|update| LinuxPhysicalDisplayUpdate {
-            id: LinuxPhysicalDisplayIdentifier {
-                name: update.id.name,
-                serial_number: update.id.serial_number,
-            },
-            brightness_percent: update
-                .physical
-                .as_ref()
-                .and_then(|physical| physical.brightness),
-        })
-        .collect();
+    let matched_updates = matched_updates(updates)?;
+    let mut results = Vec::with_capacity(matched_updates.len());
 
-    PhysicalDisplayManagerLinux::apply(linux_updates, validate)
-        .map(|remaining| {
-            remaining
-                .into_iter()
-                .map(|update| DisplayUpdate {
-                    id: DisplayIdentifier {
-                        name: update.id.name,
-                        serial_number: update.id.serial_number,
-                    },
-                    logical: None,
-                    physical: Some(PhysicalDisplayUpdateContent {
-                        brightness: update.brightness_percent,
-                    }),
-                })
-                .collect()
+    for (requested_update, matched_ids) in matched_updates {
+        let mut result = DisplayUpdateResult {
+            requested_update: requested_update.clone(),
+            applied: Vec::new(),
+            failed: Vec::new(),
+        };
+
+        for matched_id in matched_ids {
+            let linux_update = LinuxPhysicalDisplayUpdate {
+                id: LinuxPhysicalDisplayIdentifier {
+                    name: matched_id.outer.name.clone(),
+                    serial_number: matched_id.outer.serial_number.clone(),
+                },
+                brightness_percent: requested_update
+                    .physical
+                    .as_ref()
+                    .and_then(|physical| physical.brightness),
+            };
+
+            match PhysicalDisplayManagerLinux::apply(vec![linux_update], validate) {
+                Ok(remaining) if remaining.is_empty() => result.applied.push(matched_id),
+                Ok(_) => result.failed.push(FailedDisplayUpdate {
+                    matched_id,
+                    message: "physical update was not applied".to_string(),
+                }),
+                Err(err) => result.failed.push(FailedDisplayUpdate {
+                    matched_id,
+                    message: err.to_string(),
+                }),
+            }
+        }
+
+        results.push(result);
+    }
+
+    Ok(results)
+}
+
+fn matched_updates(
+    updates: Vec<DisplayUpdate>,
+) -> Result<Vec<(DisplayUpdate, Vec<DisplayIdentifierInner>)>, DisplayQueryError> {
+    let matches = DisplayManager::get(updates.iter().map(|update| update.id.clone()).collect())?;
+    Ok(updates
+        .into_iter()
+        .map(|update| {
+            let matched_ids = matches
+                .iter()
+                .filter(|item| item.requested_id == update.id)
+                .map(|item| item.matched_id.clone())
+                .collect();
+            (update, matched_ids)
         })
-        .map_err(Into::into)
+        .collect())
 }
 
 pub struct QueryError {}

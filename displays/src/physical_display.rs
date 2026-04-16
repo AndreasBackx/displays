@@ -33,6 +33,7 @@ pub struct PhysicalDisplay {
 }
 
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub(crate) struct PhysicalDisplayUpdate {
     pub(crate) id: DisplayIdentifierInner,
     pub(crate) content: PhysicalDisplayUpdateContent,

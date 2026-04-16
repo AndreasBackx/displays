@@ -106,28 +106,59 @@ impl Command for ApplyCommand {
 
         let update = self.update.clone().into();
 
-        let remaining_updates = lib::manager::DisplayManager::apply(vec![update], self.validate)?
-            .into_iter()
-            .collect::<Vec<_>>();
+        let results = lib::manager::DisplayManager::apply(vec![update], self.validate)?;
 
-        if remaining_updates.is_empty() {
-            if self.validate {
-                println!("Validation succeeded; all updates can be applied.");
-            } else {
-                println!("Update applied successfully.");
-            }
-            return Ok(());
-        }
-
-        println!("Some updates could not be matched or applied:");
-
-        for update in remaining_updates {
-            let target = update
+        for result in results {
+            let target = result
+                .requested_update
                 .id
                 .name
-                .or_else(|| update.id.serial_number.filter(|value| !value.is_empty()))
+                .or_else(|| {
+                    result
+                        .requested_update
+                        .id
+                        .serial_number
+                        .filter(|value| !value.is_empty())
+                })
                 .unwrap_or_else(|| "unknown display".to_string());
-            println!("- {target}");
+
+            if result.applied.is_empty() && result.failed.is_empty() {
+                println!("No displays matched {target}.");
+                continue;
+            }
+
+            if result.failed.is_empty() {
+                let verb = if self.validate {
+                    "validated"
+                } else {
+                    "updated"
+                };
+                println!(
+                    "Successfully {verb} {} display(s) for {target}.",
+                    result.applied.len()
+                );
+                continue;
+            }
+
+            if !result.applied.is_empty() {
+                println!(
+                    "Partially applied {target}: {} succeeded, {} failed.",
+                    result.applied.len(),
+                    result.failed.len()
+                );
+            } else {
+                println!("Failed to apply {target}:");
+            }
+
+            for failure in result.failed {
+                let display_name = failure
+                    .matched_id
+                    .outer
+                    .name
+                    .or(failure.matched_id.outer.serial_number)
+                    .unwrap_or_else(|| "unknown display".to_string());
+                println!("- {display_name}: {}", failure.message);
+            }
         }
         Ok(())
     }

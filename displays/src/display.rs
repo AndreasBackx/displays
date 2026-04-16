@@ -16,7 +16,7 @@ pub struct DisplayMetadata {
 }
 
 /// A display with logical state and, when available, physical monitor state.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Display {
     // Displays that do not support DDC/CI will not have a physical display.
     /// Physical monitor state when a physical monitor could be matched.
@@ -85,6 +85,7 @@ pub struct DisplayUpdate {
 }
 
 #[derive(Debug, Default, Clone)]
+#[allow(dead_code)]
 pub(crate) struct DisplayUpdateInner {
     pub(crate) id: DisplayIdentifierInner,
     pub(crate) logical: Option<LogicalDisplayUpdateContent>,
