@@ -6,18 +6,13 @@ use windows::Win32::{
     Devices::Display::{
         DisplayConfigGetDeviceInfo, DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME,
         DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME, DISPLAYCONFIG_PATH_INFO,
-        DISPLAYCONFIG_PIXELFORMAT, DISPLAYCONFIG_PIXELFORMAT_16BPP,
-        DISPLAYCONFIG_PIXELFORMAT_24BPP, DISPLAYCONFIG_PIXELFORMAT_32BPP,
-        DISPLAYCONFIG_PIXELFORMAT_8BPP, DISPLAYCONFIG_PIXELFORMAT_NONGDI, DISPLAYCONFIG_ROTATION,
-        DISPLAYCONFIG_ROTATION_IDENTITY, DISPLAYCONFIG_ROTATION_ROTATE180,
-        DISPLAYCONFIG_ROTATION_ROTATE270, DISPLAYCONFIG_ROTATION_ROTATE90,
         DISPLAYCONFIG_SOURCE_DEVICE_NAME, DISPLAYCONFIG_TARGET_DEVICE_NAME,
     },
-    Foundation::{POINTL, WIN32_ERROR},
+    Foundation::WIN32_ERROR,
     Graphics::Gdi::DISPLAYCONFIG_PATH_ACTIVE,
 };
 
-use crate::{error::QueryError, manager::PathInfo};
+use crate::manager::PathInfo;
 use displays_windows_common::{error::WindowsError, utils, utils::try_utf16_cstring};
 
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
@@ -85,72 +80,6 @@ impl LogicalDisplay {
         }
 
         true
-    }
-}
-
-impl From<&DISPLAYCONFIG_PIXELFORMAT> for PixelFormat {
-    fn from(value: &DISPLAYCONFIG_PIXELFORMAT) -> Self {
-        match *value {
-            DISPLAYCONFIG_PIXELFORMAT_8BPP => PixelFormat::BPP8,
-            DISPLAYCONFIG_PIXELFORMAT_16BPP => PixelFormat::BPP16,
-            DISPLAYCONFIG_PIXELFORMAT_24BPP => PixelFormat::BPP24,
-            DISPLAYCONFIG_PIXELFORMAT_32BPP => PixelFormat::BPP32,
-            DISPLAYCONFIG_PIXELFORMAT_NONGDI => PixelFormat::NONGDI,
-            _ => unimplemented!("Nonexistent pixel format."),
-        }
-    }
-}
-
-impl From<&PixelFormat> for DISPLAYCONFIG_PIXELFORMAT {
-    fn from(value: &PixelFormat) -> Self {
-        match *value {
-            PixelFormat::BPP8 => DISPLAYCONFIG_PIXELFORMAT_8BPP,
-            PixelFormat::BPP16 => DISPLAYCONFIG_PIXELFORMAT_16BPP,
-            PixelFormat::BPP24 => DISPLAYCONFIG_PIXELFORMAT_24BPP,
-            PixelFormat::BPP32 => DISPLAYCONFIG_PIXELFORMAT_32BPP,
-            PixelFormat::NONGDI => DISPLAYCONFIG_PIXELFORMAT_NONGDI,
-        }
-    }
-}
-
-impl From<&DISPLAYCONFIG_ROTATION> for Orientation {
-    fn from(value: &DISPLAYCONFIG_ROTATION) -> Self {
-        match *value {
-            DISPLAYCONFIG_ROTATION_IDENTITY => Orientation::Landscape,
-            DISPLAYCONFIG_ROTATION_ROTATE90 => Orientation::Portrait,
-            DISPLAYCONFIG_ROTATION_ROTATE180 => Orientation::LandscapeFlipped,
-            DISPLAYCONFIG_ROTATION_ROTATE270 => Orientation::PortraitFlipped,
-            _ => unimplemented!("Nonexistent display orientation."),
-        }
-    }
-}
-
-impl From<&Orientation> for DISPLAYCONFIG_ROTATION {
-    fn from(value: &Orientation) -> Self {
-        match *value {
-            Orientation::Landscape => DISPLAYCONFIG_ROTATION_IDENTITY,
-            Orientation::Portrait => DISPLAYCONFIG_ROTATION_ROTATE90,
-            Orientation::LandscapeFlipped => DISPLAYCONFIG_ROTATION_ROTATE180,
-            Orientation::PortraitFlipped => DISPLAYCONFIG_ROTATION_ROTATE270,
-        }
-    }
-}
-
-impl From<&POINTL> for Point {
-    fn from(value: &POINTL) -> Self {
-        Self {
-            x: value.x,
-            y: value.y,
-        }
-    }
-}
-
-impl From<&Point> for POINTL {
-    fn from(value: &Point) -> Self {
-        Self {
-            x: value.x,
-            y: value.y,
-        }
     }
 }
 

@@ -21,10 +21,9 @@ impl PhysicalMonitor {
         if return_code != 1 {
             unsafe { GetLastError() }.ok()?;
         }
+        let _ = (min_brightness, max_brightness);
         Ok(MonitorBrightness {
-            min: min_brightness,
             current: current_brightness,
-            max: max_brightness,
         })
     }
 
@@ -44,7 +43,5 @@ impl From<PHYSICAL_MONITOR> for PhysicalMonitor {
 }
 
 pub(crate) struct MonitorBrightness {
-    pub(crate) min: u32,
     pub(crate) current: u32,
-    pub(crate) max: u32,
 }

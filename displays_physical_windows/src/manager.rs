@@ -1,8 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    io::{self, Cursor},
-    ptr,
-};
+use std::{collections::BTreeMap, io::Cursor, ptr};
 
 use displays_windows_common::{error::WindowsError, types::DisplayIdentifierInner};
 use edid_rs::{Reader, EDID};
@@ -105,7 +101,7 @@ impl PhysicalDisplayManager {
     }
 
     #[tracing::instrument(ret, level = "trace")]
-    pub fn get_monitor_info_by_id(
+    fn get_monitor_info_by_id(
         ids: Vec<DisplayIdentifierInner>,
     ) -> Result<BTreeMap<DisplayIdentifierInner, MonitorInfo>, WindowsError> {
         if ids.is_empty() {
