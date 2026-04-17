@@ -2,9 +2,11 @@ use clap::Parser;
 
 use crate::commands::Command;
 use displays::{
-    self as lib, display::DisplayUpdate, display_identifier::DisplayIdentifier,
-    logical_display::LogicalDisplayUpdateContent, physical_display::PhysicalDisplayUpdateContent,
-    types::Point,
+    self as lib,
+    display::DisplayUpdate,
+    types::{
+        DisplayIdentifier, LogicalDisplayUpdateContent, PhysicalDisplayUpdateContent, Point,
+    },
 };
 
 #[derive(Parser)]
