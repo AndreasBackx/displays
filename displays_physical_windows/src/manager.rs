@@ -1,6 +1,9 @@
 use std::{collections::BTreeMap, io::Cursor, ptr};
 
-use displays_windows_common::{error::WindowsError, types::DisplayIdentifierInner};
+use displays_logical_windows::LogicalDisplayManager;
+use displays_physical_types::{PhysicalDisplay, PhysicalDisplayUpdate};
+use displays_types::DisplayIdentifierInner;
+use displays_windows_common::error::WindowsError;
 use edid_rs::{Reader, EDID};
 use windows::{
     core::BOOL,
@@ -15,14 +18,47 @@ use crate::{
     error::{ApplyError, QueryError},
     monitor::Monitor,
     monitor_info::MonitorInfo,
-    types::{PhysicalDisplayMetadata, PhysicalDisplayState},
+    types::{physical_display_id, PhysicalDisplayMetadata, PhysicalDisplayState},
 };
-use displays_physical_types::PhysicalDisplayUpdate;
 
 #[derive(Clone)]
 pub struct PhysicalDisplayManager {}
 
 impl PhysicalDisplayManager {
+    #[tracing::instrument(ret, level = "trace")]
+    pub fn query() -> Result<Vec<PhysicalDisplay>, QueryError> {
+        let logical_displays: Vec<_> = LogicalDisplayManager::query()?.into_iter().collect();
+        let metadatas = Self::metadata()?;
+        let ids = metadatas
+            .iter()
+            .map(|metadata| {
+                let gdi_device_id = logical_displays
+                    .iter()
+                    .find(|logical| logical.metadata.path.starts_with(&metadata.path))
+                    .and_then(|logical| logical.metadata.gdi_device_id);
+                physical_display_id(metadata, gdi_device_id)
+            })
+            .collect();
+        let mut states = Self::state(ids)?;
+
+        Ok(metadatas
+            .into_iter()
+            .filter_map(|metadata| {
+                let id = physical_display_id(
+                    &metadata,
+                    logical_displays
+                        .iter()
+                        .find(|logical| logical.metadata.path.starts_with(&metadata.path))
+                        .and_then(|logical| logical.metadata.gdi_device_id),
+                );
+
+                states
+                    .remove(&id)
+                    .map(|state| PhysicalDisplay { metadata, state })
+            })
+            .collect())
+    }
+
     #[tracing::instrument(ret, level = "trace")]
     pub fn metadata() -> Result<Vec<PhysicalDisplayMetadata>, QueryError> {
         let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);

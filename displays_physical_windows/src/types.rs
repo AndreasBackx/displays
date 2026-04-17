@@ -1,5 +1,5 @@
-use displays_physical_types::{PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState};
-use displays_types::Brightness;
+use displays_physical_types::{PhysicalDisplayMetadata, PhysicalDisplayState};
+use displays_types::{Brightness, DisplayIdentifier, DisplayIdentifierInner};
 use edid_rs::EDID;
 
 use crate::error::QueryError;
@@ -41,5 +41,19 @@ impl TryFrom<(String, EDID)> for PhysicalDisplayMetadata {
             name,
             serial_number,
         })
+    }
+}
+
+pub(crate) fn physical_display_id(
+    metadata: &PhysicalDisplayMetadata,
+    gdi_device_id: Option<u32>,
+) -> DisplayIdentifierInner {
+    DisplayIdentifierInner {
+        outer: DisplayIdentifier {
+            name: Some(metadata.name.clone()),
+            serial_number: Some(metadata.serial_number.clone()),
+        },
+        path: Some(metadata.path.clone()),
+        gdi_device_id,
     }
 }

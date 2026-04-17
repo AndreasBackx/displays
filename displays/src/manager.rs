@@ -1,44 +1,32 @@
 use thiserror::Error;
 
 use displays_logical_types::{LogicalDisplay, LogicalDisplayUpdate};
-use displays_physical_types::{
-    PhysicalDisplay, PhysicalDisplayUpdate, PhysicalDisplayUpdateContent,
-};
+use displays_physical_types::{PhysicalDisplay, PhysicalDisplayUpdate};
 use displays_types::{DisplayIdentifier, DisplayIdentifierInner};
 
 use crate::display::{Display, DisplayUpdate};
 
 #[cfg(target_os = "windows")]
-use displays_logical_types::{LogicalDisplayMetadata, LogicalDisplayState};
-
-#[cfg(target_os = "windows")]
-use std::collections::BTreeMap;
-
-#[cfg(target_os = "windows")]
-use displays_physical_types::{PhysicalDisplayMetadata, PhysicalDisplayState};
-
-#[cfg(target_os = "windows")]
 use displays_logical_windows::{
-    ApplyError as LogicalDisplayApplyError, LogicalDisplayManager as LogicalDisplayManagerWindows,
+    ApplyError as LogicalDisplayApplyError, LogicalDisplayManager,
     QueryError as LogicalDisplayQueryError,
 };
 
 #[cfg(target_os = "windows")]
 use displays_physical_windows::{
-    ApplyError as PhysicalDisplayApplyError,
-    PhysicalDisplayManager as PhysicalDisplayManagerWindows,
+    ApplyError as PhysicalDisplayApplyError, PhysicalDisplayManager,
     QueryError as PhysicalDisplayQueryError,
 };
 
 #[cfg(target_os = "linux")]
 use displays_logical_linux::{
-    ApplyError as LogicalDisplayApplyError, LogicalDisplayManager as LogicalDisplayManagerLinux,
+    ApplyError as LogicalDisplayApplyError, LogicalDisplayManager,
     QueryError as LogicalDisplayQueryError,
 };
 
 #[cfg(target_os = "linux")]
 use displays_physical_linux::{
-    ApplyError as PhysicalDisplayApplyError, PhysicalDisplayManager as PhysicalDisplayManagerLinux,
+    ApplyError as PhysicalDisplayApplyError, PhysicalDisplayManager,
     QueryError as PhysicalDisplayQueryError,
 };
 
@@ -111,15 +99,16 @@ impl DisplayManager {
     /// Queries the current display state.
     #[tracing::instrument(ret, level = "trace")]
     pub fn query() -> Result<Vec<Display>, DisplayQueryError> {
-        #[cfg(target_os = "windows")]
-        {
-            return query_windows();
-        }
+        let logical_displays: Vec<_> = LogicalDisplayManager::query()?.into_iter().collect();
+        let mut physical_displays = PhysicalDisplayManager::query()?;
 
-        #[cfg(target_os = "linux")]
-        {
-            return query_linux();
-        }
+        Ok(logical_displays
+            .into_iter()
+            .map(|logical| Display {
+                physical: take_matching_physical_display(&logical, &mut physical_displays),
+                logical,
+            })
+            .collect())
     }
 
     #[tracing::instrument(ret, skip_all, level = "trace")]
@@ -163,7 +152,10 @@ impl DisplayManager {
                 let matched_outer = matched_id.outer.clone();
 
                 if let Some(logical_content) = requested_update.logical.clone() {
-                    let logical_update = new_logical_update(matched_id.clone(), logical_content);
+                    let logical_update = LogicalDisplayUpdate {
+                        id: matched_id.clone(),
+                        content: logical_content,
+                    };
 
                     match apply_logical_update(logical_update, validate) {
                         Ok(true) => {}
@@ -189,12 +181,10 @@ impl DisplayManager {
 
                 let physical_update = PhysicalDisplayUpdate {
                     id: matched_id,
-                    content: new_physical_update_content(
-                        requested_update
-                            .physical
-                            .clone()
-                            .expect("physical update presence checked above"),
-                    ),
+                    content: requested_update
+                        .physical
+                        .clone()
+                        .expect("physical update presence checked above"),
                 };
 
                 match apply_physical_update(physical_update, validate) {
@@ -230,92 +220,14 @@ impl DisplayManager {
 }
 
 #[cfg(target_os = "windows")]
-fn query_windows() -> Result<Vec<Display>, DisplayQueryError> {
-    let mut logical_displays_metadata: Vec<_> =
-        LogicalDisplayManagerWindows::query()?.into_iter().collect();
-    logical_displays_metadata.sort_by_key(|logical| !logical.state.is_enabled);
-    let mut physical_metadatas = PhysicalDisplayManagerWindows::metadata()?;
-
-    let logical_state_by_metadata = logical_displays_metadata
-        .into_iter()
-        .map(|logical_display| {
-            let physical_metadata = physical_metadatas
-                .iter()
-                .position(|physical_metadata| {
-                    logical_display
-                        .metadata
-                        .path
-                        .starts_with(&physical_metadata.path)
-                })
-                .map(|position| physical_metadatas.remove(position));
-
-            (
-                DisplayMetadata {
-                    logical: logical_display.metadata,
-                    physical: physical_metadata.map(Into::into),
-                },
-                logical_display.state,
-            )
-        })
-        .collect::<BTreeMap<_, _>>()
-        .into_iter()
-        .collect::<Vec<(_, _)>>();
-
-    let ids: Vec<_> = logical_state_by_metadata
+fn take_matching_physical_display(
+    logical: &LogicalDisplay,
+    remaining_physical: &mut Vec<PhysicalDisplay>,
+) -> Option<PhysicalDisplay> {
+    remaining_physical
         .iter()
-        .filter(|(metadata, _)| metadata.physical.is_some())
-        .map(|(metadata, _)| metadata.id().into())
-        .collect();
-
-    let mut physical_states = PhysicalDisplayManagerWindows::state(ids)?;
-
-    Ok(logical_state_by_metadata
-        .into_iter()
-        .map(|(metadata, logical_state)| {
-            let id = metadata.id().into();
-
-            let physical = metadata.physical.and_then(|physical_metadata| {
-                physical_states.remove(&id).map(|physical_state| {
-                    (
-                        physical_metadata,
-                        PhysicalDisplayState {
-                            brightness: physical_state.brightness.into(),
-                            scale_factor: physical_state.scale_factor,
-                        },
-                    )
-                })
-            });
-
-            Display {
-                logical: LogicalDisplay {
-                    metadata: metadata.logical,
-                    state: logical_state,
-                },
-                physical: physical.map(|(physical_metadata, physical_state)| PhysicalDisplay {
-                    metadata: physical_metadata,
-                    state: physical_state,
-                }),
-            }
-        })
-        .collect())
-}
-
-#[cfg(target_os = "linux")]
-fn query_linux() -> Result<Vec<Display>, DisplayQueryError> {
-    let logical_displays: Vec<_> = LogicalDisplayManagerLinux::query()?.into_iter().collect();
-    let mut remaining_physical = PhysicalDisplayManagerLinux::query()?;
-
-    Ok(logical_displays
-        .into_iter()
-        .map(|logical| {
-            let physical_match = take_matching_physical_display(&logical, &mut remaining_physical);
-
-            Display {
-                logical,
-                physical: physical_match,
-            }
-        })
-        .collect())
+        .position(|physical| logical.metadata.path.starts_with(&physical.metadata.path))
+        .map(|index| remaining_physical.remove(index))
 }
 
 #[cfg(target_os = "linux")]
@@ -419,30 +331,11 @@ fn normalized_name(value: &str) -> String {
 }
 
 #[cfg(target_os = "windows")]
-fn new_logical_update(
-    id: DisplayIdentifierInner,
-    content: displays_logical_types::LogicalDisplayUpdateContent,
-) -> displays_logical_types::LogicalDisplayUpdate {
-    LogicalDisplayUpdate {
-        id: id.into(),
-        content,
-    }
-}
-
-#[cfg(target_os = "linux")]
-fn new_logical_update(
-    id: DisplayIdentifierInner,
-    content: displays_logical_types::LogicalDisplayUpdateContent,
-) -> LogicalDisplayUpdate {
-    LogicalDisplayUpdate { id, content }
-}
-
-#[cfg(target_os = "windows")]
 fn apply_logical_update(
     update: LogicalDisplayUpdate,
     validate: bool,
 ) -> Result<bool, LogicalDisplayApplyError> {
-    Ok(LogicalDisplayManagerWindows::apply(vec![update], validate)?.is_empty())
+    Ok(LogicalDisplayManager::apply(vec![update], validate)?.is_empty())
 }
 
 #[cfg(target_os = "linux")]
@@ -450,23 +343,7 @@ fn apply_logical_update(
     update: LogicalDisplayUpdate,
     validate: bool,
 ) -> Result<bool, LogicalDisplayApplyError> {
-    Ok(LogicalDisplayManagerLinux::apply(vec![update], validate)?.is_empty())
-}
-
-#[cfg(target_os = "windows")]
-fn new_physical_update_content(
-    content: PhysicalDisplayUpdateContent,
-) -> PhysicalDisplayUpdateContent {
-    PhysicalDisplayUpdateContent {
-        brightness: content.brightness,
-    }
-}
-
-#[cfg(target_os = "linux")]
-fn new_physical_update_content(
-    content: PhysicalDisplayUpdateContent,
-) -> PhysicalDisplayUpdateContent {
-    content
+    Ok(LogicalDisplayManager::apply(vec![update], validate)?.is_empty())
 }
 
 #[cfg(target_os = "windows")]
@@ -474,7 +351,7 @@ fn apply_physical_update(
     update: PhysicalDisplayUpdate,
     _validate: bool,
 ) -> Result<bool, PhysicalDisplayApplyError> {
-    Ok(PhysicalDisplayManagerWindows::apply(vec![update])?.is_empty())
+    Ok(PhysicalDisplayManager::apply(vec![update])?.is_empty())
 }
 
 #[cfg(target_os = "linux")]
@@ -482,7 +359,7 @@ fn apply_physical_update(
     update: PhysicalDisplayUpdate,
     validate: bool,
 ) -> Result<bool, PhysicalDisplayApplyError> {
-    Ok(PhysicalDisplayManagerLinux::apply(vec![update], validate)?.is_empty())
+    Ok(PhysicalDisplayManager::apply(vec![update], validate)?.is_empty())
 }
 
 fn matched_updates(
