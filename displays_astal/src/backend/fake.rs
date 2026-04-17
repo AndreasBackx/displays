@@ -17,9 +17,7 @@ impl Backend for FakeBackend {
         Ok(ids
             .into_iter()
             .flat_map(|requested_id| {
-                displays
-                    .iter()
-                    .filter(|display| requested_id.is_subset_of(&display.id))
+                matching_displays(&displays, &requested_id)
                     .cloned()
                     .map(|display| DisplayMatchData {
                         requested_id: requested_id.clone(),
@@ -40,9 +38,7 @@ impl Backend for FakeBackend {
         Ok(updates
             .into_iter()
             .map(|update| {
-                let applied = displays
-                    .iter()
-                    .filter(|display| update.id.is_subset_of(&display.id))
+                let applied = matching_displays(&displays, &update.id)
                     .map(|display| display.id.clone())
                     .collect();
 
@@ -54,6 +50,15 @@ impl Backend for FakeBackend {
             })
             .collect())
     }
+}
+
+fn matching_displays<'a>(
+    displays: &'a [DisplayData],
+    requested_id: &'a DisplayIdentifierData,
+) -> impl Iterator<Item = &'a DisplayData> {
+    displays
+        .iter()
+        .filter(move |display| requested_id.is_subset_of(&display.id))
 }
 
 fn fake_displays() -> Vec<DisplayData> {

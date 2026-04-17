@@ -10,17 +10,9 @@ pub struct DisplayIdentifierData {
 
 impl DisplayIdentifierData {
     pub fn is_subset_of(&self, other: &Self) -> bool {
-        match (&self.name, &other.name) {
-            (Some(left), Some(right)) if left != right => return false,
-            _ => {}
-        }
-
-        match (&self.serial_number, &other.serial_number) {
-            (Some(left), Some(right)) if left != right => return false,
-            _ => {}
-        }
-
-        true
+        let left: displays::display_identifier::DisplayIdentifier = self.clone().into();
+        let right: displays::display_identifier::DisplayIdentifier = other.clone().into();
+        left.is_subset(&right)
     }
 }
 

@@ -146,10 +146,7 @@ impl DisplayManager {
         Ok(ids
             .into_iter()
             .flat_map(|requested_id| {
-                displays
-                    .iter()
-                    .filter(|display| requested_id.is_subset(&display.id().outer))
-                    .map(|display| DisplayMatch {
+                matching_displays(&displays, &requested_id).map(|display| DisplayMatch {
                         requested_id: requested_id.clone(),
                         matched_id: display.id().outer,
                         display: display.clone(),
@@ -511,14 +508,19 @@ fn matched_updates(
     Ok(updates
         .into_iter()
         .map(|update| {
-            let matched_ids = displays
-                .iter()
-                .filter(|display| update.id.is_subset(&display.id().outer))
-                .map(Display::id)
-                .collect();
+            let matched_ids = matching_displays(&displays, &update.id).map(Display::id).collect();
             (update, matched_ids)
         })
         .collect())
+}
+
+fn matching_displays<'a>(
+    displays: &'a [Display],
+    requested_id: &'a DisplayIdentifier,
+) -> impl Iterator<Item = &'a Display> {
+    displays
+        .iter()
+        .filter(move |display| requested_id.is_subset(&display.id().outer))
 }
 
 pub struct QueryError {}
