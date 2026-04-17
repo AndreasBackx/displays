@@ -7,7 +7,4 @@ mod types;
 
 pub use error::{ApplyError, QueryError};
 pub use manager::PhysicalDisplayManager;
-pub use types::{
-    PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdate,
-    PhysicalDisplayUpdateContent,
-};
+pub use types::PhysicalDisplayUpdate;

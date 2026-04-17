@@ -1,5 +1,5 @@
 use displays_types::{DisplayIdentifier, DisplayIdentifierInner, Orientation, PixelFormat, Point};
-pub use displays_logical_types::{
+use displays_logical_types::{
     LogicalDisplay, LogicalDisplayMetadata, LogicalDisplayState, LogicalDisplayUpdate,
     LogicalDisplayUpdateContent,
 };

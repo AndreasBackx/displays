@@ -15,8 +15,5 @@
 compile_error!("displays currently supports only Windows and Linux targets");
 
 pub mod display;
-pub mod display_identifier;
-pub mod logical_display;
 pub mod manager;
-pub mod physical_display;
 pub mod types;

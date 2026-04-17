@@ -1,8 +1,8 @@
-use crate::{
-    display_identifier::{DisplayIdentifier, DisplayIdentifierInner},
-    logical_display::{LogicalDisplay, LogicalDisplayMetadata, LogicalDisplayUpdateContent},
-    physical_display::{PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayUpdateContent},
+use displays_logical_types::{LogicalDisplay, LogicalDisplayMetadata, LogicalDisplayUpdateContent};
+use displays_physical_types::{
+    PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayUpdateContent,
 };
+use displays_types::{DisplayIdentifier, DisplayIdentifierInner};
 
 /// Metadata used to identify a display across logical and physical backends.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]

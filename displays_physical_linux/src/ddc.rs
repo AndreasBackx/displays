@@ -3,13 +3,11 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use ddc_hi::{Ddc, Display as DdcDisplay, DisplayInfo, FeatureCode};
+use displays_physical_types::{PhysicalDisplayMetadata, PhysicalDisplayState};
 use displays_types::Brightness;
 
 use crate::error::{ApplyError, QueryError};
-use crate::types::{
-    Backend, DdcApplyUpdate, DisplayHandle, PhysicalDisplayMetadata, PhysicalDisplayState,
-    PhysicalDisplayUpdate,
-};
+use crate::types::{remaining_update, Backend, DdcApplyUpdate, DisplayHandle, PhysicalDisplayUpdate};
 
 const PER_MONITOR_APPLY_TIMEOUT: Duration = Duration::from_millis(3500);
 
@@ -79,12 +77,7 @@ pub(crate) fn apply_updates(updates: Vec<DdcApplyUpdate>) -> Vec<PhysicalDisplay
         };
 
         let Some(display) = display_by_index.remove(&update.display_index) else {
-            remaining_updates.push(PhysicalDisplayUpdate {
-                id: update.id.outer,
-                content: crate::types::PhysicalDisplayUpdateContent {
-                    brightness: Some(brightness_percent),
-                },
-            });
+            remaining_updates.push(remaining_update(update.id, brightness_percent));
             continue;
         };
 
@@ -95,12 +88,7 @@ pub(crate) fn apply_updates(updates: Vec<DdcApplyUpdate>) -> Vec<PhysicalDisplay
                 display_id,
                 err
             );
-            remaining_updates.push(PhysicalDisplayUpdate {
-                id: update.id.outer,
-                content: crate::types::PhysicalDisplayUpdateContent {
-                    brightness: Some(brightness_percent),
-                },
-            });
+            remaining_updates.push(remaining_update(update.id, brightness_percent));
         }
     }
 

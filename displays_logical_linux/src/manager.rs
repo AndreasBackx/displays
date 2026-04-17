@@ -1,9 +1,10 @@
 use std::collections::BTreeSet;
 
+use displays_logical_types::{LogicalDisplay, LogicalDisplayUpdate};
+
 use crate::{
     error::{ApplyError, QueryError},
     wayland,
-    LogicalDisplay, LogicalDisplayUpdate,
 };
 
 pub struct LogicalDisplayManager;

@@ -1,5 +1,5 @@
 use edid_rs::EDID;
-pub use displays_physical_types::{
+use displays_physical_types::{
     PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdateContent,
 };
 use displays_types::{Brightness, DisplayIdentifierInner};

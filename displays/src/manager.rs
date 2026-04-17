@@ -1,33 +1,31 @@
 use thiserror::Error;
 
-use crate::{
-    display::{Display, DisplayUpdate},
-    display_identifier::{DisplayIdentifier, DisplayIdentifierInner},
-};
+use displays_types::{DisplayIdentifier, DisplayIdentifierInner};
+
+use crate::display::{Display, DisplayUpdate};
 
 #[cfg(target_os = "windows")]
-use crate::{
-    logical_display::{LogicalDisplay, LogicalDisplayMetadata, LogicalDisplayState},
-    types::Orientation,
+use displays_logical_types::{
+    LogicalDisplay, LogicalDisplayMetadata, LogicalDisplayState, LogicalDisplayUpdate,
 };
 
 #[cfg(target_os = "windows")]
 use std::collections::BTreeMap;
 
 #[cfg(target_os = "windows")]
-use crate::{
-    display::DisplayMetadata,
-    physical_display::{PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState},
+use displays_physical_types::{
+    PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdateContent,
 };
 
 #[cfg(target_os = "linux")]
-use crate::{logical_display::LogicalDisplay, physical_display::PhysicalDisplay};
+use displays_logical_types::{LogicalDisplay, LogicalDisplayUpdate};
+
+#[cfg(target_os = "linux")]
+use displays_physical_types::PhysicalDisplay;
 
 #[cfg(target_os = "windows")]
 use displays_logical_windows::{
     ApplyError as LogicalDisplayApplyError, LogicalDisplayManager as LogicalDisplayManagerWindows,
-    LogicalDisplayUpdate as WindowsLogicalDisplayUpdate,
-    Orientation as WindowsOrientation, PixelFormat as WindowsPixelFormat, Point as WindowsPoint,
     QueryError as LogicalDisplayQueryError,
 };
 
@@ -35,9 +33,7 @@ use displays_logical_windows::{
 use displays_physical_windows::{
     ApplyError as PhysicalDisplayApplyError,
     PhysicalDisplayManager as PhysicalDisplayManagerWindows,
-    PhysicalDisplayMetadata as WindowsPhysicalDisplayMetadata,
     PhysicalDisplayUpdate as WindowsPhysicalDisplayUpdate,
-    PhysicalDisplayUpdateContent as WindowsPhysicalDisplayUpdateContent,
     QueryError as PhysicalDisplayQueryError,
 };
 
@@ -49,7 +45,7 @@ use displays_types::{
 #[cfg(target_os = "linux")]
 use displays_logical_linux::{
     ApplyError as LogicalDisplayApplyError, LogicalDisplayManager as LogicalDisplayManagerLinux,
-    LogicalDisplayUpdate as LinuxLogicalDisplayUpdate, QueryError as LogicalDisplayQueryError,
+    QueryError as LogicalDisplayQueryError,
 };
 
 #[cfg(target_os = "linux")]
@@ -309,7 +305,7 @@ fn apply_windows(
             let physical_content = requested_update.physical.clone().expect("checked above");
             let physical_update = WindowsPhysicalDisplayUpdate {
                 id: to_windows_display_identifier_inner(matched_id.clone()),
-                content: WindowsPhysicalDisplayUpdateContent {
+                content: PhysicalDisplayUpdateContent {
                     brightness: physical_content.brightness,
                 },
             };
@@ -344,75 +340,6 @@ fn to_windows_display_identifier_inner(
         },
         path: id.path,
         gdi_device_id: id.gdi_device_id,
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn to_windows_orientation(value: Orientation) -> WindowsOrientation {
-    match value {
-        Orientation::Landscape => WindowsOrientation::Landscape,
-        Orientation::Portrait => WindowsOrientation::Portrait,
-        Orientation::LandscapeFlipped => WindowsOrientation::LandscapeFlipped,
-        Orientation::PortraitFlipped => WindowsOrientation::PortraitFlipped,
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn from_windows_orientation(value: WindowsOrientation) -> Orientation {
-    match value {
-        WindowsOrientation::Landscape => Orientation::Landscape,
-        WindowsOrientation::Portrait => Orientation::Portrait,
-        WindowsOrientation::LandscapeFlipped => Orientation::LandscapeFlipped,
-        WindowsOrientation::PortraitFlipped => Orientation::PortraitFlipped,
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn to_windows_pixel_format(value: crate::types::PixelFormat) -> WindowsPixelFormat {
-    match value {
-        crate::types::PixelFormat::BPP8 => WindowsPixelFormat::BPP8,
-        crate::types::PixelFormat::BPP16 => WindowsPixelFormat::BPP16,
-        crate::types::PixelFormat::BPP24 => WindowsPixelFormat::BPP24,
-        crate::types::PixelFormat::BPP32 => WindowsPixelFormat::BPP32,
-        crate::types::PixelFormat::NONGDI => WindowsPixelFormat::NONGDI,
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn from_windows_pixel_format(value: WindowsPixelFormat) -> crate::types::PixelFormat {
-    match value {
-        WindowsPixelFormat::BPP8 => crate::types::PixelFormat::BPP8,
-        WindowsPixelFormat::BPP16 => crate::types::PixelFormat::BPP16,
-        WindowsPixelFormat::BPP24 => crate::types::PixelFormat::BPP24,
-        WindowsPixelFormat::BPP32 => crate::types::PixelFormat::BPP32,
-        WindowsPixelFormat::NONGDI => crate::types::PixelFormat::NONGDI,
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn to_windows_point(value: crate::types::Point) -> WindowsPoint {
-    WindowsPoint {
-        x: value.x,
-        y: value.y,
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn from_windows_point(value: WindowsPoint) -> crate::types::Point {
-    crate::types::Point {
-        x: value.x,
-        y: value.y,
-    }
-}
-
-#[cfg(target_os = "windows")]
-impl From<WindowsPhysicalDisplayMetadata> for PhysicalDisplayMetadata {
-    fn from(value: WindowsPhysicalDisplayMetadata) -> Self {
-        Self {
-            path: value.path,
-            name: value.name,
-            serial_number: value.serial_number,
-        }
     }
 }
 
@@ -542,7 +469,7 @@ fn apply_linux(
             let matched_outer = matched_id.outer.clone();
 
             if let Some(logical_content) = requested_update.logical.clone() {
-                let logical_update = LinuxLogicalDisplayUpdate {
+                let logical_update = LogicalDisplayUpdate {
                     id: matched_id.clone(),
                     content: logical_content,
                 };

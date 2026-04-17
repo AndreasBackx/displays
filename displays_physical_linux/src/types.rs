@@ -1,6 +1,6 @@
 use displays_types::{DisplayIdentifier, DisplayIdentifierInner};
 
-pub use displays_physical_types::{
+use displays_physical_types::{
     PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdateContent,
 };
 
@@ -61,4 +61,16 @@ pub(crate) struct BacklightApplyUpdate {
     pub(crate) id: DisplayIdentifierInner,
     pub(crate) content: PhysicalDisplayUpdateContent,
     pub(crate) path: String,
+}
+
+pub(crate) fn remaining_update(
+    id: DisplayIdentifierInner,
+    brightness: u32,
+) -> PhysicalDisplayUpdate {
+    PhysicalDisplayUpdate {
+        id: id.outer,
+        content: PhysicalDisplayUpdateContent {
+            brightness: Some(brightness),
+        },
+    }
 }

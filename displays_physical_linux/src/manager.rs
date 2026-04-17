@@ -3,14 +3,17 @@ use displays_physical_linux_sys::{
     BrightnessUpdate, Device, DeviceClass, DeviceIdentifier, DeviceUpdate,
     PhysicalDisplayManagerLinuxSys,
 };
+use displays_physical_types::{
+    PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState,
+};
 use displays_types::Brightness;
 use std::io::ErrorKind;
 
 use crate::ddc;
 use crate::error::{ApplyError, QueryError};
 use crate::types::{
-    Backend, BacklightApplyUpdate, DdcApplyUpdate, DisplayHandle, PhysicalDisplay,
-    PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdate, PhysicalDisplayUpdateContent,
+    remaining_update, Backend, BacklightApplyUpdate, DdcApplyUpdate, DisplayHandle,
+    PhysicalDisplayUpdate,
 };
 
 /// High-level entry point for querying and updating Linux physical displays.
@@ -145,12 +148,7 @@ impl PhysicalDisplayManager {
 
             match sys.update(vec![request.clone()]) {
                 Ok(remaining) if remaining.is_empty() => {}
-                Ok(_) => remaining_updates.push(PhysicalDisplayUpdate {
-                    id: update.id.outer,
-                    content: PhysicalDisplayUpdateContent {
-                        brightness: Some(brightness_percent),
-                    },
-                }),
+                Ok(_) => remaining_updates.push(remaining_update(update.id, brightness_percent)),
                 Err(displays_physical_linux_sys::ApplyError::WriteFile { source, .. })
                     if source.kind() == ErrorKind::PermissionDenied =>
                 {
@@ -164,12 +162,8 @@ impl PhysicalDisplayManager {
                         .iter()
                         .find(|device| request.id.is_subset(&device.metadata))
                     else {
-                        remaining_updates.push(PhysicalDisplayUpdate {
-                            id: update.id.outer,
-                            content: PhysicalDisplayUpdateContent {
-                                brightness: Some(brightness_percent),
-                            },
-                        });
+                        remaining_updates
+                            .push(remaining_update(update.id, brightness_percent));
                         continue;
                     };
                     let target_raw = displays_physical_linux_sys::normalize_brightness_update(
@@ -197,12 +191,7 @@ impl PhysicalDisplayManager {
                         update.path,
                         err
                     );
-                    remaining_updates.push(PhysicalDisplayUpdate {
-                        id: update.id.outer,
-                        content: PhysicalDisplayUpdateContent {
-                            brightness: Some(brightness_percent),
-                        },
-                    });
+                    remaining_updates.push(remaining_update(update.id, brightness_percent));
                 }
             }
         }
