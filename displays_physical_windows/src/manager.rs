@@ -15,8 +15,9 @@ use crate::{
     error::{ApplyError, QueryError},
     monitor::Monitor,
     monitor_info::MonitorInfo,
-    types::{PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdate},
+    types::{PhysicalDisplayMetadata, PhysicalDisplayState},
 };
+use displays_physical_types::PhysicalDisplayUpdate;
 
 #[derive(Clone)]
 pub struct PhysicalDisplayManager {}

@@ -112,8 +112,13 @@ pub fn apply(
 
     let mut snapshot = Snapshot::load()?;
     let mut remaining_updates = updates.clone();
-    let serial = snapshot.done_serial.ok_or_else(|| protocol_error("zwlr_output_manager_v1 did not emit a done serial"))?;
-    let manager = snapshot.manager.clone().ok_or(WaylandError::MissingOutputManager)?;
+    let serial = snapshot
+        .done_serial
+        .ok_or_else(|| protocol_error("zwlr_output_manager_v1 did not emit a done serial"))?;
+    let manager = snapshot
+        .manager
+        .clone()
+        .ok_or(WaylandError::MissingOutputManager)?;
 
     let mut event_queue = snapshot
         .event_queue
@@ -132,9 +137,11 @@ pub fn apply(
             .cloned()
             .ok_or_else(|| protocol_error(format!("missing head proxy for id {head_id}")))?;
 
-        let logical_display = snapshot
-            .head_to_display(head_id)
-            .ok_or_else(|| protocol_error(format!("failed to convert head {head_id} to logical display")))?;
+        let logical_display = snapshot.head_to_display(head_id).ok_or_else(|| {
+            protocol_error(format!(
+                "failed to convert head {head_id} to logical display"
+            ))
+        })?;
 
         let matching_index = remaining_updates
             .iter()
@@ -195,11 +202,10 @@ impl Snapshot {
         let connection = Connection::connect_to_env().map_err(|err| WaylandError::Connect {
             message: err.to_string(),
         })?;
-        let (globals, mut event_queue) = registry_queue_init::<State>(&connection).map_err(|err| {
-            WaylandError::Connect {
+        let (globals, mut event_queue) =
+            registry_queue_init::<State>(&connection).map_err(|err| WaylandError::Connect {
                 message: err.to_string(),
-            }
-        })?;
+            })?;
         let qh = event_queue.handle();
         let mut state = State::default();
 

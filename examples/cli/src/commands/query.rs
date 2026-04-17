@@ -9,12 +9,14 @@ fn format_optional<T>(value: Option<T>) -> String
 where
     T: Debug,
 {
-    value.map(|value| format!("{value:?}"))
+    value
+        .map(|value| format!("{value:?}"))
         .unwrap_or_else(|| "unknown".to_string())
 }
 
 fn format_point(value: Option<&lib::types::Point>) -> String {
-    value.map(|value| format!("{},{}", value.x, value.y))
+    value
+        .map(|value| format!("{},{}", value.x, value.y))
         .unwrap_or_else(|| "unknown".to_string())
 }
 

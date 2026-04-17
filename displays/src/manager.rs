@@ -1,27 +1,21 @@
 use thiserror::Error;
 
+use displays_logical_types::{LogicalDisplay, LogicalDisplayUpdate};
+use displays_physical_types::{
+    PhysicalDisplay, PhysicalDisplayUpdate, PhysicalDisplayUpdateContent,
+};
 use displays_types::{DisplayIdentifier, DisplayIdentifierInner};
 
 use crate::display::{Display, DisplayUpdate};
 
 #[cfg(target_os = "windows")]
-use displays_logical_types::{
-    LogicalDisplay, LogicalDisplayMetadata, LogicalDisplayState, LogicalDisplayUpdate,
-};
+use displays_logical_types::{LogicalDisplayMetadata, LogicalDisplayState};
 
 #[cfg(target_os = "windows")]
 use std::collections::BTreeMap;
 
 #[cfg(target_os = "windows")]
-use displays_physical_types::{
-    PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdateContent,
-};
-
-#[cfg(target_os = "linux")]
-use displays_logical_types::{LogicalDisplay, LogicalDisplayUpdate};
-
-#[cfg(target_os = "linux")]
-use displays_physical_types::PhysicalDisplay;
+use displays_physical_types::{PhysicalDisplayMetadata, PhysicalDisplayState};
 
 #[cfg(target_os = "windows")]
 use displays_logical_windows::{
@@ -33,13 +27,7 @@ use displays_logical_windows::{
 use displays_physical_windows::{
     ApplyError as PhysicalDisplayApplyError,
     PhysicalDisplayManager as PhysicalDisplayManagerWindows,
-    PhysicalDisplayUpdate as WindowsPhysicalDisplayUpdate,
     QueryError as PhysicalDisplayQueryError,
-};
-
-#[cfg(target_os = "windows")]
-use displays_types::{
-    DisplayIdentifier as WindowsDisplayIdentifier, DisplayIdentifierInner as WindowsDisplayIdentifierInner,
 };
 
 #[cfg(target_os = "linux")]
@@ -50,9 +38,8 @@ use displays_logical_linux::{
 
 #[cfg(target_os = "linux")]
 use displays_physical_linux::{
-    ApplyError as PhysicalDisplayApplyError,
-    PhysicalDisplayManager as PhysicalDisplayManagerLinux,
-    PhysicalDisplayUpdate as LinuxPhysicalDisplayUpdate, QueryError as PhysicalDisplayQueryError,
+    ApplyError as PhysicalDisplayApplyError, PhysicalDisplayManager as PhysicalDisplayManagerLinux,
+    QueryError as PhysicalDisplayQueryError,
 };
 
 /// Errors that can occur while querying display state.
@@ -141,7 +128,8 @@ impl DisplayManager {
         Ok(ids
             .into_iter()
             .flat_map(|requested_id| {
-                matching_displays(&displays, &requested_id).map(|display| DisplayMatch {
+                matching_displays(&displays, &requested_id)
+                    .map(|display| DisplayMatch {
                         requested_id: requested_id.clone(),
                         matched_id: display.id().outer,
                         display: display.clone(),
@@ -165,15 +153,65 @@ impl DisplayManager {
         updates: Vec<DisplayUpdate>,
         validate: bool,
     ) -> Result<Vec<DisplayUpdateResult>, DisplayApplyError> {
-        #[cfg(target_os = "windows")]
-        {
-            return apply_windows(updates, validate);
+        let matched_updates = matched_updates(updates)?;
+        let mut results = Vec::with_capacity(matched_updates.len());
+
+        for (requested_update, matched_ids) in matched_updates {
+            let mut result = new_update_result(&requested_update);
+
+            for matched_id in matched_ids {
+                let matched_outer = matched_id.outer.clone();
+
+                if let Some(logical_content) = requested_update.logical.clone() {
+                    let logical_update = new_logical_update(matched_id.clone(), logical_content);
+
+                    match apply_logical_update(logical_update, validate) {
+                        Ok(true) => {}
+                        Ok(false) => {
+                            push_failed(
+                                &mut result,
+                                matched_outer.clone(),
+                                "logical update was not applied",
+                            );
+                            continue;
+                        }
+                        Err(err) => {
+                            push_failed(&mut result, matched_outer.clone(), err.to_string());
+                            continue;
+                        }
+                    }
+                }
+
+                if validate || requested_update.physical.is_none() {
+                    push_applied_once(&mut result, matched_outer);
+                    continue;
+                }
+
+                let physical_update = PhysicalDisplayUpdate {
+                    id: matched_id,
+                    content: new_physical_update_content(
+                        requested_update
+                            .physical
+                            .clone()
+                            .expect("physical update presence checked above"),
+                    ),
+                };
+
+                match apply_physical_update(physical_update, validate) {
+                    Ok(true) => push_applied_once(&mut result, matched_outer.clone()),
+                    Ok(false) => push_failed(
+                        &mut result,
+                        matched_outer.clone(),
+                        "physical update was not applied",
+                    ),
+                    Err(err) => push_failed(&mut result, matched_outer.clone(), err.to_string()),
+                }
+            }
+
+            results.push(result);
         }
 
-        #[cfg(target_os = "linux")]
-        {
-            return apply_linux(updates, validate);
-        }
+        Ok(results)
     }
 
     /// Applies the requested display updates without validation-only mode.
@@ -226,7 +264,7 @@ fn query_windows() -> Result<Vec<Display>, DisplayQueryError> {
     let ids: Vec<_> = logical_state_by_metadata
         .iter()
         .filter(|(metadata, _)| metadata.physical.is_some())
-        .map(|(metadata, _)| to_windows_display_identifier_inner(metadata.id()))
+        .map(|(metadata, _)| metadata.id().into())
         .collect();
 
     let mut physical_states = PhysicalDisplayManagerWindows::state(ids)?;
@@ -234,7 +272,7 @@ fn query_windows() -> Result<Vec<Display>, DisplayQueryError> {
     Ok(logical_state_by_metadata
         .into_iter()
         .map(|(metadata, logical_state)| {
-            let id = to_windows_display_identifier_inner(metadata.id());
+            let id = metadata.id().into();
 
             let physical = metadata.physical.and_then(|physical_metadata| {
                 physical_states.remove(&id).map(|physical_state| {
@@ -260,87 +298,6 @@ fn query_windows() -> Result<Vec<Display>, DisplayQueryError> {
             }
         })
         .collect())
-}
-
-#[cfg(target_os = "windows")]
-fn apply_windows(
-    updates: Vec<DisplayUpdate>,
-    validate: bool,
-) -> Result<Vec<DisplayUpdateResult>, DisplayApplyError> {
-    let matched_updates = matched_updates(updates)?;
-    let mut results = Vec::with_capacity(matched_updates.len());
-
-    for (requested_update, matched_ids) in matched_updates {
-        let mut result = new_update_result(&requested_update);
-
-        for matched_id in matched_ids {
-            if let Some(logical_content) = requested_update.logical.clone() {
-                let logical_update = WindowsLogicalDisplayUpdate {
-                    id: to_windows_display_identifier_inner(matched_id.clone()),
-                    content: logical_content,
-                };
-
-                match LogicalDisplayManagerWindows::apply(vec![logical_update], validate) {
-                    Ok(remaining) if remaining.is_empty() => {}
-                    Ok(_) => {
-                        push_failed(
-                            &mut result,
-                            matched_id.outer,
-                            "logical update was not applied",
-                        );
-                        continue;
-                    }
-                    Err(err) => {
-                        push_failed(&mut result, matched_id.outer, err.to_string());
-                        continue;
-                    }
-                }
-            }
-
-            if validate || requested_update.physical.is_none() {
-                push_applied_once(&mut result, matched_id.outer);
-                continue;
-            }
-
-            let physical_content = requested_update.physical.clone().expect("checked above");
-            let physical_update = WindowsPhysicalDisplayUpdate {
-                id: to_windows_display_identifier_inner(matched_id.clone()),
-                content: PhysicalDisplayUpdateContent {
-                    brightness: physical_content.brightness,
-                },
-            };
-
-            match PhysicalDisplayManagerWindows::apply(vec![physical_update]) {
-                Ok(remaining) if remaining.is_empty() => {
-                    push_applied_once(&mut result, matched_id.outer)
-                }
-                Ok(_) => push_failed(
-                    &mut result,
-                    matched_id.outer,
-                    "physical update was not applied",
-                ),
-                Err(err) => push_failed(&mut result, matched_id.outer, err.to_string()),
-            }
-        }
-
-        results.push(result);
-    }
-
-    Ok(results)
-}
-
-#[cfg(target_os = "windows")]
-fn to_windows_display_identifier_inner(
-    id: DisplayIdentifierInner,
-) -> WindowsDisplayIdentifierInner {
-    WindowsDisplayIdentifierInner {
-        outer: WindowsDisplayIdentifier {
-            name: id.outer.name,
-            serial_number: id.outer.serial_number,
-        },
-        path: id.path,
-        gdi_device_id: id.gdi_device_id,
-    }
 }
 
 #[cfg(target_os = "linux")]
@@ -384,7 +341,8 @@ fn take_matching_physical_display(
 
     if let Some(index) = unique_match_index(remaining_physical, |physical| {
         name_candidates.iter().any(|candidate| {
-            physical.metadata.name == *candidate || normalized_name(&physical.metadata.name) == normalized_name(candidate)
+            physical.metadata.name == *candidate
+                || normalized_name(&physical.metadata.name) == normalized_name(candidate)
         })
     }) {
         return Some(remaining_physical.remove(index));
@@ -421,7 +379,13 @@ fn logical_name_candidates(logical: &LogicalDisplay) -> Vec<String> {
         }
     }
 
-    if let Some(model) = logical.metadata.model.as_deref().map(str::trim).filter(|model| !model.is_empty()) {
+    if let Some(model) = logical
+        .metadata
+        .model
+        .as_deref()
+        .map(str::trim)
+        .filter(|model| !model.is_empty())
+    {
         push_unique_candidate(&mut candidates, model.to_string());
     }
 
@@ -454,73 +418,71 @@ fn normalized_name(value: &str) -> String {
         .to_ascii_lowercase()
 }
 
-#[cfg(target_os = "linux")]
-fn apply_linux(
-    updates: Vec<DisplayUpdate>,
-    validate: bool,
-) -> Result<Vec<DisplayUpdateResult>, DisplayApplyError> {
-    let matched_updates = matched_updates(updates)?;
-    let mut results = Vec::with_capacity(matched_updates.len());
-
-    for (requested_update, matched_ids) in matched_updates {
-        let mut result = new_update_result(&requested_update);
-
-        for matched_id in matched_ids {
-            let matched_outer = matched_id.outer.clone();
-
-            if let Some(logical_content) = requested_update.logical.clone() {
-                let logical_update = LogicalDisplayUpdate {
-                    id: matched_id.clone(),
-                    content: logical_content,
-                };
-
-                match LogicalDisplayManagerLinux::apply(vec![logical_update], validate) {
-                    Ok(remaining) if remaining.is_empty() => {}
-                    Ok(_) => {
-                        push_failed(
-                            &mut result,
-                            matched_outer.clone(),
-                            "logical update was not applied",
-                        );
-                        continue;
-                    }
-                    Err(err) => {
-                        push_failed(&mut result, matched_outer.clone(), err.to_string());
-                        continue;
-                    }
-                }
-            }
-
-            if validate || requested_update.physical.is_none() {
-                push_applied_once(&mut result, matched_outer);
-                continue;
-            }
-
-            let linux_update = LinuxPhysicalDisplayUpdate {
-                id: matched_id.outer.clone(),
-                content: requested_update
-                    .physical
-                    .clone()
-                    .expect("physical update presence checked above"),
-            };
-
-            match PhysicalDisplayManagerLinux::apply(vec![linux_update], validate) {
-                Ok(remaining) if remaining.is_empty() => {
-                    push_applied_once(&mut result, matched_outer.clone())
-                }
-                Ok(_) => push_failed(
-                    &mut result,
-                    matched_outer.clone(),
-                    "physical update was not applied",
-                ),
-                Err(err) => push_failed(&mut result, matched_outer.clone(), err.to_string()),
-            }
-        }
-
-        results.push(result);
+#[cfg(target_os = "windows")]
+fn new_logical_update(
+    id: DisplayIdentifierInner,
+    content: displays_logical_types::LogicalDisplayUpdateContent,
+) -> displays_logical_types::LogicalDisplayUpdate {
+    LogicalDisplayUpdate {
+        id: id.into(),
+        content,
     }
+}
 
-    Ok(results)
+#[cfg(target_os = "linux")]
+fn new_logical_update(
+    id: DisplayIdentifierInner,
+    content: displays_logical_types::LogicalDisplayUpdateContent,
+) -> LogicalDisplayUpdate {
+    LogicalDisplayUpdate { id, content }
+}
+
+#[cfg(target_os = "windows")]
+fn apply_logical_update(
+    update: LogicalDisplayUpdate,
+    validate: bool,
+) -> Result<bool, LogicalDisplayApplyError> {
+    Ok(LogicalDisplayManagerWindows::apply(vec![update], validate)?.is_empty())
+}
+
+#[cfg(target_os = "linux")]
+fn apply_logical_update(
+    update: LogicalDisplayUpdate,
+    validate: bool,
+) -> Result<bool, LogicalDisplayApplyError> {
+    Ok(LogicalDisplayManagerLinux::apply(vec![update], validate)?.is_empty())
+}
+
+#[cfg(target_os = "windows")]
+fn new_physical_update_content(
+    content: PhysicalDisplayUpdateContent,
+) -> PhysicalDisplayUpdateContent {
+    PhysicalDisplayUpdateContent {
+        brightness: content.brightness,
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn new_physical_update_content(
+    content: PhysicalDisplayUpdateContent,
+) -> PhysicalDisplayUpdateContent {
+    content
+}
+
+#[cfg(target_os = "windows")]
+fn apply_physical_update(
+    update: PhysicalDisplayUpdate,
+    _validate: bool,
+) -> Result<bool, PhysicalDisplayApplyError> {
+    Ok(PhysicalDisplayManagerWindows::apply(vec![update])?.is_empty())
+}
+
+#[cfg(target_os = "linux")]
+fn apply_physical_update(
+    update: PhysicalDisplayUpdate,
+    validate: bool,
+) -> Result<bool, PhysicalDisplayApplyError> {
+    Ok(PhysicalDisplayManagerLinux::apply(vec![update], validate)?.is_empty())
 }
 
 fn matched_updates(
@@ -530,7 +492,9 @@ fn matched_updates(
     Ok(updates
         .into_iter()
         .map(|update| {
-            let matched_ids = matching_displays(&displays, &update.id).map(Display::id).collect();
+            let matched_ids = matching_displays(&displays, &update.id)
+                .map(Display::id)
+                .collect();
             (update, matched_ids)
         })
         .collect())

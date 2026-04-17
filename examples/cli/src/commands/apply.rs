@@ -4,9 +4,7 @@ use crate::commands::Command;
 use displays::{
     self as lib,
     display::DisplayUpdate,
-    types::{
-        DisplayIdentifier, LogicalDisplayUpdateContent, PhysicalDisplayUpdateContent, Point,
-    },
+    types::{DisplayIdentifier, LogicalDisplayUpdateContent, PhysicalDisplayUpdateContent, Point},
 };
 
 #[derive(Parser)]

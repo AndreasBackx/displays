@@ -8,7 +8,8 @@ pub use displays_logical_types::{
     LogicalDisplayUpdateContent,
 };
 pub use displays_physical_types::{
-    PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdateContent,
+    PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdate,
+    PhysicalDisplayUpdateContent,
 };
 pub use displays_types::{
     Brightness, DisplayIdentifier, DisplayIdentifierInner, Orientation, PixelFormat, Point,

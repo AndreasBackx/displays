@@ -1,16 +1,8 @@
+use displays_physical_types::{PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState};
+use displays_types::Brightness;
 use edid_rs::EDID;
-use displays_physical_types::{
-    PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdateContent,
-};
-use displays_types::{Brightness, DisplayIdentifierInner};
 
 use crate::error::QueryError;
-
-#[derive(Debug, Clone, Default)]
-pub struct PhysicalDisplayUpdate {
-    pub id: DisplayIdentifierInner,
-    pub content: PhysicalDisplayUpdateContent,
-}
 
 impl TryFrom<(String, EDID)> for PhysicalDisplayMetadata {
     type Error = QueryError;

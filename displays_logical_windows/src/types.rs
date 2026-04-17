@@ -1,8 +1,8 @@
-use displays_types::{DisplayIdentifier, DisplayIdentifierInner, Orientation, PixelFormat, Point};
 use displays_logical_types::{
     LogicalDisplay, LogicalDisplayMetadata, LogicalDisplayState, LogicalDisplayUpdate,
     LogicalDisplayUpdateContent,
 };
+use displays_types::{DisplayIdentifier, DisplayIdentifierInner, Orientation, PixelFormat, Point};
 use tracing::instrument;
 use windows::Win32::{
     Devices::Display::{
@@ -16,7 +16,6 @@ use windows::Win32::{
 
 use crate::manager::PathInfo;
 use displays_windows_common::{error::WindowsError, utils, utils::try_utf16_cstring};
-
 
 impl LogicalDisplay {
     pub fn id(&self) -> DisplayIdentifierInner {

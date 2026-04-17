@@ -6,6 +6,6 @@ mod error;
 mod manager;
 mod types;
 
+pub use displays_physical_types::PhysicalDisplayUpdate;
 pub use error::{ApplyError, QueryError};
 pub use manager::PhysicalDisplayManager;
-pub use types::PhysicalDisplayUpdate;

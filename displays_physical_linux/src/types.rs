@@ -1,17 +1,9 @@
 use displays_types::{DisplayIdentifier, DisplayIdentifierInner};
 
 use displays_physical_types::{
-    PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdateContent,
+    PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdate,
+    PhysicalDisplayUpdateContent,
 };
-
-/// Requested changes to Linux physical display state.
-#[derive(Debug, Default, Clone)]
-pub struct PhysicalDisplayUpdate {
-    /// The user-facing identifier used to match displays.
-    pub id: DisplayIdentifier,
-    /// Requested physical display changes.
-    pub content: PhysicalDisplayUpdateContent,
-}
 
 fn physical_display_id(display: &PhysicalDisplay) -> DisplayIdentifierInner {
     DisplayIdentifierInner {
@@ -68,7 +60,7 @@ pub(crate) fn remaining_update(
     brightness: u32,
 ) -> PhysicalDisplayUpdate {
     PhysicalDisplayUpdate {
-        id: id.outer,
+        id,
         content: PhysicalDisplayUpdateContent {
             brightness: Some(brightness),
         },

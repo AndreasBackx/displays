@@ -4,7 +4,7 @@ use displays_physical_linux_sys::{
     PhysicalDisplayManagerLinuxSys,
 };
 use displays_physical_types::{
-    PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState,
+    PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdate,
 };
 use displays_types::Brightness;
 use std::io::ErrorKind;
@@ -13,7 +13,6 @@ use crate::ddc;
 use crate::error::{ApplyError, QueryError};
 use crate::types::{
     remaining_update, Backend, BacklightApplyUpdate, DdcApplyUpdate, DisplayHandle,
-    PhysicalDisplayUpdate,
 };
 
 /// High-level entry point for querying and updating Linux physical displays.
@@ -45,7 +44,7 @@ impl PhysicalDisplayManager {
         for update in updates {
             let matched_handles: Vec<_> = handles
                 .iter()
-                .filter(|handle| update.id.is_subset(&handle.id().outer))
+                .filter(|handle| handle.id() == update.id)
                 .collect();
 
             if matched_handles.is_empty() {
@@ -162,8 +161,7 @@ impl PhysicalDisplayManager {
                         .iter()
                         .find(|device| request.id.is_subset(&device.metadata))
                     else {
-                        remaining_updates
-                            .push(remaining_update(update.id, brightness_percent));
+                        remaining_updates.push(remaining_update(update.id, brightness_percent));
                         continue;
                     };
                     let target_raw = displays_physical_linux_sys::normalize_brightness_update(
