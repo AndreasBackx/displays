@@ -1,0 +1,16 @@
+[package]
+name = "displays_logical_linux"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "displays_logical_linux"
+path = "src/lib.rs"
+
+[dependencies]
+thiserror = "2.0.17"
+tracing = "0.1.40"
+displays_types = { path = "../displays_types" }
+displays_logical_types = { path = "../displays_logical_types" }
+wayland-client = "0.31.14"
+wayland-protocols-wlr = { version = "0.3.12", features = ["client"] }

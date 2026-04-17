@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     "displays_types",
     "displays_logical_types",
+    "displays_logical_linux",
     "displays_physical_types",
     "displays_physical_linux_sys",
     "displays_physical_linux_logind",
