@@ -14,6 +14,7 @@ pub struct DisplayIdentifier {
 pub struct DisplayIdentifierInner {
     pub outer: DisplayIdentifier,
     pub path: Option<String>,
+    #[cfg(target_os = "windows")]
     pub gdi_device_id: Option<u32>,
 }
 

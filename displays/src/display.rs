@@ -47,6 +47,7 @@ impl DisplayMetadata {
                 .as_ref()
                 .map(|physical| physical.path.clone())
                 .or_else(|| Some(self.logical.path.clone())),
+            #[cfg(target_os = "windows")]
             gdi_device_id: self.logical.gdi_device_id,
         }
     }

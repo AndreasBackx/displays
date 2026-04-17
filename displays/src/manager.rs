@@ -46,7 +46,6 @@ use displays_types::{
 #[cfg(target_os = "linux")]
 use displays_physical_linux::{
     ApplyError as PhysicalDisplayApplyError,
-    PhysicalDisplayIdentifier as LinuxPhysicalDisplayIdentifier,
     PhysicalDisplayManager as PhysicalDisplayManagerLinux,
     PhysicalDisplayUpdate as LinuxPhysicalDisplayUpdate, QueryError as PhysicalDisplayQueryError,
 };
@@ -531,10 +530,7 @@ fn apply_linux(
 
         for matched_id in matched_ids {
             let linux_update = LinuxPhysicalDisplayUpdate {
-                id: LinuxPhysicalDisplayIdentifier {
-                    name: matched_id.outer.name.clone(),
-                    serial_number: matched_id.outer.serial_number.clone(),
-                },
+                id: matched_id.outer.clone(),
                 content: requested_update.physical.clone().unwrap_or_default(),
             };
 
