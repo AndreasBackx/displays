@@ -1,0 +1,11 @@
+[package]
+name = "displays_logical_types"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "displays_logical_types"
+path = "src/lib.rs"
+
+[dependencies]
+displays_types = { path = "../displays_types" }

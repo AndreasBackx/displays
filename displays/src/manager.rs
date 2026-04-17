@@ -19,10 +19,7 @@ use crate::{
 #[cfg(target_os = "windows")]
 use displays_logical_windows::{
     ApplyError as LogicalDisplayApplyError, LogicalDisplayManager as LogicalDisplayManagerWindows,
-    LogicalDisplayMetadata as WindowsLogicalDisplayMetadata,
-    LogicalDisplayState as WindowsLogicalDisplayState,
     LogicalDisplayUpdate as WindowsLogicalDisplayUpdate,
-    LogicalDisplayUpdateContent as WindowsLogicalDisplayUpdateContent,
     Orientation as WindowsOrientation, PixelFormat as WindowsPixelFormat, Point as WindowsPoint,
     QueryError as LogicalDisplayQueryError,
 };
@@ -224,10 +221,10 @@ fn query_windows() -> Result<Vec<Display>, DisplayQueryError> {
 
             (
                 DisplayMetadata {
-                    logical: logical_display.metadata.into(),
+                    logical: logical_display.metadata,
                     physical: physical_metadata.map(Into::into),
                 },
-                logical_display.state.into(),
+                logical_display.state,
             )
         })
         .collect::<BTreeMap<_, _>>()
@@ -292,7 +289,7 @@ fn apply_windows(
             if let Some(logical_content) = requested_update.logical.clone() {
                 let logical_update = WindowsLogicalDisplayUpdate {
                     id: to_windows_display_identifier_inner(matched_id.clone()),
-                    content: to_windows_logical_update_content(logical_content),
+                    content: logical_content,
                 };
 
                 match LogicalDisplayManagerWindows::apply(vec![logical_update], validate) {
@@ -363,20 +360,6 @@ fn to_windows_display_identifier_inner(
 }
 
 #[cfg(target_os = "windows")]
-fn to_windows_logical_update_content(
-    content: crate::logical_display::LogicalDisplayUpdateContent,
-) -> WindowsLogicalDisplayUpdateContent {
-    WindowsLogicalDisplayUpdateContent {
-        is_enabled: content.is_enabled,
-        orientation: content.orientation.map(to_windows_orientation),
-        width: content.width,
-        height: content.height,
-        pixel_format: content.pixel_format.map(to_windows_pixel_format),
-        position: content.position.map(to_windows_point),
-    }
-}
-
-#[cfg(target_os = "windows")]
 fn to_windows_orientation(value: Orientation) -> WindowsOrientation {
     match value {
         Orientation::Landscape => WindowsOrientation::Landscape,
@@ -435,31 +418,6 @@ fn from_windows_point(value: WindowsPoint) -> crate::types::Point {
 }
 
 #[cfg(target_os = "windows")]
-impl From<WindowsLogicalDisplayMetadata> for LogicalDisplayMetadata {
-    fn from(value: WindowsLogicalDisplayMetadata) -> Self {
-        Self {
-            name: value.name,
-            path: value.path,
-            gdi_device_id: value.gdi_device_id,
-        }
-    }
-}
-
-#[cfg(target_os = "windows")]
-impl From<WindowsLogicalDisplayState> for LogicalDisplayState {
-    fn from(value: WindowsLogicalDisplayState) -> Self {
-        Self {
-            is_enabled: value.is_enabled,
-            orientation: from_windows_orientation(value.orientation),
-            width: value.width,
-            height: value.height,
-            pixel_format: value.pixel_format.map(from_windows_pixel_format),
-            position: value.position.map(from_windows_point),
-        }
-    }
-}
-
-#[cfg(target_os = "windows")]
 impl From<WindowsPhysicalDisplayMetadata> for PhysicalDisplayMetadata {
     fn from(value: WindowsPhysicalDisplayMetadata) -> Self {
         Self {
@@ -484,6 +442,7 @@ fn query_linux() -> Result<Vec<Display>, DisplayQueryError> {
                     metadata: LogicalDisplayMetadata {
                         name: logical_name,
                         path: logical_path,
+                        #[cfg(target_os = "windows")]
                         gdi_device_id: None,
                     },
                     state: LogicalDisplayState {

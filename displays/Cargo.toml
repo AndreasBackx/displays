@@ -7,6 +7,7 @@ edition = "2021"
 tracing = "0.1.40"
 thiserror = "2.0.7"
 displays_types = { path = "../displays_types" }
+displays_logical_types = { path = "../displays_logical_types" }
 displays_physical_types = { path = "../displays_physical_types" }
 
 [target.'cfg(target_os = "windows")'.dependencies]

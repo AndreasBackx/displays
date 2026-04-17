@@ -1,4 +1,8 @@
 use displays_types::{DisplayIdentifier, DisplayIdentifierInner, Orientation, PixelFormat, Point};
+pub use displays_logical_types::{
+    LogicalDisplay, LogicalDisplayMetadata, LogicalDisplayState, LogicalDisplayUpdate,
+    LogicalDisplayUpdateContent,
+};
 use tracing::instrument;
 use windows::Win32::{
     Devices::Display::{
@@ -13,44 +17,6 @@ use windows::Win32::{
 use crate::manager::PathInfo;
 use displays_windows_common::{error::WindowsError, utils, utils::try_utf16_cstring};
 
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub struct LogicalDisplayMetadata {
-    pub name: String,
-    pub path: String,
-    pub gdi_device_id: Option<u32>,
-}
-
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Default)]
-pub struct LogicalDisplayState {
-    pub is_enabled: bool,
-    pub orientation: Orientation,
-    pub width: Option<u32>,
-    pub height: Option<u32>,
-    pub pixel_format: Option<PixelFormat>,
-    pub position: Option<Point>,
-}
-
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
-pub struct LogicalDisplay {
-    pub metadata: LogicalDisplayMetadata,
-    pub state: LogicalDisplayState,
-}
-
-#[derive(Debug, Clone)]
-pub struct LogicalDisplayUpdate {
-    pub id: DisplayIdentifierInner,
-    pub content: LogicalDisplayUpdateContent,
-}
-
-#[derive(Debug, Default, Clone)]
-pub struct LogicalDisplayUpdateContent {
-    pub is_enabled: Option<bool>,
-    pub orientation: Option<Orientation>,
-    pub width: Option<u32>,
-    pub height: Option<u32>,
-    pub pixel_format: Option<PixelFormat>,
-    pub position: Option<Point>,
-}
 
 impl LogicalDisplay {
     pub fn id(&self) -> DisplayIdentifierInner {
