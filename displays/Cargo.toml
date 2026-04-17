@@ -16,6 +16,7 @@ displays_physical_windows = { path = "../displays_physical_windows" }
 displays_windows_common = { path = "../displays_windows_common" }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+displays_logical_linux = { path = "../displays_logical_linux" }
 displays_physical_linux = { path = "../displays_physical_linux" }
 
 [dev-dependencies]

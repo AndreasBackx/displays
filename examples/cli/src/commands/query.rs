@@ -1,7 +1,22 @@
+use std::fmt::Debug;
+
 use clap::Parser;
 
 use crate::commands::Command;
 use displays::{self as lib};
+
+fn format_optional<T>(value: Option<T>) -> String
+where
+    T: Debug,
+{
+    value.map(|value| format!("{value:?}"))
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+fn format_point(value: Option<&lib::types::Point>) -> String {
+    value.map(|value| format!("{},{}", value.x, value.y))
+        .unwrap_or_else(|| "unknown".to_string())
+}
 
 #[derive(Parser)]
 pub struct QueryCommand {
@@ -11,11 +26,6 @@ pub struct QueryCommand {
 
 impl Command for QueryCommand {
     fn run(&self) -> eyre::Result<()> {
-        #[cfg(target_os = "linux")]
-        if self.is_enabled.is_some() {
-            eyre::bail!("--enabled uses logical display state and is not supported on Linux");
-        }
-
         let displays = lib::manager::DisplayManager::query()?
             .into_iter()
             .collect::<Vec<_>>();
@@ -29,22 +39,66 @@ impl Command for QueryCommand {
             }
             found_match = true;
 
-            let id = display.id().outer;
+            let metadata = display.metadata();
+            let id = display.id();
+            let display_name = id
+                .outer
+                .name
+                .clone()
+                .unwrap_or_else(|| "unknown".to_string());
             let serial_number = id
+                .outer
                 .serial_number
+                .clone()
                 .filter(|value| !value.is_empty())
                 .unwrap_or_else(|| "unknown".to_string());
-            let brightness = display
-                .physical
-                .as_ref()
-                .map(|physical| format!("{}%", physical.state.brightness.value()))
-                .unwrap_or_else(|| "unavailable".to_string());
+            let physical = display.physical.as_ref();
 
             println!(
-                "Display: {}\n  Serial: {}\n  Enabled: {}\n  Resolution: {}x{}\n  Brightness: {}\n",
-                id.name.unwrap_or_else(|| "unknown".to_string()),
+                concat!(
+                    "Display: {}\n",
+                    "  Identifier Name: {}\n",
+                    "  Identifier Serial: {}\n",
+                    "  Identifier Path: {}\n",
+                    "  Logical:\n",
+                    "    Name: {}\n",
+                    "    Path: {}\n",
+                    "    Manufacturer: {}\n",
+                    "    Model: {}\n",
+                    "    Serial: {}\n",
+                    "    Enabled: {}\n",
+                    "    Orientation: {:?}\n",
+                    "    Resolution: {}x{}\n",
+                    "    Pixel Format: {}\n",
+                    "    Position: {}\n",
+                    "  Physical:\n",
+                    "    Name: {}\n",
+                    "    Path: {}\n",
+                    "    Serial: {}\n",
+                    "    Brightness: {}\n",
+                    "    Brightness Scale: {}\n"
+                ),
+                display_name,
+                id.outer.name.unwrap_or_else(|| "unknown".to_string()),
                 serial_number,
+                id.path.unwrap_or_else(|| "unknown".to_string()),
+                metadata.logical.name,
+                metadata.logical.path,
+                metadata
+                    .logical
+                    .manufacturer
+                    .unwrap_or_else(|| "unknown".to_string()),
+                metadata
+                    .logical
+                    .model
+                    .unwrap_or_else(|| "unknown".to_string()),
+                metadata
+                    .logical
+                    .serial_number
+                    .filter(|value| !value.is_empty())
+                    .unwrap_or_else(|| "unknown".to_string()),
                 display.logical.state.is_enabled,
+                display.logical.state.orientation,
                 display
                     .logical
                     .state
@@ -57,8 +111,26 @@ impl Command for QueryCommand {
                     .height
                     .map(|value| value.to_string())
                     .unwrap_or_else(|| "unknown".to_string()),
-                brightness,
+                format_optional(display.logical.state.pixel_format),
+                format_point(display.logical.state.position.as_ref()),
+                physical
+                    .map(|physical| physical.metadata.name.clone())
+                    .unwrap_or_else(|| "unavailable".to_string()),
+                physical
+                    .map(|physical| physical.metadata.path.clone())
+                    .unwrap_or_else(|| "unavailable".to_string()),
+                physical
+                    .map(|physical| physical.metadata.serial_number.clone())
+                    .filter(|value| !value.is_empty())
+                    .unwrap_or_else(|| "unavailable".to_string()),
+                physical
+                    .map(|physical| format!("{}%", physical.state.brightness.value()))
+                    .unwrap_or_else(|| "unavailable".to_string()),
+                physical
+                    .map(|physical| physical.state.scale_factor.to_string())
+                    .unwrap_or_else(|| "unavailable".to_string()),
             );
+            println!();
         }
 
         if !found_match {

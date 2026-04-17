@@ -77,7 +77,7 @@ impl From<LogicalDisplayUpdateContentArgs> for LogicalDisplayUpdateContent {
             width: value.width,
             height: value.height,
             // pixel_format: value.pixel_format,
-            // position: value.position,
+            position: value.position,
             ..Default::default()
         }
     }
@@ -99,11 +99,6 @@ impl From<PhysicalDisplayUpdateContentArgs> for PhysicalDisplayUpdateContent {
 
 impl Command for ApplyCommand {
     fn run(&self) -> eyre::Result<()> {
-        #[cfg(target_os = "linux")]
-        if self.update.logical.is_some() {
-            eyre::bail!("logical display updates are not supported on Linux");
-        }
-
         let update = self.update.clone().into();
 
         let results = lib::manager::DisplayManager::apply(vec![update], self.validate)?;

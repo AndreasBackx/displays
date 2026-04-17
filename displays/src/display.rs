@@ -40,7 +40,8 @@ impl DisplayMetadata {
                 serial_number: self
                     .physical
                     .as_ref()
-                    .map(|physical| physical.serial_number.clone()),
+                    .map(|physical| physical.serial_number.clone())
+                    .or_else(|| self.logical.serial_number.clone()),
             },
             path: self
                 .physical
