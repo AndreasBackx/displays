@@ -38,7 +38,7 @@ use displays_physical_windows::{
 };
 
 #[cfg(target_os = "windows")]
-use displays_windows_common::types::{
+use displays_types::{
     Brightness as WindowsBrightness, DisplayIdentifier as WindowsDisplayIdentifier,
     DisplayIdentifierInner as WindowsDisplayIdentifierInner,
 };

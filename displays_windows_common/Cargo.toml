@@ -9,6 +9,7 @@ path = "src/lib.rs"
 
 [dependencies]
 thiserror = "2.0.7"
+displays_types = { path = "../displays_types" }
 windows = { version = "0.61.3", features = [
     "Win32_Devices",
     "Win32_Devices_Display",

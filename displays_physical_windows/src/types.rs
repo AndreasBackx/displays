@@ -2,9 +2,9 @@ use edid_rs::EDID;
 pub use displays_physical_types::{
     PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdateContent,
 };
+use displays_types::{Brightness, DisplayIdentifierInner};
 
 use crate::error::QueryError;
-use displays_windows_common::types::{Brightness, DisplayIdentifierInner};
 
 #[derive(Debug, Clone, Default)]
 pub struct PhysicalDisplayUpdate {

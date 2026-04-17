@@ -1,6 +1,4 @@
-use displays_windows_common::types::{
-    DisplayIdentifier, DisplayIdentifierInner, Orientation, PixelFormat, Point,
-};
+use displays_types::{DisplayIdentifier, DisplayIdentifierInner, Orientation, PixelFormat, Point};
 use tracing::instrument;
 use windows::Win32::{
     Devices::Display::{
