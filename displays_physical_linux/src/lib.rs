@@ -10,7 +10,6 @@ pub use error::{ApplyError, QueryError};
 pub use manager::PhysicalDisplayManager;
 pub use types::PhysicalDisplayUpdate;
 pub use displays_physical_types::{
-    Brightness, PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState,
-    PhysicalDisplayUpdateContent,
+    PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdateContent,
 };
-pub use displays_types::DisplayIdentifier;
+pub use displays_types::{Brightness, DisplayIdentifier};

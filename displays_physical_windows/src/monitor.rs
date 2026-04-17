@@ -1,4 +1,5 @@
-use displays_windows_common::{error::WindowsError, types::Brightness};
+use displays_types::Brightness;
+use displays_windows_common::error::WindowsError;
 use windows::Win32::{
     Devices::Display::{
         GetNumberOfPhysicalMonitorsFromHMONITOR, GetPhysicalMonitorsFromHMONITOR, PHYSICAL_MONITOR,

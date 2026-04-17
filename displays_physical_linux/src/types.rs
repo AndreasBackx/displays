@@ -1,8 +1,7 @@
 use displays_types::{DisplayIdentifier, DisplayIdentifierInner};
 
 pub use displays_physical_types::{
-    Brightness, PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState,
-    PhysicalDisplayUpdateContent,
+    PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdateContent,
 };
 
 /// Requested changes to Linux physical display state.

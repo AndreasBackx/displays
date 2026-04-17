@@ -3,14 +3,14 @@ use displays_physical_linux_sys::{
     BrightnessUpdate, Device, DeviceClass, DeviceIdentifier, DeviceUpdate,
     PhysicalDisplayManagerLinuxSys,
 };
+use displays_types::Brightness;
 use std::io::ErrorKind;
 
 use crate::ddc;
 use crate::error::{ApplyError, QueryError};
 use crate::types::{
-    Backend, BacklightApplyUpdate, Brightness, DdcApplyUpdate, DisplayHandle, PhysicalDisplay,
-    PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdate,
-    PhysicalDisplayUpdateContent,
+    Backend, BacklightApplyUpdate, DdcApplyUpdate, DisplayHandle, PhysicalDisplay,
+    PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdate, PhysicalDisplayUpdateContent,
 };
 
 /// High-level entry point for querying and updating Linux physical displays.

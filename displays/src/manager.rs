@@ -39,8 +39,7 @@ use displays_physical_windows::{
 
 #[cfg(target_os = "windows")]
 use displays_types::{
-    Brightness as WindowsBrightness, DisplayIdentifier as WindowsDisplayIdentifier,
-    DisplayIdentifierInner as WindowsDisplayIdentifierInner,
+    DisplayIdentifier as WindowsDisplayIdentifier, DisplayIdentifierInner as WindowsDisplayIdentifierInner,
 };
 
 #[cfg(target_os = "linux")]
@@ -468,13 +467,6 @@ impl From<WindowsPhysicalDisplayMetadata> for PhysicalDisplayMetadata {
             name: value.name,
             serial_number: value.serial_number,
         }
-    }
-}
-
-#[cfg(target_os = "windows")]
-impl From<WindowsBrightness> for crate::display::Brightness {
-    fn from(value: WindowsBrightness) -> Self {
-        crate::display::Brightness::new(value.value())
     }
 }
 

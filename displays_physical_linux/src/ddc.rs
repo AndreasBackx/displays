@@ -3,11 +3,12 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use ddc_hi::{Ddc, Display as DdcDisplay, DisplayInfo, FeatureCode};
+use displays_types::Brightness;
 
 use crate::error::{ApplyError, QueryError};
 use crate::types::{
-    Backend, Brightness, DdcApplyUpdate, DisplayHandle, PhysicalDisplayMetadata,
-    PhysicalDisplayState, PhysicalDisplayUpdate,
+    Backend, DdcApplyUpdate, DisplayHandle, PhysicalDisplayMetadata, PhysicalDisplayState,
+    PhysicalDisplayUpdate,
 };
 
 const PER_MONITOR_APPLY_TIMEOUT: Duration = Duration::from_millis(3500);

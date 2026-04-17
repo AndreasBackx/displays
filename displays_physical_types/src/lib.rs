@@ -1,12 +1,10 @@
 //! Shared physical display data types used across platform backends.
 
-mod brightness;
 mod physical_display;
 mod physical_display_metadata;
 mod physical_display_state;
 mod physical_display_update_content;
 
-pub use brightness::Brightness;
 pub use physical_display::PhysicalDisplay;
 pub use physical_display_metadata::PhysicalDisplayMetadata;
 pub use physical_display_state::PhysicalDisplayState;

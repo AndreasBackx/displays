@@ -12,11 +12,6 @@ pub struct PhysicalDisplayUpdate {
     pub content: PhysicalDisplayUpdateContent,
 }
 
-#[derive(Debug, Clone, Default)]
-pub struct PhysicalDisplayUpdateContent {
-    pub brightness: Option<u32>,
-}
-
 impl TryFrom<(String, EDID)> for PhysicalDisplayMetadata {
     type Error = QueryError;
 

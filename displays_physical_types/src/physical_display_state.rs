@@ -1,4 +1,4 @@
-use crate::Brightness;
+use displays_types::Brightness;
 
 /// The current physical monitor state.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
