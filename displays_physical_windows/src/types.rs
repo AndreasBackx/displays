@@ -1,26 +1,10 @@
 use edid_rs::EDID;
+pub use displays_physical_types::{
+    PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdateContent,
+};
 
 use crate::error::QueryError;
 use displays_windows_common::types::{Brightness, DisplayIdentifierInner};
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PhysicalDisplayMetadata {
-    pub path: String,
-    pub name: String,
-    pub serial_number: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PhysicalDisplayState {
-    pub brightness: Brightness,
-    pub scale_factor: i32,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PhysicalDisplay {
-    pub metadata: PhysicalDisplayMetadata,
-    pub state: PhysicalDisplayState,
-}
 
 #[derive(Debug, Clone, Default)]
 pub struct PhysicalDisplayUpdate {

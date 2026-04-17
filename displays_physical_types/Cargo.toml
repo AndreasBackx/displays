@@ -1,0 +1,8 @@
+[package]
+name = "displays_physical_types"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "displays_physical_types"
+path = "src/lib.rs"

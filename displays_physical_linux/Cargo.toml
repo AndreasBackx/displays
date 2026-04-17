@@ -19,3 +19,4 @@ tracing = "0.1.40"
 ddc-hi = { version = "0.4.1", default-features = false, features = ["ddc-i2c"] }
 displays_physical_linux_sys = { path = "../displays_physical_linux_sys" }
 displays_physical_linux_logind = { path = "../displays_physical_linux_logind" }
+displays_physical_types = { path = "../displays_physical_types" }

@@ -44,9 +44,6 @@ use displays_windows_common::types::{
 };
 
 #[cfg(target_os = "linux")]
-use crate::physical_display::{PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState};
-
-#[cfg(target_os = "linux")]
 use displays_physical_linux::{
     ApplyError as PhysicalDisplayApplyError,
     PhysicalDisplayIdentifier as LinuxPhysicalDisplayIdentifier,
@@ -507,19 +504,7 @@ fn query_linux() -> Result<Vec<Display>, DisplayQueryError> {
                         position: None,
                     },
                 },
-                physical: Some(PhysicalDisplay {
-                    metadata: PhysicalDisplayMetadata {
-                        path: physical.metadata.path,
-                        name: physical.metadata.name,
-                        serial_number: physical.metadata.serial_number,
-                    },
-                    state: PhysicalDisplayState {
-                        brightness: crate::display::Brightness::new(
-                            physical.state.brightness_percent,
-                        ),
-                        scale_factor: physical.state.scale_factor,
-                    },
-                }),
+                physical: Some(physical),
             }
         })
         .collect())
@@ -550,10 +535,7 @@ fn apply_linux(
                     name: matched_id.outer.name.clone(),
                     serial_number: matched_id.outer.serial_number.clone(),
                 },
-                brightness_percent: requested_update
-                    .physical
-                    .as_ref()
-                    .and_then(|physical| physical.brightness),
+                content: requested_update.physical.clone().unwrap_or_default(),
             };
 
             match PhysicalDisplayManagerLinux::apply(vec![linux_update], validate) {

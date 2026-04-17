@@ -6,8 +6,8 @@ use ddc_hi::{Ddc, Display as DdcDisplay, DisplayInfo, FeatureCode};
 
 use crate::error::{ApplyError, QueryError};
 use crate::types::{
-    Backend, DdcApplyUpdate, DisplayHandle, PhysicalDisplayMetadata, PhysicalDisplayState,
-    PhysicalDisplayUpdate,
+    Backend, Brightness, DdcApplyUpdate, DisplayHandle, PhysicalDisplayMetadata,
+    PhysicalDisplayState, PhysicalDisplayUpdate,
 };
 
 const PER_MONITOR_APPLY_TIMEOUT: Duration = Duration::from_millis(3500);
@@ -53,7 +53,7 @@ pub(crate) fn enumerate_handles() -> Result<Vec<DisplayHandle>, QueryError> {
         handles.push(DisplayHandle {
             metadata: metadata_from_info(&info),
             state: PhysicalDisplayState {
-                brightness_percent: brightness.min(100),
+                brightness: Brightness::new(brightness.min(100)),
                 scale_factor: 100,
             },
             backend: Backend::Ddc { display_index },
@@ -73,14 +73,16 @@ pub(crate) fn apply_updates(updates: Vec<DdcApplyUpdate>) -> Vec<PhysicalDisplay
         DdcDisplay::enumerate().into_iter().enumerate().collect();
 
     for update in updates {
-        let Some(brightness_percent) = update.brightness_percent else {
+        let Some(brightness_percent) = update.content.brightness else {
             continue;
         };
 
         let Some(display) = display_by_index.remove(&update.display_index) else {
             remaining_updates.push(PhysicalDisplayUpdate {
                 id: update.id.outer,
-                brightness_percent: Some(brightness_percent),
+                content: crate::types::PhysicalDisplayUpdateContent {
+                    brightness: Some(brightness_percent),
+                },
             });
             continue;
         };
@@ -94,7 +96,9 @@ pub(crate) fn apply_updates(updates: Vec<DdcApplyUpdate>) -> Vec<PhysicalDisplay
             );
             remaining_updates.push(PhysicalDisplayUpdate {
                 id: update.id.outer,
-                brightness_percent: Some(brightness_percent),
+                content: crate::types::PhysicalDisplayUpdateContent {
+                    brightness: Some(brightness_percent),
+                },
             });
         }
     }

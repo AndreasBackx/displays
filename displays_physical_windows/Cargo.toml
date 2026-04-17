@@ -21,3 +21,4 @@ windows = { version = "0.61.3", features = [
     "Win32_UI_Shell_Common",
 ] }
 displays_windows_common = { path = "../displays_windows_common" }
+displays_physical_types = { path = "../displays_physical_types" }

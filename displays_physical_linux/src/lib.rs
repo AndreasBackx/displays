@@ -9,6 +9,9 @@ mod types;
 pub use error::{ApplyError, QueryError};
 pub use manager::PhysicalDisplayManager;
 pub use types::{
-    PhysicalDisplay, PhysicalDisplayIdentifier, PhysicalDisplayMetadata, PhysicalDisplayState,
-    PhysicalDisplayUpdate,
+    PhysicalDisplayIdentifier, PhysicalDisplayUpdate,
+};
+pub use displays_physical_types::{
+    Brightness, PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState,
+    PhysicalDisplayUpdateContent,
 };

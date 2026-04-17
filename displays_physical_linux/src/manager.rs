@@ -8,8 +8,9 @@ use std::io::ErrorKind;
 use crate::ddc;
 use crate::error::{ApplyError, QueryError};
 use crate::types::{
-    Backend, BacklightApplyUpdate, DdcApplyUpdate, DisplayHandle, PhysicalDisplay,
+    Backend, BacklightApplyUpdate, Brightness, DdcApplyUpdate, DisplayHandle, PhysicalDisplay,
     PhysicalDisplayMetadata, PhysicalDisplayState, PhysicalDisplayUpdate,
+    PhysicalDisplayUpdateContent,
 };
 
 /// High-level entry point for querying and updating Linux physical displays.
@@ -58,14 +59,14 @@ impl PhysicalDisplayManager {
                     Backend::Ddc { display_index } => {
                         ddc_updates.push(DdcApplyUpdate {
                             id: handle.id(),
-                            brightness_percent: update.brightness_percent,
+                            content: update.content.clone(),
                             display_index: *display_index,
                         });
                     }
                     Backend::Backlight { path } => {
                         backlight_updates.push(BacklightApplyUpdate {
                             id: handle.id(),
-                            brightness_percent: update.brightness_percent,
+                            content: update.content.clone(),
                             path: path.clone(),
                         });
                     }
@@ -129,7 +130,7 @@ impl PhysicalDisplayManager {
         let mut remaining_updates = Vec::new();
 
         for update in updates {
-            let Some(brightness_percent) = update.brightness_percent else {
+            let Some(brightness_percent) = update.content.brightness else {
                 continue;
             };
 
@@ -146,7 +147,9 @@ impl PhysicalDisplayManager {
                 Ok(remaining) if remaining.is_empty() => {}
                 Ok(_) => remaining_updates.push(PhysicalDisplayUpdate {
                     id: update.id.outer,
-                    brightness_percent: Some(brightness_percent),
+                    content: PhysicalDisplayUpdateContent {
+                        brightness: Some(brightness_percent),
+                    },
                 }),
                 Err(displays_physical_linux_sys::ApplyError::WriteFile { source, .. })
                     if source.kind() == ErrorKind::PermissionDenied =>
@@ -163,7 +166,9 @@ impl PhysicalDisplayManager {
                     else {
                         remaining_updates.push(PhysicalDisplayUpdate {
                             id: update.id.outer,
-                            brightness_percent: Some(brightness_percent),
+                            content: PhysicalDisplayUpdateContent {
+                                brightness: Some(brightness_percent),
+                            },
                         });
                         continue;
                     };
@@ -194,7 +199,9 @@ impl PhysicalDisplayManager {
                     );
                     remaining_updates.push(PhysicalDisplayUpdate {
                         id: update.id.outer,
-                        brightness_percent: Some(brightness_percent),
+                        content: PhysicalDisplayUpdateContent {
+                            brightness: Some(brightness_percent),
+                        },
                     });
                 }
             }
@@ -215,7 +222,7 @@ fn backlight_handle_from_device(device: Device) -> Result<DisplayHandle, QueryEr
             serial_number: String::new(),
         },
         state: PhysicalDisplayState {
-            brightness_percent: device.state.brightness_percent,
+            brightness: Brightness::new(device.state.brightness_percent),
             scale_factor: 100,
         },
         backend: Backend::Backlight { path },

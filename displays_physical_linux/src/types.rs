@@ -1,3 +1,8 @@
+pub use displays_physical_types::{
+    Brightness, PhysicalDisplay, PhysicalDisplayMetadata, PhysicalDisplayState,
+    PhysicalDisplayUpdateContent,
+};
+
 /// A user-facing identifier used to match one or more Linux physical displays.
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhysicalDisplayIdentifier {
@@ -7,42 +12,13 @@ pub struct PhysicalDisplayIdentifier {
     pub serial_number: Option<String>,
 }
 
-/// Stable metadata describing a Linux physical display.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PhysicalDisplayMetadata {
-    /// Platform-specific display path.
-    pub path: String,
-    /// Human-readable display name.
-    pub name: String,
-    /// Physical serial number.
-    pub serial_number: String,
-}
-
-/// The current Linux physical display state.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PhysicalDisplayState {
-    /// Current brightness percentage.
-    pub brightness_percent: u8,
-    /// Current OS scale factor percentage.
-    pub scale_factor: i32,
-}
-
-/// A Linux physical display and its current state.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PhysicalDisplay {
-    /// Physical display metadata.
-    pub metadata: PhysicalDisplayMetadata,
-    /// Current physical display state.
-    pub state: PhysicalDisplayState,
-}
-
 /// Requested changes to Linux physical display state.
 #[derive(Debug, Default, Clone)]
 pub struct PhysicalDisplayUpdate {
     /// The user-facing identifier used to match displays.
     pub id: PhysicalDisplayIdentifier,
-    /// Requested brightness percentage in the inclusive range `0..=100`.
-    pub brightness_percent: Option<u32>,
+    /// Requested physical display changes.
+    pub content: PhysicalDisplayUpdateContent,
 }
 
 impl PhysicalDisplayIdentifier {
@@ -73,15 +49,13 @@ pub(crate) struct PhysicalDisplayIdentifierInner {
     pub(crate) path: Option<String>,
 }
 
-impl PhysicalDisplay {
-    pub(crate) fn id(&self) -> PhysicalDisplayIdentifierInner {
-        PhysicalDisplayIdentifierInner {
-            outer: PhysicalDisplayIdentifier {
-                name: Some(self.metadata.name.clone()),
-                serial_number: Some(self.metadata.serial_number.clone()),
-            },
-            path: Some(self.metadata.path.clone()),
-        }
+fn physical_display_id(display: &PhysicalDisplay) -> PhysicalDisplayIdentifierInner {
+    PhysicalDisplayIdentifierInner {
+        outer: PhysicalDisplayIdentifier {
+            name: Some(display.metadata.name.clone()),
+            serial_number: Some(display.metadata.serial_number.clone()),
+        },
+        path: Some(display.metadata.path.clone()),
     }
 }
 
@@ -101,7 +75,7 @@ impl DisplayHandle {
     }
 
     pub(crate) fn id(&self) -> PhysicalDisplayIdentifierInner {
-        self.display().id()
+        physical_display_id(&self.display())
     }
 }
 
@@ -114,13 +88,13 @@ pub(crate) enum Backend {
 #[derive(Debug, Clone)]
 pub(crate) struct DdcApplyUpdate {
     pub(crate) id: PhysicalDisplayIdentifierInner,
-    pub(crate) brightness_percent: Option<u32>,
+    pub(crate) content: PhysicalDisplayUpdateContent,
     pub(crate) display_index: usize,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct BacklightApplyUpdate {
     pub(crate) id: PhysicalDisplayIdentifierInner,
-    pub(crate) brightness_percent: Option<u32>,
+    pub(crate) content: PhysicalDisplayUpdateContent,
     pub(crate) path: String,
 }
