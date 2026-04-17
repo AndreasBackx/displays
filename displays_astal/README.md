@@ -43,6 +43,57 @@ The repository includes a fake-backend GJS smoke test at
 env GI_TYPELIB_PATH="$PWD/build-faked" gjs -m "$PWD/examples/test.js"
 ```
 
+## Async Usage
+
+The GI API is async-only and follows the standard GLib `*_async` / `*_finish`
+pattern. In GJS and TypeScript, the usual approach is to promisify the methods
+once and then `await` them.
+
+```ts
+import Gio from "gi://Gio";
+import GLib from "gi://GLib";
+import AstalDisplays from "gi://AstalDisplays";
+
+Gio._promisify(AstalDisplays.Manager.prototype, "query_async", "query_finish");
+Gio._promisify(AstalDisplays.Manager.prototype, "get_async", "get_finish");
+Gio._promisify(AstalDisplays.Manager.prototype, "update_async", "update_finish");
+Gio._promisify(AstalDisplays.Manager.prototype, "validate_async", "validate_finish");
+
+async function main() {
+    const manager = AstalDisplays.Manager.get_default();
+
+    const displays = await manager.query_async(null);
+    for (const display of displays) {
+        const name = display.id.name ?? "unknown";
+        const serial = display.id.serial_number ?? "unknown";
+        print(`${name} (${serial})`);
+    }
+
+    const matches = await manager.get_async([
+        new AstalDisplays.DisplayIdentifier({ name: "LG UltraFine" }),
+    ], null);
+
+    print(`matched ${matches.length} display(s)`);
+
+    const validation = await manager.validate_async([
+        new AstalDisplays.DisplayUpdate({
+            id: new AstalDisplays.DisplayIdentifier({ name: "Missing Display" }),
+            physical: new AstalDisplays.PhysicalDisplayUpdateContent({
+                has_brightness: true,
+                brightness: 50,
+            }),
+        }),
+    ], null);
+
+    print(`validation returned ${validation.length} result(s)`);
+}
+
+main().catch(err => {
+    printerr(`AstalDisplays error: ${err.message}`);
+    GLib.exit(1);
+});
+```
+
 ## API Notes
 
 Some nullable scalar fields are exposed as paired `has_*` plus value properties,

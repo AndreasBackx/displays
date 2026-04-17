@@ -12,3 +12,7 @@ members = [
     "displays_astal",
     "examples/cli",
 ]
+
+[patch.crates-io]
+ddc-hi = { path = "/home/andreas/dev/ddc-hi-rs" }
+ddc-i2c = { path = "/home/andreas/dev/ddc-i2c-rs" }

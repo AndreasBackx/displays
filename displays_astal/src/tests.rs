@@ -1,14 +1,18 @@
 use std::{env, process::Command, ptr};
 
 use gio::prelude::ListModelExt;
-use glib::{ffi::GError, prelude::ObjectExt, Object};
+use glib::{ffi::GError, prelude::ObjectExt, MainLoop, Object};
 
 use crate::{
     display::Display,
     display_identifier::DisplayIdentifier,
     display_update::DisplayUpdate,
     manager::{
-        ffi::astal_displays_manager_get_default, ffi::astal_displays_manager_query, Manager,
+        ffi::{
+            astal_displays_manager_get_default, astal_displays_manager_query_async,
+            astal_displays_manager_query_finish,
+        },
+        Manager,
     },
     physical_display::{PhysicalDisplay, PhysicalDisplayUpdateContent},
 };
@@ -35,7 +39,64 @@ fn run_in_subprocess(helper_env: &str, test_name: &str, extra_env: &[(&str, &str
     assert!(status.success(), "child process exited with {status}");
 }
 
+fn wait_for_async_result<T, F>(register: F) -> Result<T, glib::Error>
+where
+    F: FnOnce(Box<dyn FnOnce(Result<T, glib::Error>)>),
+    T: 'static,
+{
+    let main_loop = MainLoop::new(None, false);
+    let main_loop_clone = main_loop.clone();
+    let result = std::rc::Rc::new(std::cell::RefCell::new(None));
+    let result_clone = result.clone();
+
+    register(Box::new(move |value| {
+        *result_clone.borrow_mut() = Some(value);
+        main_loop_clone.quit();
+    }));
+
+    main_loop.run();
+    let outcome = result
+        .borrow_mut()
+        .take()
+        .expect("async callback should store a result");
+    outcome
+}
+
 fn run_query_and_free_like_gi_consumer() {
+    struct QueryOutcome {
+        results: *mut *mut crate::display::ffi::AstalDisplaysDisplay,
+        result_len: usize,
+        error: *mut GError,
+    }
+
+    let main_loop = MainLoop::new(None, false);
+    let loop_clone = main_loop.clone();
+
+    unsafe extern "C" fn query_ready_and_quit(
+        source_object: *mut glib::gobject_ffi::GObject,
+        result: *mut gio::ffi::GAsyncResult,
+        user_data: glib::ffi::gpointer,
+    ) {
+        let pair = user_data as *mut (MainLoop, Option<QueryOutcome>);
+        unsafe {
+            let source_object = source_object as *mut crate::manager::ffi::AstalDisplaysManager;
+            let mut result_len = 0usize;
+            let mut error = ptr::null_mut();
+            let results = astal_displays_manager_query_finish(
+                source_object,
+                result,
+                &mut result_len,
+                &mut error,
+            );
+            (*pair).1 = Some(QueryOutcome {
+                results,
+                result_len,
+                error,
+            });
+            (*pair).0.quit();
+        }
+    }
+
     unsafe {
         let manager = astal_displays_manager_get_default();
         assert!(
@@ -43,9 +104,20 @@ fn run_query_and_free_like_gi_consumer() {
             "default manager pointer must be non-null"
         );
 
-        let mut result_len = 0usize;
-        let mut error: *mut GError = ptr::null_mut();
-        let results = astal_displays_manager_query(manager, &mut result_len, &mut error);
+        let mut pair = (loop_clone, None);
+        astal_displays_manager_query_async(
+            manager,
+            ptr::null_mut(),
+            Some(query_ready_and_quit),
+            &mut pair as *mut _ as _,
+        );
+        main_loop.run();
+
+        let QueryOutcome {
+            results,
+            result_len,
+            error,
+        } = pair.1.take().expect("async query callback should run");
 
         assert!(error.is_null(), "query returned a GLib error pointer");
 
@@ -88,7 +160,12 @@ fn built_in_backlight_display(displays: Vec<Display>) -> Option<(DisplayIdentifi
 
 fn run_real_backlight_round_trip() {
     let manager = Manager::get_default();
-    let displays = manager.query().expect("query displays before update");
+    let displays = wait_for_async_result(|done| {
+        manager.query_async(None::<&gio::Cancellable>, move |manager, result| {
+            done(manager.query_finish(result));
+        });
+    })
+    .expect("query displays before update");
     let Some((identifier, current_brightness)) = built_in_backlight_display(displays) else {
         eprintln!("skipping real backlight test: no built-in backlight display found");
         return;
@@ -103,9 +180,16 @@ fn run_real_backlight_round_trip() {
         .property("physical", update_content)
         .build();
 
-    let results = manager
-        .update(vec![update])
-        .expect("update current backlight brightness");
+    let results = wait_for_async_result(|done| {
+        manager.update_async(
+            vec![update],
+            None::<&gio::Cancellable>,
+            move |manager, result| {
+                done(manager.update_finish(result));
+            },
+        );
+    })
+    .expect("update current backlight brightness");
     assert!(
         results.len() == 1,
         "expected one update result, got {}",
@@ -117,7 +201,12 @@ fn run_real_backlight_round_trip() {
     assert_eq!(applied.n_items(), 1, "expected one applied display");
     assert_eq!(failed.n_items(), 0, "expected no failed displays");
 
-    let refreshed = manager.query().expect("query displays after update");
+    let refreshed = wait_for_async_result(|done| {
+        manager.query_async(None::<&gio::Cancellable>, move |manager, result| {
+            done(manager.query_finish(result));
+        });
+    })
+    .expect("query displays after update");
     let Some((_, refreshed_brightness)) = built_in_backlight_display(refreshed) else {
         panic!("built-in backlight display disappeared after update");
     };
@@ -145,9 +234,17 @@ fn fake_update_result_contains_applied_matches() {
         )
         .build();
 
-    let results = Manager::get_default()
-        .update(vec![update])
-        .expect("update fake displays");
+    let manager = Manager::get_default();
+    let results = wait_for_async_result(|done| {
+        manager.update_async(
+            vec![update],
+            None::<&gio::Cancellable>,
+            move |manager, result| {
+                done(manager.update_finish(result));
+            },
+        );
+    })
+    .expect("update fake displays");
 
     assert_eq!(results.len(), 1);
 
