@@ -1,7 +1,7 @@
 use displays_core::{self as lib};
 use pyo3::prelude::*;
 
-#[pyclass(str)]
+#[pyclass(str, from_py_object)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DisplayIdentifier {
     #[pyo3(get, set)]
@@ -26,17 +26,17 @@ impl DisplayIdentifier {
     }
 }
 
-impl From<DisplayIdentifier> for lib::display_identifier::DisplayIdentifier {
+impl From<DisplayIdentifier> for lib::types::DisplayIdentifier {
     fn from(value: DisplayIdentifier) -> Self {
-        lib::display_identifier::DisplayIdentifier {
+        lib::types::DisplayIdentifier {
             name: value.name,
             serial_number: value.serial_number,
         }
     }
 }
 
-impl From<lib::display_identifier::DisplayIdentifier> for DisplayIdentifier {
-    fn from(value: lib::display_identifier::DisplayIdentifier) -> Self {
+impl From<lib::types::DisplayIdentifier> for DisplayIdentifier {
+    fn from(value: lib::types::DisplayIdentifier) -> Self {
         DisplayIdentifier {
             name: value.name,
             serial_number: value.serial_number,

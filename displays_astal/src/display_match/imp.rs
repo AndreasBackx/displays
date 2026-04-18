@@ -17,7 +17,7 @@ pub struct DisplayMatch {
 
 #[glib::object_subclass]
 impl ObjectSubclass for DisplayMatch {
-    const NAME: &'static str = "AstalDisplaysDisplayMatch";
+    const NAME: &'static str = "DisplaysAstalDisplayMatch";
     type Type = super::DisplayMatch;
 }
 

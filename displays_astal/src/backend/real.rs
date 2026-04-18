@@ -1,5 +1,5 @@
 use super::{types::*, Backend};
-use crate::error::{error_message, AstalDisplaysError};
+use crate::error::{error_message, DisplaysAstalError};
 
 /// Adapter around the real `displays` crate.
 ///
@@ -18,7 +18,7 @@ impl Backend for RealBackend {
     fn get(&self, ids: Vec<DisplayIdentifierData>) -> Result<Vec<DisplayMatchData>, glib::Error> {
         let ids = ids
             .into_iter()
-            .map(displays::display_identifier::DisplayIdentifier::from)
+            .map(displays::types::DisplayIdentifier::from)
             .collect::<Vec<_>>();
 
         Ok(displays::manager::DisplayManager::get(ids)
@@ -63,5 +63,5 @@ impl Backend for RealBackend {
 }
 
 fn map_error(err: impl std::fmt::Display) -> glib::Error {
-    error_message(AstalDisplaysError::Failed, &err.to_string())
+    error_message(DisplaysAstalError::Failed, &err.to_string())
 }

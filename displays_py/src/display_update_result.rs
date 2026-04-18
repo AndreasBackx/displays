@@ -3,7 +3,7 @@ use pyo3::prelude::*;
 
 use crate::{display_identifier::DisplayIdentifier, display_update::DisplayUpdate};
 
-#[pyclass(str)]
+#[pyclass(str, from_py_object)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FailedDisplayUpdate {
     #[pyo3(get, set)]
@@ -12,7 +12,7 @@ pub struct FailedDisplayUpdate {
     message: String,
 }
 
-#[pyclass(str)]
+#[pyclass(str, from_py_object)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DisplayUpdateResult {
     #[pyo3(get, set)]
@@ -60,8 +60,8 @@ impl std::fmt::Display for DisplayUpdateResult {
     }
 }
 
-impl From<lib::manager::FailedDisplayUpdate> for FailedDisplayUpdate {
-    fn from(value: lib::manager::FailedDisplayUpdate) -> Self {
+impl From<lib::types::FailedDisplayUpdate> for FailedDisplayUpdate {
+    fn from(value: lib::types::FailedDisplayUpdate) -> Self {
         Self {
             matched_id: value.matched_id.into(),
             message: value.message,
@@ -69,8 +69,8 @@ impl From<lib::manager::FailedDisplayUpdate> for FailedDisplayUpdate {
     }
 }
 
-impl From<lib::manager::DisplayUpdateResult> for DisplayUpdateResult {
-    fn from(value: lib::manager::DisplayUpdateResult) -> Self {
+impl From<lib::types::DisplayUpdateResult> for DisplayUpdateResult {
+    fn from(value: lib::types::DisplayUpdateResult) -> Self {
         Self {
             requested_update: value.requested_update.into(),
             applied: value.applied.into_iter().map(Into::into).collect(),

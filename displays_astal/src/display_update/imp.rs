@@ -20,7 +20,7 @@ pub struct DisplayUpdate {
 
 #[glib::object_subclass]
 impl ObjectSubclass for DisplayUpdate {
-    const NAME: &'static str = "AstalDisplaysDisplayUpdate";
+    const NAME: &'static str = "DisplaysAstalDisplayUpdate";
     type Type = super::DisplayUpdate;
 }
 

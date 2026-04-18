@@ -9,18 +9,18 @@ use crate::{
     display_update::DisplayUpdate,
     manager::{
         ffi::{
-            astal_displays_manager_get_default, astal_displays_manager_query_async,
-            astal_displays_manager_query_finish,
+            displays_astal_manager_get_default, displays_astal_manager_query_async,
+            displays_astal_manager_query_finish,
         },
         Manager,
     },
     physical_display::{PhysicalDisplay, PhysicalDisplayUpdateContent},
 };
 
-const FFI_QUERY_HELPER_ENV: &str = "ASTAL_DISPLAYS_TEST_HELPER_FFI_QUERY";
+const FFI_QUERY_HELPER_ENV: &str = "DISPLAYS_ASTAL_TEST_HELPER_FFI_QUERY";
 const FFI_QUERY_TEST_NAME: &str = "tests::ffi_query_result_array_uses_glib_owned_memory";
-const REAL_BACKLIGHT_ENABLE_ENV: &str = "ASTAL_DISPLAYS_REAL_BACKLIGHT_TEST";
-const REAL_BACKLIGHT_HELPER_ENV: &str = "ASTAL_DISPLAYS_TEST_HELPER_REAL_BACKLIGHT";
+const REAL_BACKLIGHT_ENABLE_ENV: &str = "DISPLAYS_ASTAL_REAL_BACKLIGHT_TEST";
+const REAL_BACKLIGHT_HELPER_ENV: &str = "DISPLAYS_ASTAL_TEST_HELPER_REAL_BACKLIGHT";
 const REAL_BACKLIGHT_TEST_NAME: &str = "tests::real_backlight_update_round_trips_without_abort";
 
 fn run_in_subprocess(helper_env: &str, test_name: &str, extra_env: &[(&str, &str)]) {
@@ -64,7 +64,7 @@ where
 
 fn run_query_and_free_like_gi_consumer() {
     struct QueryOutcome {
-        results: *mut *mut crate::display::ffi::AstalDisplaysDisplay,
+        results: *mut *mut crate::display::ffi::DisplaysAstalDisplay,
         result_len: usize,
         error: *mut GError,
     }
@@ -79,10 +79,10 @@ fn run_query_and_free_like_gi_consumer() {
     ) {
         let pair = user_data as *mut (MainLoop, Option<QueryOutcome>);
         unsafe {
-            let source_object = source_object as *mut crate::manager::ffi::AstalDisplaysManager;
+            let source_object = source_object as *mut crate::manager::ffi::DisplaysAstalManager;
             let mut result_len = 0usize;
             let mut error = ptr::null_mut();
-            let results = astal_displays_manager_query_finish(
+            let results = displays_astal_manager_query_finish(
                 source_object,
                 result,
                 &mut result_len,
@@ -98,14 +98,14 @@ fn run_query_and_free_like_gi_consumer() {
     }
 
     unsafe {
-        let manager = astal_displays_manager_get_default();
+        let manager = displays_astal_manager_get_default();
         assert!(
             !manager.is_null(),
             "default manager pointer must be non-null"
         );
 
         let mut pair = (loop_clone, None);
-        astal_displays_manager_query_async(
+        displays_astal_manager_query_async(
             manager,
             ptr::null_mut(),
             Some(query_ready_and_quit),
@@ -123,7 +123,7 @@ fn run_query_and_free_like_gi_consumer() {
 
         if !results.is_null() {
             for index in 0..result_len {
-                let item: *mut crate::display::ffi::AstalDisplaysDisplay = *results.add(index);
+                let item: *mut crate::display::ffi::DisplaysAstalDisplay = *results.add(index);
                 assert!(!item.is_null(), "query returned a null display pointer");
                 glib::gobject_ffi::g_object_unref(item as *mut _);
             }

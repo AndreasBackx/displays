@@ -3,21 +3,21 @@ import GLib from "gi://GLib"
 import GIRepository from "gi://GIRepository"
 
 // This smoke test is intended for the fake backend build. Override the build
-// directory with ASTAL_DISPLAYS_BUILD_DIR if needed.
+// directory with DISPLAYS_ASTAL_BUILD_DIR if needed.
 const candidateBuildDirs = [
-  GLib.getenv("ASTAL_DISPLAYS_BUILD_DIR"),
+  GLib.getenv("DISPLAYS_ASTAL_BUILD_DIR"),
   `${GLib.get_current_dir()}/build-faked`,
 ].filter(dir => dir && GLib.file_test(dir, GLib.FileTest.IS_DIR))
 
 const buildDir = candidateBuildDirs[0]
 if (!buildDir)
-  throw new Error("could not find a fake AstalDisplays build directory")
+  throw new Error("could not find a fake DisplaysAstal build directory")
 
 const repository = GIRepository.Repository.dup_default()
 repository.prepend_search_path(buildDir)
 repository.prepend_library_path(buildDir)
 
-const Displays = imports.gi.AstalDisplays
+const Displays = imports.gi.DisplaysAstal
 
 Gio._promisify(Displays.Manager.prototype, "query_async", "query_finish")
 Gio._promisify(Displays.Manager.prototype, "get_async", "get_finish")
@@ -56,4 +56,4 @@ const unresolved = await manager.validate_async([
 if (unresolved.length !== 1)
   throw new Error(`expected unresolved fake update, got ${unresolved.length}`)
 
-print("AstalDisplays fake backend smoke test passed")
+print("DisplaysAstal fake backend smoke test passed")

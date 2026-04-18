@@ -20,7 +20,7 @@ pub struct LogicalDisplay {
 
 #[glib::object_subclass]
 impl ObjectSubclass for LogicalDisplay {
-    const NAME: &'static str = "AstalDisplaysLogicalDisplay";
+    const NAME: &'static str = "DisplaysAstalLogicalDisplay";
     type Type = super::LogicalDisplay;
 }
 
@@ -113,7 +113,7 @@ pub mod update_content {
 
     #[glib::object_subclass]
     impl ObjectSubclass for LogicalDisplayUpdateContent {
-        const NAME: &'static str = "AstalDisplaysLogicalDisplayUpdateContent";
+        const NAME: &'static str = "DisplaysAstalLogicalDisplayUpdateContent";
         type Type = super::super::LogicalDisplayUpdateContent;
     }
 

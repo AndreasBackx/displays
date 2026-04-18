@@ -13,7 +13,7 @@ pub struct DisplayIdentifier {
 
 #[glib::object_subclass]
 impl ObjectSubclass for DisplayIdentifier {
-    const NAME: &'static str = "AstalDisplaysDisplayIdentifier";
+    const NAME: &'static str = "DisplaysAstalDisplayIdentifier";
     type Type = super::DisplayIdentifier;
 }
 

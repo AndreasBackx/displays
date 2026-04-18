@@ -1,0 +1,7 @@
+# displays_physical_windows
+
+`displays_physical_windows` provides Windows physical brightness support for the `displays` workspace.
+
+It is the Windows physical-display backend used by the top-level `displays` crate.
+
+See the project root `README.md` for the overall API and start with `displays` unless you need this backend directly.

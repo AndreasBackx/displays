@@ -1,7 +1,16 @@
 [package]
 name = "displays_logical_windows"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Windows logical display querying and updates for the displays crate"
+documentation = "https://docs.rs/displays_logical_windows"
+readme = "README.md"
+keywords = ["display", "windows", "win32", "resolution", "position"]
+categories = ["hardware-support", "os::windows-apis"]
 
 [lib]
 name = "displays_logical_windows"
@@ -10,8 +19,8 @@ path = "src/lib.rs"
 [dependencies]
 tracing = "0.1.40"
 thiserror = "2.0.7"
-displays_types = { path = "../displays_types" }
-displays_logical_types = { path = "../displays_logical_types" }
+displays_types = { version = "0.1.0", path = "../displays_types" }
+displays_logical_types = { version = "0.1.0", path = "../displays_logical_types" }
 windows = { version = "0.61.3", features = [
     "Win32_Devices",
     "Win32_Devices_Display",
@@ -21,4 +30,4 @@ windows = { version = "0.61.3", features = [
     "Win32_UI_Shell",
     "Win32_UI_Shell_Common",
 ] }
-displays_windows_common = { path = "../displays_windows_common" }
+displays_windows_common = { version = "0.1.0", path = "../displays_windows_common" }

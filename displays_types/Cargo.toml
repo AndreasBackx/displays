@@ -1,7 +1,16 @@
 [package]
 name = "displays_types"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Shared display-related data types used across the displays crate and platform backends"
+documentation = "https://docs.rs/displays_types"
+readme = "README.md"
+keywords = ["display", "monitor", "types", "linux", "windows"]
+categories = ["data-structures", "hardware-support"]
 
 [lib]
 name = "displays_types"

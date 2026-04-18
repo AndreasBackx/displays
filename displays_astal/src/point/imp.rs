@@ -13,7 +13,7 @@ pub struct Point {
 
 #[glib::object_subclass]
 impl ObjectSubclass for Point {
-    const NAME: &'static str = "AstalDisplaysPoint";
+    const NAME: &'static str = "DisplaysAstalPoint";
     type Type = super::Point;
 }
 

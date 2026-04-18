@@ -1,6 +1,12 @@
 # displays_types
 
-`displays_types` is the shared base layer for common display types across the workspace. Domain-specific type crates build on top of it: `displays_physical_types` should only be used by physical-display libraries, and `displays_logical_types` should only be used by logical-display libraries.
+`displays_types` is the shared base layer for common display types across the workspace.
+
+Domain-specific type crates build on top of it: `displays_logical_types` for logical display state and `displays_physical_types` for physical display state.
+
+Most users should start with the top-level `displays` crate instead of depending on this crate directly.
+
+See the project root `README.md` for the overall API and dependency graph.
 
 ```text
                  +------------------------+

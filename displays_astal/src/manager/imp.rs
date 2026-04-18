@@ -5,7 +5,7 @@ pub struct Manager;
 
 #[glib::object_subclass]
 impl ObjectSubclass for Manager {
-    const NAME: &'static str = "AstalDisplaysManager";
+    const NAME: &'static str = "DisplaysAstalManager";
     type Type = super::Manager;
 }
 

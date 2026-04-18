@@ -14,3 +14,5 @@ pub use displays_physical_types::{
 pub use displays_types::{
     Brightness, DisplayIdentifier, DisplayIdentifierInner, Orientation, PixelFormat, Point, Size,
 };
+
+pub use crate::manager_types::{DisplayMatch, DisplayUpdateResult, FailedDisplayUpdate};

@@ -13,7 +13,7 @@ pub struct PhysicalDisplay {
 
 #[glib::object_subclass]
 impl ObjectSubclass for PhysicalDisplay {
-    const NAME: &'static str = "AstalDisplaysPhysicalDisplay";
+    const NAME: &'static str = "DisplaysAstalPhysicalDisplay";
     type Type = super::PhysicalDisplay;
 }
 
@@ -36,7 +36,7 @@ pub mod update_content {
 
     #[glib::object_subclass]
     impl ObjectSubclass for PhysicalDisplayUpdateContent {
-        const NAME: &'static str = "AstalDisplaysPhysicalDisplayUpdateContent";
+        const NAME: &'static str = "DisplaysAstalPhysicalDisplayUpdateContent";
         type Type = super::super::PhysicalDisplayUpdateContent;
     }
 

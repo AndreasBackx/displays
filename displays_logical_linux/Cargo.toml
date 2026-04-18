@@ -1,7 +1,16 @@
 [package]
 name = "displays_logical_linux"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Linux logical display querying support for the displays crate"
+documentation = "https://docs.rs/displays_logical_linux"
+readme = "README.md"
+keywords = ["display", "linux", "wayland", "wlroots", "wlr-output-management"]
+categories = ["hardware-support", "os::linux-apis"]
 
 [lib]
 name = "displays_logical_linux"
@@ -10,7 +19,7 @@ path = "src/lib.rs"
 [dependencies]
 thiserror = "2.0.17"
 tracing = "0.1.40"
-displays_types = { path = "../displays_types" }
-displays_logical_types = { path = "../displays_logical_types" }
+displays_types = { version = "0.1.0", path = "../displays_types" }
+displays_logical_types = { version = "0.1.0", path = "../displays_logical_types" }
 wayland-client = "0.31.14"
 wayland-protocols-wlr = { version = "0.3.12", features = ["client"] }

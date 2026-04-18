@@ -17,5 +17,16 @@ members = [
   "examples/cli",
 ]
 
+[workspace.package]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/AndreasBackx/displays"
+homepage = "https://github.com/AndreasBackx/displays"
+rust-version = "1.81"
+
 [patch.crates-io]
 ddc-i2c = { git = "https://github.com/AndreasBackx/ddc-i2c-rs.git", branch = "fix/lower-buffer-size" }
+edid-rs = { git = "https://github.com/AndreasBackx/edid-rs", rev = "f083f135e1c7077285b951f25692562f85d1aac1" }
+
+[profile.release]
+debug = true

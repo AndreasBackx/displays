@@ -10,13 +10,13 @@ pub struct DisplayIdentifierData {
 
 impl DisplayIdentifierData {
     pub fn is_subset_of(&self, other: &Self) -> bool {
-        let left: displays::display_identifier::DisplayIdentifier = self.clone().into();
-        let right: displays::display_identifier::DisplayIdentifier = other.clone().into();
+        let left: displays::types::DisplayIdentifier = self.clone().into();
+        let right: displays::types::DisplayIdentifier = other.clone().into();
         left.is_subset(&right)
     }
 }
 
-impl From<DisplayIdentifierData> for displays::display_identifier::DisplayIdentifier {
+impl From<DisplayIdentifierData> for displays::types::DisplayIdentifier {
     fn from(value: DisplayIdentifierData) -> Self {
         Self {
             name: value.name,
@@ -25,8 +25,8 @@ impl From<DisplayIdentifierData> for displays::display_identifier::DisplayIdenti
     }
 }
 
-impl From<displays::display_identifier::DisplayIdentifier> for DisplayIdentifierData {
-    fn from(value: displays::display_identifier::DisplayIdentifier) -> Self {
+impl From<displays::types::DisplayIdentifier> for DisplayIdentifierData {
+    fn from(value: displays::types::DisplayIdentifier) -> Self {
         Self {
             name: value.name,
             serial_number: value.serial_number,
@@ -92,28 +92,28 @@ pub struct LogicalDisplayData {
     pub position: Option<PointData>,
 }
 
-impl From<displays::logical_display::LogicalDisplay> for LogicalDisplayData {
-    fn from(value: displays::logical_display::LogicalDisplay) -> Self {
+impl From<displays::types::LogicalDisplay> for LogicalDisplayData {
+    fn from(value: displays::types::LogicalDisplay) -> Self {
         Self {
             is_enabled: value.state.is_enabled,
             orientation: value.state.orientation.into(),
             logical_size: value.state.logical_size.map(Into::into),
             mode_size: value.state.mode_size.map(Into::into),
             scale_ratio_milli: value.state.scale_ratio_milli,
-            position: value.state.position.map(Into::into),
+            position: value.state.logical_position.map(Into::into),
         }
     }
 }
 
-impl From<&displays::logical_display::LogicalDisplay> for LogicalDisplayData {
-    fn from(value: &displays::logical_display::LogicalDisplay) -> Self {
+impl From<&displays::types::LogicalDisplay> for LogicalDisplayData {
+    fn from(value: &displays::types::LogicalDisplay) -> Self {
         Self {
             is_enabled: value.state.is_enabled,
             orientation: value.state.orientation.clone().into(),
             logical_size: value.state.logical_size.clone().map(Into::into),
             mode_size: value.state.mode_size.clone().map(Into::into),
             scale_ratio_milli: value.state.scale_ratio_milli,
-            position: value.state.position.clone().map(Into::into),
+            position: value.state.logical_position.clone().map(Into::into),
         }
     }
 }
@@ -123,8 +123,8 @@ pub struct PhysicalDisplayData {
     pub brightness: Option<u32>,
 }
 
-impl From<displays::physical_display::PhysicalDisplay> for PhysicalDisplayData {
-    fn from(value: displays::physical_display::PhysicalDisplay) -> Self {
+impl From<displays::types::PhysicalDisplay> for PhysicalDisplayData {
+    fn from(value: displays::types::PhysicalDisplay) -> Self {
         Self {
             brightness: value
                 .state
@@ -134,8 +134,8 @@ impl From<displays::physical_display::PhysicalDisplay> for PhysicalDisplayData {
     }
 }
 
-impl From<&displays::physical_display::PhysicalDisplay> for PhysicalDisplayData {
-    fn from(value: &displays::physical_display::PhysicalDisplay) -> Self {
+impl From<&displays::types::PhysicalDisplay> for PhysicalDisplayData {
+    fn from(value: &displays::types::PhysicalDisplay) -> Self {
         Self {
             brightness: value
                 .state
@@ -204,7 +204,7 @@ pub struct LogicalDisplayUpdateContentData {
 }
 
 impl From<LogicalDisplayUpdateContentData>
-    for displays::logical_display::LogicalDisplayUpdateContent
+    for displays::types::LogicalDisplayUpdateContent
 {
     fn from(value: LogicalDisplayUpdateContentData) -> Self {
         Self {
@@ -218,10 +218,10 @@ impl From<LogicalDisplayUpdateContentData>
     }
 }
 
-impl From<displays::logical_display::LogicalDisplayUpdateContent>
+impl From<displays::types::LogicalDisplayUpdateContent>
     for LogicalDisplayUpdateContentData
 {
-    fn from(value: displays::logical_display::LogicalDisplayUpdateContent) -> Self {
+    fn from(value: displays::types::LogicalDisplayUpdateContent) -> Self {
         Self {
             is_enabled: value.is_enabled,
             orientation: value.orientation.map(Into::into),
@@ -238,7 +238,7 @@ pub struct PhysicalDisplayUpdateContentData {
 }
 
 impl From<PhysicalDisplayUpdateContentData>
-    for displays::physical_display::PhysicalDisplayUpdateContent
+    for displays::types::PhysicalDisplayUpdateContent
 {
     fn from(value: PhysicalDisplayUpdateContentData) -> Self {
         Self {
@@ -247,10 +247,10 @@ impl From<PhysicalDisplayUpdateContentData>
     }
 }
 
-impl From<displays::physical_display::PhysicalDisplayUpdateContent>
+impl From<displays::types::PhysicalDisplayUpdateContent>
     for PhysicalDisplayUpdateContentData
 {
-    fn from(value: displays::physical_display::PhysicalDisplayUpdateContent) -> Self {
+    fn from(value: displays::types::PhysicalDisplayUpdateContent) -> Self {
         Self {
             brightness: value.brightness,
         }

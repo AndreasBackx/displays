@@ -28,7 +28,7 @@ impl Default for DisplayUpdateResult {
 
 #[glib::object_subclass]
 impl ObjectSubclass for DisplayUpdateResult {
-    const NAME: &'static str = "AstalDisplaysDisplayUpdateResult";
+    const NAME: &'static str = "DisplaysAstalDisplayUpdateResult";
     type Type = super::DisplayUpdateResult;
 }
 

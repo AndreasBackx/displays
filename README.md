@@ -1,22 +1,102 @@
 # displays
 
-`displays` allows you to easily query and mutate logical and physical display information on Linux and Windows. Logical as the resolution of location of your displays. Physical as in the brightness of your monitor.
+`displays` lets you query and update logical and physical display information on Linux and Windows. Logical display state covers things like enabled state, orientation, resolution, and placement. Physical display state currently focuses on brightness.
 
-The project currently focuses on Linux and Windows support. There are Python bindings available as well, however they're not the main focus. They were originally made as I wanted to use it from Python, but that has changed.
+The workspace is split into a small set of focused crates: shared type crates, Linux and Windows backends, the top-level `displays` crate, and bindings for Python and GLib/GObject consumers.
 
-Finally, there is also includes a small CLI example in `examples/cli` for local experimentation.
+There is also a small CLI example in `examples/cli` for local experimentation.
 
 It's not yet recommended for day-to-day use, but I encourage you to try it out and experiment.
+
+## Workspace Layout
+
+```mermaid
+graph TD
+    subgraph Types
+        displays_types[displays_types]
+        displays_logical_types[displays_logical_types]
+        displays_physical_types[displays_physical_types]
+    end
+
+    subgraph Linux
+        subgraph Linux_Logical[Logical]
+            displays_logical_linux[displays_logical_linux]
+        end
+
+        subgraph Linux_Physical[Physical]
+            displays_physical_linux_sys[displays_physical_linux_sys]
+            displays_physical_linux_logind[displays_physical_linux_logind]
+            displays_physical_linux[displays_physical_linux]
+        end
+    end
+
+    subgraph Windows
+        displays_windows_common[displays_windows_common]
+
+        subgraph Windows_Logical[Logical]
+            displays_logical_windows[displays_logical_windows]
+        end
+
+        subgraph Windows_Physical[Physical]
+            displays_physical_windows[displays_physical_windows]
+        end
+    end
+
+    subgraph Bindings
+        displays[displays]
+        displays_py[displays_py]
+        displays_astal[displays_astal]
+    end
+
+    displays_types --> displays_logical_types
+    displays_types --> displays_physical_types
+    displays_types --> displays_logical_linux
+    displays_logical_types --> displays_logical_linux
+    displays_types --> displays_windows_common
+    displays_types --> displays_logical_windows
+    displays_logical_types --> displays_logical_windows
+    displays_windows_common --> displays_logical_windows
+    displays_physical_linux_sys --> displays_physical_linux
+    displays_physical_linux_logind --> displays_physical_linux
+    displays_types --> displays_physical_linux
+    displays_physical_types --> displays_physical_linux
+    displays_types --> displays_physical_windows
+    displays_physical_types --> displays_physical_windows
+    displays_windows_common --> displays_physical_windows
+    displays_logical_windows --> displays_physical_windows
+
+    displays_types --> displays
+    displays_logical_types --> displays
+    displays_physical_types --> displays
+    displays_logical_linux --> displays
+    displays_physical_linux --> displays
+    displays_windows_common --> displays
+    displays_logical_windows --> displays
+    displays_physical_windows --> displays
+    displays --> displays_py
+    displays --> displays_astal
+```
+
+## Published Crates
+
+- `displays`: high-level cross-platform API for querying and updating displays
+- `displays_types`: shared base types such as `DisplayIdentifier`, `Point`, and `Size`
+- `displays_logical_types`: shared logical-display domain types
+- `displays_physical_types`: shared physical-display domain types
+- `displays_logical_linux`: Linux logical display support via Wayland and wlr output management
+- `displays_physical_linux_sys`: low-level Linux sysfs brightness backend
+- `displays_physical_linux_logind`: Linux brightness updates through systemd-logind
+- `displays_physical_linux`: Linux physical brightness backend orchestration
+- `displays_windows_common`: shared Windows display helpers
+- `displays_logical_windows`: Windows logical display querying and updates
+- `displays_physical_windows`: Windows physical brightness support
+- `displays_py`: PyO3-based Python bindings exposing the `displays` module
+- `displays_astal`: GLib/GObject bindings around `displays`
 
 ## Rust Usage
 
 ```rust
-use displays::{
-    display::DisplayUpdate,
-    display_identifier::DisplayIdentifier,
-    manager::DisplayManager,
-    physical_display::PhysicalDisplayUpdateContent,
-};
+use displays::{manager::DisplayManager, types::*};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let displays = DisplayManager::query()?;

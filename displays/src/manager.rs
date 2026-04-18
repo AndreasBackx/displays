@@ -1,10 +1,10 @@
-use thiserror::Error;
-
 use displays_logical_types::{LogicalDisplay, LogicalDisplayUpdate};
 use displays_physical_types::{PhysicalDisplay, PhysicalDisplayUpdate};
 use displays_types::{DisplayIdentifier, DisplayIdentifierInner};
 
 use crate::display::{Display, DisplayUpdate};
+use crate::error::{DisplayApplyError, DisplayQueryError};
+use crate::manager_types::{DisplayMatch, DisplayUpdateResult, FailedDisplayUpdate};
 
 #[cfg(target_os = "windows")]
 use displays_logical_windows::{
@@ -29,64 +29,6 @@ use displays_physical_linux::{
     ApplyError as PhysicalDisplayApplyError, PhysicalDisplayManager,
     QueryError as PhysicalDisplayQueryError,
 };
-
-/// Errors that can occur while querying display state.
-#[derive(Error, Debug)]
-pub enum DisplayQueryError {
-    #[error("physical querying error")]
-    Physical {
-        #[from]
-        source: PhysicalDisplayQueryError,
-    },
-    #[error("logical querying error")]
-    Logical {
-        #[from]
-        source: LogicalDisplayQueryError,
-    },
-}
-
-/// Errors that can occur while applying display updates.
-#[derive(Error, Debug)]
-pub enum DisplayApplyError {
-    #[error("error while first querying displays")]
-    Query {
-        #[from]
-        source: DisplayQueryError,
-    },
-    #[error("physical applying error: {source}")]
-    Physical {
-        #[from]
-        source: PhysicalDisplayApplyError,
-    },
-    #[error("logical applying error")]
-    Logical {
-        #[from]
-        source: LogicalDisplayApplyError,
-    },
-}
-
-/// A concrete display matched by a user-facing identifier.
-#[derive(Debug, Clone)]
-pub struct DisplayMatch {
-    pub requested_id: DisplayIdentifier,
-    pub matched_id: DisplayIdentifier,
-    pub display: Display,
-}
-
-/// A per-display failure encountered while applying an update.
-#[derive(Debug, Clone)]
-pub struct FailedDisplayUpdate {
-    pub matched_id: DisplayIdentifier,
-    pub message: String,
-}
-
-/// Best-effort result for a single requested display update.
-#[derive(Debug, Clone)]
-pub struct DisplayUpdateResult {
-    pub requested_update: DisplayUpdate,
-    pub applied: Vec<DisplayIdentifier>,
-    pub failed: Vec<FailedDisplayUpdate>,
-}
 
 /// High-level entry point for querying and updating displays.
 ///

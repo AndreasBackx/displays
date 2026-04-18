@@ -13,7 +13,7 @@ pub struct Size {
 
 #[glib::object_subclass]
 impl ObjectSubclass for Size {
-    const NAME: &'static str = "AstalDisplaysSize";
+    const NAME: &'static str = "DisplaysAstalSize";
     type Type = super::Size;
 }
 

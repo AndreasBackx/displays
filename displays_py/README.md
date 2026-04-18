@@ -1,6 +1,8 @@
-Python bindings for `displays`.
+# displays_py
 
-See the repository root `README.md` for project overview, platform support, and usage examples.
+`displays_py` is the Rust crate backing the Python extension module named `displays`.
+
+See the project root `README.md` for the workspace overview, platform support, and the main Rust API exposed by the `displays` crate.
 
 For local development inside this package:
 

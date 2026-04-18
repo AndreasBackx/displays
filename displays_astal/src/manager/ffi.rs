@@ -11,15 +11,15 @@ use crate::{
         DisplayData, DisplayIdentifierData, DisplayMatchData, DisplayUpdateData,
         DisplayUpdateResultData,
     },
-    display::ffi::AstalDisplaysDisplay,
-    display_identifier::{ffi::AstalDisplaysDisplayIdentifier, DisplayIdentifier},
-    display_match::ffi::AstalDisplaysDisplayMatch,
-    display_update::{ffi::AstalDisplaysDisplayUpdate, DisplayUpdate},
-    display_update_result::ffi::AstalDisplaysDisplayUpdateResult,
+    display::ffi::DisplaysAstalDisplay,
+    display_identifier::{ffi::DisplaysAstalDisplayIdentifier, DisplayIdentifier},
+    display_match::ffi::DisplaysAstalDisplayMatch,
+    display_update::{ffi::DisplaysAstalDisplayUpdate, DisplayUpdate},
+    display_update_result::ffi::DisplaysAstalDisplayUpdateResult,
     object_vec_to_ptr_array, write_error,
 };
 
-pub type AstalDisplaysManager = <super::imp::Manager as ObjectSubclass>::Instance;
+pub type DisplaysAstalManager = <super::imp::Manager as ObjectSubclass>::Instance;
 
 type QueryPayload = Vec<DisplayData>;
 type GetPayload = Vec<DisplayMatchData>;
@@ -34,17 +34,17 @@ enum TaskPayload {
 type TaskCallback = dyn FnOnce(&super::Manager, &gio::AsyncResult) + 'static;
 
 #[unsafe(no_mangle)]
-pub extern "C" fn astal_displays_manager_get_type() -> glib::ffi::GType {
+pub extern "C" fn displays_astal_manager_get_type() -> glib::ffi::GType {
     super::Manager::static_type().into_glib()
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn astal_displays_get_default() -> *mut AstalDisplaysManager {
+pub extern "C" fn displays_astal_get_default() -> *mut DisplaysAstalManager {
     unsafe { super::Manager::get_default().into_glib_ptr() }
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn astal_displays_manager_get_default() -> *mut AstalDisplaysManager {
+pub extern "C" fn displays_astal_manager_get_default() -> *mut DisplaysAstalManager {
     unsafe { super::Manager::get_default().into_glib_ptr() }
 }
 
@@ -166,7 +166,7 @@ fn take_task_payload(
     if !Task::<bool>::is_valid(result, Some(manager)) {
         return Err(glib::Error::new(
             gio::IOErrorEnum::InvalidArgument,
-            "result does not belong to AstalDisplays.Manager",
+            "result does not belong to DisplaysAstal.Manager",
         ));
     }
 
@@ -177,7 +177,7 @@ fn take_task_payload(
         .map_err(|_| {
             glib::Error::new(
                 gio::IOErrorEnum::InvalidArgument,
-                "result is not a GTask produced by AstalDisplays.Manager",
+                "result is not a GTask produced by DisplaysAstal.Manager",
             )
         })?;
 
@@ -204,8 +204,8 @@ unsafe extern "C" fn free_task_payload(data: *mut c_void) {
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn astal_displays_manager_query_async(
-    manager: *mut AstalDisplaysManager,
+pub unsafe extern "C" fn displays_astal_manager_query_async(
+    manager: *mut DisplaysAstalManager,
     cancellable: *mut gio_ffi::GCancellable,
     callback: gio_ffi::GAsyncReadyCallback,
     user_data: glib::ffi::gpointer,
@@ -215,12 +215,12 @@ pub unsafe extern "C" fn astal_displays_manager_query_async(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn astal_displays_manager_query_finish(
-    manager: *mut AstalDisplaysManager,
+pub unsafe extern "C" fn displays_astal_manager_query_finish(
+    manager: *mut DisplaysAstalManager,
     result: *mut gio_ffi::GAsyncResult,
     n_results: *mut usize,
     error: *mut *mut glib::ffi::GError,
-) -> *mut *mut AstalDisplaysDisplay {
+) -> *mut *mut DisplaysAstalDisplay {
     let manager = super::Manager::from_glib_none(manager);
     let result = gio::AsyncResult::from_glib_none(result);
     match manager.query_finish(&result) {
@@ -241,9 +241,9 @@ pub unsafe extern "C" fn astal_displays_manager_query_finish(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn astal_displays_manager_get_async(
-    manager: *mut AstalDisplaysManager,
-    ids: *mut *mut AstalDisplaysDisplayIdentifier,
+pub unsafe extern "C" fn displays_astal_manager_get_async(
+    manager: *mut DisplaysAstalManager,
+    ids: *mut *mut DisplaysAstalDisplayIdentifier,
     n_ids: usize,
     cancellable: *mut gio_ffi::GCancellable,
     callback: gio_ffi::GAsyncReadyCallback,
@@ -251,7 +251,7 @@ pub unsafe extern "C" fn astal_displays_manager_get_async(
 ) {
     let manager = super::Manager::from_glib_none(manager);
     let ids =
-        crate::read_object_array::<DisplayIdentifier, AstalDisplaysDisplayIdentifier>(ids, n_ids)
+        crate::read_object_array::<DisplayIdentifier, DisplaysAstalDisplayIdentifier>(ids, n_ids)
             .into_iter()
             .map(|id| id.to_data())
             .collect();
@@ -259,12 +259,12 @@ pub unsafe extern "C" fn astal_displays_manager_get_async(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn astal_displays_manager_get_finish(
-    manager: *mut AstalDisplaysManager,
+pub unsafe extern "C" fn displays_astal_manager_get_finish(
+    manager: *mut DisplaysAstalManager,
     result: *mut gio_ffi::GAsyncResult,
     n_results: *mut usize,
     error: *mut *mut glib::ffi::GError,
-) -> *mut *mut AstalDisplaysDisplayMatch {
+) -> *mut *mut DisplaysAstalDisplayMatch {
     let manager = super::Manager::from_glib_none(manager);
     let result = gio::AsyncResult::from_glib_none(result);
     match manager.get_finish(&result) {
@@ -285,9 +285,9 @@ pub unsafe extern "C" fn astal_displays_manager_get_finish(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn astal_displays_manager_apply_async(
-    manager: *mut AstalDisplaysManager,
-    updates: *mut *mut AstalDisplaysDisplayUpdate,
+pub unsafe extern "C" fn displays_astal_manager_apply_async(
+    manager: *mut DisplaysAstalManager,
+    updates: *mut *mut DisplaysAstalDisplayUpdate,
     n_updates: usize,
     validate: bool,
     cancellable: *mut gio_ffi::GCancellable,
@@ -296,7 +296,7 @@ pub unsafe extern "C" fn astal_displays_manager_apply_async(
 ) {
     let manager = super::Manager::from_glib_none(manager);
     let updates =
-        crate::read_object_array::<DisplayUpdate, AstalDisplaysDisplayUpdate>(updates, n_updates)
+        crate::read_object_array::<DisplayUpdate, DisplaysAstalDisplayUpdate>(updates, n_updates)
             .into_iter()
             .map(|update| update.to_data())
             .collect();
@@ -311,12 +311,12 @@ pub unsafe extern "C" fn astal_displays_manager_apply_async(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn astal_displays_manager_apply_finish(
-    manager: *mut AstalDisplaysManager,
+pub unsafe extern "C" fn displays_astal_manager_apply_finish(
+    manager: *mut DisplaysAstalManager,
     result: *mut gio_ffi::GAsyncResult,
     n_results: *mut usize,
     error: *mut *mut glib::ffi::GError,
-) -> *mut *mut AstalDisplaysDisplayUpdateResult {
+) -> *mut *mut DisplaysAstalDisplayUpdateResult {
     let manager = super::Manager::from_glib_none(manager);
     let result = gio::AsyncResult::from_glib_none(result);
     match manager.apply_finish(&result) {
@@ -337,15 +337,15 @@ pub unsafe extern "C" fn astal_displays_manager_apply_finish(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn astal_displays_manager_update_async(
-    manager: *mut AstalDisplaysManager,
-    updates: *mut *mut AstalDisplaysDisplayUpdate,
+pub unsafe extern "C" fn displays_astal_manager_update_async(
+    manager: *mut DisplaysAstalManager,
+    updates: *mut *mut DisplaysAstalDisplayUpdate,
     n_updates: usize,
     cancellable: *mut gio_ffi::GCancellable,
     callback: gio_ffi::GAsyncReadyCallback,
     user_data: glib::ffi::gpointer,
 ) {
-    astal_displays_manager_apply_async(
+    displays_astal_manager_apply_async(
         manager,
         updates,
         n_updates,
@@ -357,25 +357,25 @@ pub unsafe extern "C" fn astal_displays_manager_update_async(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn astal_displays_manager_update_finish(
-    manager: *mut AstalDisplaysManager,
+pub unsafe extern "C" fn displays_astal_manager_update_finish(
+    manager: *mut DisplaysAstalManager,
     result: *mut gio_ffi::GAsyncResult,
     n_results: *mut usize,
     error: *mut *mut glib::ffi::GError,
-) -> *mut *mut AstalDisplaysDisplayUpdateResult {
-    astal_displays_manager_apply_finish(manager, result, n_results, error)
+) -> *mut *mut DisplaysAstalDisplayUpdateResult {
+    displays_astal_manager_apply_finish(manager, result, n_results, error)
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn astal_displays_manager_validate_async(
-    manager: *mut AstalDisplaysManager,
-    updates: *mut *mut AstalDisplaysDisplayUpdate,
+pub unsafe extern "C" fn displays_astal_manager_validate_async(
+    manager: *mut DisplaysAstalManager,
+    updates: *mut *mut DisplaysAstalDisplayUpdate,
     n_updates: usize,
     cancellable: *mut gio_ffi::GCancellable,
     callback: gio_ffi::GAsyncReadyCallback,
     user_data: glib::ffi::gpointer,
 ) {
-    astal_displays_manager_apply_async(
+    displays_astal_manager_apply_async(
         manager,
         updates,
         n_updates,
@@ -387,13 +387,13 @@ pub unsafe extern "C" fn astal_displays_manager_validate_async(
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn astal_displays_manager_validate_finish(
-    manager: *mut AstalDisplaysManager,
+pub unsafe extern "C" fn displays_astal_manager_validate_finish(
+    manager: *mut DisplaysAstalManager,
     result: *mut gio_ffi::GAsyncResult,
     n_results: *mut usize,
     error: *mut *mut glib::ffi::GError,
-) -> *mut *mut AstalDisplaysDisplayUpdateResult {
-    astal_displays_manager_apply_finish(manager, result, n_results, error)
+) -> *mut *mut DisplaysAstalDisplayUpdateResult {
+    displays_astal_manager_apply_finish(manager, result, n_results, error)
 }
 
 fn spawn_ffi_query_task(
@@ -472,7 +472,7 @@ fn create_trampolined_task(
     ) {
         let callback: Box<Box<TaskCallback>> = unsafe { Box::from_raw(user_data as *mut _) };
         let manager =
-            unsafe { super::Manager::from_glib_none(source_object as *mut AstalDisplaysManager) };
+            unsafe { super::Manager::from_glib_none(source_object as *mut DisplaysAstalManager) };
         let result = unsafe { gio::AsyncResult::from_glib_none(result) };
         callback(&manager, &result);
     }

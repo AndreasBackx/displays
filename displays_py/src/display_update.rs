@@ -3,7 +3,7 @@ use pyo3::prelude::*;
 
 use crate::{display::Point, display_identifier::DisplayIdentifier};
 
-#[pyclass(str)]
+#[pyclass(str, from_py_object)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DisplayUpdate {
     #[pyo3(get, set)]
@@ -14,7 +14,7 @@ pub struct DisplayUpdate {
     physical: Option<PhysicalDisplayUpdateContent>,
 }
 
-#[pyclass(str)]
+#[pyclass(str, from_py_object)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct LogicalDisplayUpdateContent {
     #[pyo3(get, set)]
@@ -27,7 +27,7 @@ pub struct LogicalDisplayUpdateContent {
     position: Option<Point>,
 }
 
-#[pyclass(str)]
+#[pyclass(str, from_py_object)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhysicalDisplayUpdateContent {
     #[pyo3(get, set)]
@@ -170,8 +170,8 @@ impl From<DisplayUpdate> for lib::display::DisplayUpdate {
     }
 }
 
-impl From<lib::logical_display::LogicalDisplayUpdateContent> for LogicalDisplayUpdateContent {
-    fn from(value: lib::logical_display::LogicalDisplayUpdateContent) -> Self {
+impl From<lib::types::LogicalDisplayUpdateContent> for LogicalDisplayUpdateContent {
+    fn from(value: lib::types::LogicalDisplayUpdateContent) -> Self {
         LogicalDisplayUpdateContent {
             is_enabled: value.is_enabled,
             width: value.width,
@@ -181,9 +181,9 @@ impl From<lib::logical_display::LogicalDisplayUpdateContent> for LogicalDisplayU
     }
 }
 
-impl From<LogicalDisplayUpdateContent> for lib::logical_display::LogicalDisplayUpdateContent {
+impl From<LogicalDisplayUpdateContent> for lib::types::LogicalDisplayUpdateContent {
     fn from(value: LogicalDisplayUpdateContent) -> Self {
-        lib::logical_display::LogicalDisplayUpdateContent {
+        lib::types::LogicalDisplayUpdateContent {
             is_enabled: value.is_enabled,
             width: value.width,
             height: value.height,
@@ -193,16 +193,16 @@ impl From<LogicalDisplayUpdateContent> for lib::logical_display::LogicalDisplayU
     }
 }
 
-impl From<lib::physical_display::PhysicalDisplayUpdateContent> for PhysicalDisplayUpdateContent {
-    fn from(value: lib::physical_display::PhysicalDisplayUpdateContent) -> Self {
+impl From<lib::types::PhysicalDisplayUpdateContent> for PhysicalDisplayUpdateContent {
+    fn from(value: lib::types::PhysicalDisplayUpdateContent) -> Self {
         PhysicalDisplayUpdateContent {
             brightness: value.brightness,
         }
     }
 }
-impl From<PhysicalDisplayUpdateContent> for lib::physical_display::PhysicalDisplayUpdateContent {
+impl From<PhysicalDisplayUpdateContent> for lib::types::PhysicalDisplayUpdateContent {
     fn from(value: PhysicalDisplayUpdateContent) -> Self {
-        lib::physical_display::PhysicalDisplayUpdateContent {
+        lib::types::PhysicalDisplayUpdateContent {
             brightness: value.brightness,
         }
     }

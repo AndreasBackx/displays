@@ -15,7 +15,7 @@ pub struct FailedDisplayUpdate {
 
 #[glib::object_subclass]
 impl ObjectSubclass for FailedDisplayUpdate {
-    const NAME: &'static str = "AstalDisplaysFailedDisplayUpdate";
+    const NAME: &'static str = "DisplaysAstalFailedDisplayUpdate";
     type Type = super::FailedDisplayUpdate;
 }
 

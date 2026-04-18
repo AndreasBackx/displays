@@ -1,13 +1,16 @@
 [package]
 name = "displays_physical_linux"
 version = "0.1.0"
-edition = "2021"
-rust-version = "1.81"
-description = "Wrapper around Linux physical brightness backends"
-license = "MIT"
-repository = "https://github.com/AndreasBackx/displays"
-homepage = "https://github.com/AndreasBackx/displays"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Linux physical display brightness backends for the displays crate"
 documentation = "https://docs.rs/displays_physical_linux"
+readme = "README.md"
+keywords = ["display", "linux", "brightness", "backlight", "ddc"]
+categories = ["hardware-support", "os::linux-apis"]
 
 [lib]
 name = "displays_physical_linux"
@@ -17,10 +20,10 @@ path = "src/lib.rs"
 thiserror = "2.0.17"
 tracing = "0.1.40"
 ddc-hi = { version = "0.4.1", default-features = false, features = ["ddc-i2c"] }
-displays_physical_linux_sys = { path = "../displays_physical_linux_sys" }
-displays_physical_linux_logind = { path = "../displays_physical_linux_logind" }
-displays_physical_types = { path = "../displays_physical_types" }
-displays_types = { path = "../displays_types" }
+displays_physical_linux_sys = { version = "0.1.0", path = "../displays_physical_linux_sys" }
+displays_physical_linux_logind = { version = "0.1.0", path = "../displays_physical_linux_logind" }
+displays_physical_types = { version = "0.1.0", path = "../displays_physical_types" }
+displays_types = { version = "0.1.0", path = "../displays_types" }
 
 [dev-dependencies]
 tempfile = "3.23.0"

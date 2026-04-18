@@ -3,6 +3,10 @@
 `displays_physical_linux_sys` is a small Rust library for querying and updating Linux
 brightness devices exposed through sysfs.
 
+It is also the lowest-level Linux physical brightness backend used by the higher-level `displays` crate.
+
+See the project root `README.md` for the overall workspace layout and start with `displays` unless you need direct sysfs access.
+
 It currently works with devices under:
 
 - `/sys/class/backlight`

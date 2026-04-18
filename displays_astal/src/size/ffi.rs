@@ -1,3 +1,3 @@
 use crate::size::Size;
 
-pub type AstalDisplaysSize = <Size as glib::object::ObjectType>::GlibType;
+pub type DisplaysAstalSize = <Size as glib::object::ObjectType>::GlibType;

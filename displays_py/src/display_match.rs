@@ -3,7 +3,7 @@ use pyo3::prelude::*;
 
 use crate::{display::Display, display_identifier::DisplayIdentifier};
 
-#[pyclass(str)]
+#[pyclass(str, from_py_object)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DisplayMatch {
     #[pyo3(get, set)]
@@ -33,8 +33,8 @@ impl std::fmt::Display for DisplayMatch {
     }
 }
 
-impl From<lib::manager::DisplayMatch> for DisplayMatch {
-    fn from(value: lib::manager::DisplayMatch) -> Self {
+impl From<lib::types::DisplayMatch> for DisplayMatch {
+    fn from(value: lib::types::DisplayMatch) -> Self {
         Self {
             requested_id: value.requested_id.into(),
             matched_id: value.matched_id.into(),

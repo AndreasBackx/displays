@@ -1,7 +1,7 @@
 use glib::{prelude::*, translate::IntoGlib};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, glib::Enum)]
-#[enum_type(name = "AstalDisplaysOrientation")]
+#[enum_type(name = "DisplaysAstalOrientation")]
 #[repr(i32)]
 pub enum Orientation {
     #[default]
@@ -23,6 +23,6 @@ impl From<displays::types::Orientation> for Orientation {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn astal_displays_orientation_get_type() -> glib::ffi::GType {
+pub extern "C" fn displays_astal_orientation_get_type() -> glib::ffi::GType {
     Orientation::static_type().into_glib()
 }

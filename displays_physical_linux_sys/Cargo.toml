@@ -1,12 +1,12 @@
 [package]
 name = "displays_physical_linux_sys"
 version = "0.1.0"
-edition = "2021"
-rust-version = "1.81"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
 description = "Rust library for querying and updating Linux backlight and LED brightness devices via sysfs"
-license = "MIT"
-repository = "https://github.com/AndreasBackx/displays"
-homepage = "https://github.com/AndreasBackx/displays"
 documentation = "https://docs.rs/displays_physical_linux_sys"
 readme = "README.md"
 keywords = ["linux", "backlight", "brightness", "led", "sysfs"]

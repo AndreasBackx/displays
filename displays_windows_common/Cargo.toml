@@ -1,7 +1,16 @@
 [package]
 name = "displays_windows_common"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Shared Win32 display helpers used by the displays Windows backends"
+documentation = "https://docs.rs/displays_windows_common"
+readme = "README.md"
+keywords = ["display", "monitor", "windows", "win32", "brightness"]
+categories = ["hardware-support", "os::windows-apis"]
 
 [lib]
 name = "displays_windows_common"
@@ -9,7 +18,7 @@ path = "src/lib.rs"
 
 [dependencies]
 thiserror = "2.0.7"
-displays_types = { path = "../displays_types" }
+displays_types = { version = "0.1.0", path = "../displays_types" }
 windows = { version = "0.61.3", features = [
     "Win32_Devices",
     "Win32_Devices_Display",

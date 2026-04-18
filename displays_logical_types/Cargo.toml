@@ -1,11 +1,20 @@
 [package]
 name = "displays_logical_types"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Shared logical display data types used by the displays crate and platform backends"
+documentation = "https://docs.rs/displays_logical_types"
+readme = "README.md"
+keywords = ["display", "monitor", "resolution", "position", "types"]
+categories = ["data-structures", "hardware-support"]
 
 [lib]
 name = "displays_logical_types"
 path = "src/lib.rs"
 
 [dependencies]
-displays_types = { path = "../displays_types" }
+displays_types = { version = "0.1.0", path = "../displays_types" }

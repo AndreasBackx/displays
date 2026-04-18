@@ -3,7 +3,7 @@ use pyo3::prelude::*;
 
 use crate::display_identifier::DisplayIdentifier;
 
-#[pyclass(str, eq, frozen, immutable_type, ord)]
+#[pyclass(str, eq, frozen, immutable_type, ord, from_py_object)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Display {
     #[pyo3(get)]
@@ -14,7 +14,7 @@ pub struct Display {
     physical: Option<PhysicalDisplay>,
 }
 
-#[pyclass(str, eq, frozen, immutable_type, ord)]
+#[pyclass(str, eq, frozen, immutable_type, ord, from_py_object)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct LogicalDisplay {
     #[pyo3(get)]
@@ -22,11 +22,15 @@ pub struct LogicalDisplay {
     #[pyo3(get)]
     orientation: Orientation,
     #[pyo3(get)]
-    width: Option<u32>,
+    logical_size: Option<Size>,
     #[pyo3(get)]
-    height: Option<u32>,
+    mode_size: Option<Size>,
     #[pyo3(get)]
-    position: Option<Point>,
+    scale_ratio_milli: Option<u32>,
+    #[pyo3(get)]
+    mode_position: Option<Point>,
+    #[pyo3(get)]
+    logical_position: Option<Point>,
 }
 
 #[pyclass(
@@ -36,6 +40,7 @@ pub struct LogicalDisplay {
     frozen,
     immutable_type,
     ord,
+    from_py_object,
     rename_all = "SCREAMING_SNAKE_CASE"
 )]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -86,13 +91,22 @@ impl Orientation {
     }
 }
 
-#[pyclass(str, eq, frozen, immutable_type, ord)]
+#[pyclass(str, eq, frozen, immutable_type, ord, from_py_object)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Point {
     #[pyo3(get)]
     x: i32,
     #[pyo3(get)]
     y: i32,
+}
+
+#[pyclass(str, eq, frozen, immutable_type, ord, from_py_object)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct Size {
+    #[pyo3(get)]
+    width: u32,
+    #[pyo3(get)]
+    height: u32,
 }
 
 impl std::fmt::Display for Point {
@@ -132,7 +146,29 @@ impl From<lib::types::Point> for Point {
     }
 }
 
-#[pyclass(str, eq, frozen, immutable_type, ord)]
+#[pymethods]
+impl Size {
+    #[new]
+    #[pyo3(signature = (*, width, height))]
+    fn new(width: u32, height: u32) -> Self {
+        Self { width, height }
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!("{self}")
+    }
+}
+
+impl From<lib::types::Size> for Size {
+    fn from(value: lib::types::Size) -> Self {
+        Self {
+            width: value.width,
+            height: value.height,
+        }
+    }
+}
+
+#[pyclass(str, eq, frozen, immutable_type, ord, from_py_object)]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhysicalDisplay {
     #[pyo3(get)]
@@ -172,7 +208,8 @@ impl From<lib::display::Display> for Display {
                 logical_size: value.logical.state.logical_size.map(Into::into),
                 mode_size: value.logical.state.mode_size.map(Into::into),
                 scale_ratio_milli: value.logical.state.scale_ratio_milli,
-                position: value.logical.state.position.map(|point| point.into()),
+                mode_position: value.logical.state.mode_position.map(Into::into),
+                logical_position: value.logical.state.logical_position.map(Into::into),
             },
             physical: value.physical.map(|physical| PhysicalDisplay {
                 brightness: physical
@@ -203,13 +240,6 @@ impl std::fmt::Display for LogicalDisplay {
 
 #[pymethods]
 impl PhysicalDisplay {
-    pub fn __repr__(&self) -> String {
-        format!("{self}")
-    }
-}
-
-#[pymethods]
-impl Size {
     pub fn __repr__(&self) -> String {
         format!("{self}")
     }

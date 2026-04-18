@@ -1,10 +1,19 @@
 [package]
-name = "astal_displays"
+name = "displays_astal"
 version = "0.1.0"
-edition = "2021"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "GLib and GObject bindings for the displays crate"
+documentation = "https://docs.rs/displays_astal"
+readme = "README.md"
+keywords = ["display", "glib", "gobject", "gio", "astal"]
+categories = ["api-bindings", "hardware-support"]
 
 [lib]
-name = "astaldisplays"
+name = "displaysastal"
 crate-type = ["cdylib"]
 
 [features]
@@ -12,6 +21,6 @@ default = []
 faked = []
 
 [dependencies]
-displays = { path = "../displays" }
-gio = "0.20"
-glib = "0.20"
+displays = { version = "0.1.0", path = "../displays" }
+gio = "0.22"
+glib = "0.22"
