@@ -405,11 +405,16 @@ fn logical_size(mode: &ModeState, transform: Transform, scale_milli: u32) -> Opt
     if scale_milli == 0 {
         return None;
     }
-    if width.checked_mul(1000)? % scale_milli != 0 || height.checked_mul(1000)? % scale_milli != 0 {
-        return None;
-    }
 
-    Some((width * 1000 / scale_milli, height * 1000 / scale_milli))
+    Some((
+        logical_dimension(width, scale_milli)?,
+        logical_dimension(height, scale_milli)?,
+    ))
+}
+
+fn logical_dimension(value: u32, scale_milli: u32) -> Option<u32> {
+    let scaled = value.checked_mul(1000)?;
+    Some((scaled + scale_milli / 2) / scale_milli)
 }
 
 fn orientation_to_transform(value: Orientation) -> Transform {
@@ -600,5 +605,63 @@ impl Dispatch<ZwlrOutputConfigurationHeadV1, ()> for State {
         _conn: &Connection,
         _qh: &QueueHandle<Self>,
     ) {
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{logical_size, ModeState, Transform};
+
+    #[test]
+    fn logical_size_preserves_integer_scale() {
+        let mode = ModeState {
+            width: Some(1920),
+            height: Some(1080),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            logical_size(&mode, Transform::Normal, 1000),
+            Some((1920, 1080))
+        );
+    }
+
+    #[test]
+    fn logical_size_rounds_fractional_scale() {
+        let mode = ModeState {
+            width: Some(2880),
+            height: Some(1800),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            logical_size(&mode, Transform::Normal, 1670),
+            Some((1725, 1078))
+        );
+    }
+
+    #[test]
+    fn logical_size_rounds_fractional_scale_after_rotation() {
+        let mode = ModeState {
+            width: Some(2880),
+            height: Some(1800),
+            ..Default::default()
+        };
+
+        assert_eq!(
+            logical_size(&mode, Transform::Rotate90, 1670),
+            Some((1078, 1725))
+        );
+    }
+
+    #[test]
+    fn logical_size_rejects_zero_scale() {
+        let mode = ModeState {
+            width: Some(1920),
+            height: Some(1080),
+            ..Default::default()
+        };
+
+        assert_eq!(logical_size(&mode, Transform::Normal, 0), None);
     }
 }
