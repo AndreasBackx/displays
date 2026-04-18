@@ -21,3 +21,6 @@ displays_physical_linux_sys = { path = "../displays_physical_linux_sys" }
 displays_physical_linux_logind = { path = "../displays_physical_linux_logind" }
 displays_physical_types = { path = "../displays_physical_types" }
 displays_types = { path = "../displays_types" }
+
+[dev-dependencies]
+tempfile = "3.23.0"

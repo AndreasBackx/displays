@@ -2,6 +2,7 @@
 //! Linux physical display facade combining DDC, sysfs, and logind backends.
 
 mod ddc;
+mod edid;
 mod error;
 mod manager;
 mod types;

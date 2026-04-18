@@ -10,6 +10,7 @@ use displays_types::Brightness;
 use std::io::ErrorKind;
 
 use crate::ddc;
+use crate::edid;
 use crate::error::{ApplyError, QueryError};
 use crate::types::{
     remaining_update, Backend, BacklightApplyUpdate, DdcApplyUpdate, DisplayHandle,
@@ -201,15 +202,16 @@ impl PhysicalDisplayManager {
 fn backlight_handle_from_device(device: Device) -> Result<DisplayHandle, QueryError> {
     let path = device.metadata.path;
     let name = device.metadata.id;
+    let metadata = edid::metadata_from_backlight_path(&path, &name).unwrap_or(PhysicalDisplayMetadata {
+        path: path.clone(),
+        name,
+        manufacturer: None,
+        model: None,
+        serial_number: String::new(),
+    });
 
     Ok(DisplayHandle {
-        metadata: PhysicalDisplayMetadata {
-            path: path.clone(),
-            name,
-            manufacturer: None,
-            model: None,
-            serial_number: String::new(),
-        },
+        metadata,
         state: PhysicalDisplayState {
             brightness: Some(Brightness::new(device.state.brightness_percent)),
         },

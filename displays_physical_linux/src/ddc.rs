@@ -149,6 +149,10 @@ fn set_brightness_with_timeout(
 }
 
 fn metadata_from_info(info: &DisplayInfo) -> PhysicalDisplayMetadata {
+    let model = info
+        .model_name
+        .clone()
+        .or_else(|| info.model_id.map(|model_id| format!("0x{model_id:04X}")));
     let name = info
         .model_name
         .clone()
@@ -157,15 +161,49 @@ fn metadata_from_info(info: &DisplayInfo) -> PhysicalDisplayMetadata {
     let serial_number = info
         .serial_number
         .clone()
-        .or_else(|| info.serial.map(|serial| serial.to_string()))
+        .or_else(|| info.serial.filter(|serial| *serial != 0).map(|serial| serial.to_string()))
         .unwrap_or_else(|| format!("fallback-{}", stable_fallback_id(&info.id)));
 
     PhysicalDisplayMetadata {
         path: info.id.clone(),
         name,
-        manufacturer: None,
-        model: None,
+        manufacturer: info.manufacturer_id.clone(),
+        model,
         serial_number,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ddc_hi::{Backend, DisplayInfo};
+
+    use super::metadata_from_info;
+
+    #[test]
+    fn metadata_from_info_uses_available_display_fields() {
+        let info = DisplayInfo {
+            backend: Backend::I2cDevice,
+            id: "/dev/i2c-7".to_string(),
+            manufacturer_id: Some("DEL".to_string()),
+            model_id: Some(0x1234),
+            version: None,
+            serial: Some(42),
+            manufacture_year: None,
+            manufacture_week: None,
+            model_name: Some("U2723QE".to_string()),
+            serial_number: Some("ABC123".to_string()),
+            edid_data: None,
+            mccs_version: None,
+            mccs_database: Default::default(),
+        };
+
+        let metadata = metadata_from_info(&info);
+
+        assert_eq!(metadata.path, "/dev/i2c-7");
+        assert_eq!(metadata.name, "U2723QE");
+        assert_eq!(metadata.manufacturer.as_deref(), Some("DEL"));
+        assert_eq!(metadata.model.as_deref(), Some("U2723QE"));
+        assert_eq!(metadata.serial_number, "ABC123");
     }
 }
 
