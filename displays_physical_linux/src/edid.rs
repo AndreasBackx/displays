@@ -77,7 +77,7 @@ mod tests {
     #[test]
     fn parses_metadata_from_edid_bytes() {
         let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/linux_internal_panel_lgd_0x07c6_2880x1800_current_machine.edid");
+            .join("tests/fixtures/linux_internal_panel_lgd_0x07c6_2880x1800.edid");
         let edid = fs::read(&fixture).expect("fixture edid should be readable");
         let metadata = metadata_from_edid_bytes(
             "/sys/class/drm/card0-eDP-1".to_string(),
