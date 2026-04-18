@@ -9,7 +9,7 @@ fn physical_display_id(display: &PhysicalDisplay) -> DisplayIdentifierInner {
     DisplayIdentifierInner {
         outer: DisplayIdentifier {
             name: Some(display.metadata.name.clone()),
-            serial_number: Some(display.metadata.serial_number.clone()),
+            serial_number: display.metadata.serial_number.clone(),
         },
         path: Some(display.metadata.path.clone()),
     }

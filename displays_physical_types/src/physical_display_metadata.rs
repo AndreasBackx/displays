@@ -9,6 +9,6 @@ pub struct PhysicalDisplayMetadata {
     pub manufacturer: Option<String>,
     /// Monitor model when available.
     pub model: Option<String>,
-    /// Monitor serial number.
-    pub serial_number: String,
+    /// Monitor serial number when available.
+    pub serial_number: Option<String>,
 }

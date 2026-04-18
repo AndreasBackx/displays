@@ -161,8 +161,7 @@ fn metadata_from_info(info: &DisplayInfo) -> PhysicalDisplayMetadata {
     let serial_number = info
         .serial_number
         .clone()
-        .or_else(|| info.serial.filter(|serial| *serial != 0).map(|serial| serial.to_string()))
-        .unwrap_or_else(|| format!("fallback-{}", stable_fallback_id(&info.id)));
+        .or_else(|| info.serial.filter(|serial| *serial != 0).map(|serial| serial.to_string()));
 
     PhysicalDisplayMetadata {
         path: info.id.clone(),
@@ -203,17 +202,8 @@ mod tests {
         assert_eq!(metadata.name, "U2723QE");
         assert_eq!(metadata.manufacturer.as_deref(), Some("DEL"));
         assert_eq!(metadata.model.as_deref(), Some("U2723QE"));
-        assert_eq!(metadata.serial_number, "ABC123");
+        assert_eq!(metadata.serial_number.as_deref(), Some("ABC123"));
     }
-}
-
-fn stable_fallback_id(value: &str) -> String {
-    let mut hash: u64 = 1469598103934665603;
-    for byte in value.as_bytes() {
-        hash ^= *byte as u64;
-        hash = hash.wrapping_mul(1099511628211);
-    }
-    format!("{hash:016x}")
 }
 
 fn classify_apply_error(display_id: String, message: String) -> ApplyError {

@@ -1,0 +1,3 @@
+[submodule "EDID"]
+	path = EDID
+	url = git@github.com:linuxhw/EDID.git

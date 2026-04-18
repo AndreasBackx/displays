@@ -207,7 +207,7 @@ fn backlight_handle_from_device(device: Device) -> Result<DisplayHandle, QueryEr
         name,
         manufacturer: None,
         model: None,
-        serial_number: String::new(),
+        serial_number: None,
     });
 
     Ok(DisplayHandle {

@@ -39,11 +39,7 @@ pub(crate) fn physical_display_metadata_from_edid(
         })
         .nth(0)
         .cloned()
-        .or_else(|| (edid.product.serial_number != 0).then(|| edid.product.serial_number.to_string()))
-        .ok_or_else(|| QueryError::EDIDInvalid {
-            message: "no serial number found".to_string(),
-            key: path.clone(),
-        })?;
+        .or_else(|| (edid.product.serial_number != 0).then(|| edid.product.serial_number.to_string()));
     Ok(PhysicalDisplayMetadata {
         path,
         name,
@@ -60,7 +56,7 @@ pub(crate) fn physical_display_id(
     DisplayIdentifierInner {
         outer: DisplayIdentifier {
             name: Some(metadata.name.clone()),
-            serial_number: Some(metadata.serial_number.clone()),
+            serial_number: metadata.serial_number.clone(),
         },
         path: Some(metadata.path.clone()),
         gdi_device_id,

@@ -40,8 +40,7 @@ fn metadata_from_info(
     let serial_number = info
         .serial_number
         .clone()
-        .or_else(|| info.serial.filter(|serial| *serial != 0).map(|serial| serial.to_string()))
-        .unwrap_or_default();
+        .or_else(|| info.serial.filter(|serial| *serial != 0).map(|serial| serial.to_string()));
     let name = info.model_name.unwrap_or(fallback_name);
 
     PhysicalDisplayMetadata {
@@ -55,6 +54,7 @@ fn metadata_from_info(
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeSet;
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -90,7 +90,7 @@ mod tests {
         assert_eq!(metadata.name, "intel_backlight");
         assert_eq!(metadata.manufacturer.as_deref(), Some("LGD"));
         assert_eq!(metadata.model.as_deref(), Some("0x07C6"));
-        assert_eq!(metadata.serial_number, "");
+        assert_eq!(metadata.serial_number, None);
     }
 
     #[test]
@@ -105,5 +105,121 @@ mod tests {
             metadata_from_backlight_path(backlight.to_str().unwrap(), "intel_backlight"),
             None
         );
+    }
+
+    #[test]
+    #[ignore = "uses the optional EDID corpus submodule"]
+    fn parses_sample_of_edid_corpus_files() {
+        let corpus_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../EDID");
+        if !corpus_root.exists() {
+            return;
+        }
+
+        let mut files = Vec::new();
+        collect_corpus_files(&corpus_root.join("Digital"), &mut files);
+        files.sort();
+
+        let total = files.len();
+        let mut parsed = 0usize;
+        let mut empty_entries = 0usize;
+        let mut decode_failures = BTreeSet::new();
+        let mut parse_failures = BTreeSet::new();
+        for file in files.into_iter() {
+            match decode_linuxhw_edid_file(&file) {
+                Some(CorpusEdidDecode::Bytes(edid)) => {
+                    // The parser may return None for real-world corpus files when the decoded
+                    // file contains EDID bytes, but the EDID itself is malformed or unsupported.
+                    let metadata = metadata_from_edid_bytes(
+                        file.display().to_string(),
+                        "fixture-display".to_string(),
+                        &edid,
+                    );
+                    if metadata.is_none() {
+                        parse_failures.insert(relative_corpus_path(&corpus_root, &file));
+                    }
+                    parsed += 1;
+                }
+                Some(CorpusEdidDecode::EmptyEntry) => {
+                    empty_entries += 1;
+                }
+                None => {
+                    decode_failures.insert(relative_corpus_path(&corpus_root, &file));
+                }
+            };
+        }
+
+        assert!(parsed > 0, "expected to parse at least one EDID corpus file");
+        assert!(
+            decode_failures.is_empty(),
+            "expected no EDID corpus decode failures, these failed {decode_failures:#?}"
+        );
+        assert!(
+            parse_failures.is_empty(),
+            "expected no EDID corpus parse failures, these failed {parse_failures:#?}"
+        );
+
+        eprintln!("{empty_entries}/{total} corpus files contain no EDID payload");
+    }
+
+    fn collect_corpus_files(root: &Path, files: &mut Vec<PathBuf>) {
+        let Ok(entries) = fs::read_dir(root) else {
+            return;
+        };
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                collect_corpus_files(&path, files);
+                continue;
+            }
+
+            if path.file_name().and_then(|file_name| file_name.to_str()).is_some_and(is_corpus_file_name) {
+                files.push(path);
+            }
+        }
+    }
+
+    fn is_corpus_file_name(file_name: &str) -> bool {
+        file_name.len() == 12 && file_name.chars().all(|character| character.is_ascii_hexdigit())
+    }
+
+    fn relative_corpus_path(corpus_root: &Path, path: &Path) -> PathBuf {
+        path.strip_prefix(corpus_root)
+            .unwrap_or(path)
+            .to_path_buf()
+    }
+
+    enum CorpusEdidDecode {
+        Bytes(Vec<u8>),
+        EmptyEntry,
+    }
+
+    fn decode_linuxhw_edid_file(path: &Path) -> Option<CorpusEdidDecode> {
+        let contents = fs::read_to_string(path).ok()?;
+        if contents.trim() == "EDID of 'stdin' was empty." {
+            return Some(CorpusEdidDecode::EmptyEntry);
+        }
+
+        let mut bytes = Vec::new();
+
+        for line in contents.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                if !bytes.is_empty() {
+                    break;
+                }
+                continue;
+            }
+
+            if trimmed.chars().all(|character| character.is_ascii_hexdigit() || character == ' ') {
+                for chunk in trimmed.split_whitespace() {
+                    bytes.push(u8::from_str_radix(chunk, 16).ok()?);
+                }
+            } else if !bytes.is_empty() {
+                break;
+            }
+        }
+
+        (!bytes.is_empty()).then_some(CorpusEdidDecode::Bytes(bytes))
     }
 }

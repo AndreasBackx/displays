@@ -136,8 +136,7 @@ impl Command for QueryCommand {
                     .and_then(|physical| physical.metadata.model.clone())
                     .unwrap_or_else(|| "unavailable".to_string()),
                 physical
-                    .map(|physical| physical.metadata.serial_number.clone())
-                    .filter(|value| !value.is_empty())
+                    .and_then(|physical| physical.metadata.serial_number.clone())
                     .unwrap_or_else(|| "unavailable".to_string()),
                 physical
                     .and_then(|physical| {

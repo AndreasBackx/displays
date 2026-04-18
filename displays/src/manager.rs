@@ -248,23 +248,46 @@ fn take_matching_physical_display(
         }
     }
 
-    if let Some(index) = unique_match_index(remaining_physical, |physical| {
-        logical
-            .metadata
-            .serial_number
-            .as_deref()
-            .filter(|serial_number| !serial_number.is_empty())
-            .is_some_and(|serial_number| physical.metadata.serial_number == serial_number)
-    }) {
-        return Some(remaining_physical.remove(index));
+    if let Some(logical_serial_number) =
+        normalized_present_value(logical.metadata.serial_number.as_deref())
+    {
+        if let Some(index) = unique_match_index(remaining_physical, |physical| {
+            normalized_present_value(physical.metadata.serial_number.as_deref())
+                .is_some_and(|physical_serial_number| physical_serial_number == logical_serial_number)
+        }) {
+            return Some(remaining_physical.remove(index));
+        }
+    }
+
+    if let (Some(logical_manufacturer), Some(logical_model)) = (
+        normalized_present_value(logical.metadata.manufacturer.as_deref()),
+        normalized_present_value(logical.metadata.model.as_deref()),
+    ) {
+        if let Some(index) = unique_match_index(remaining_physical, |physical| {
+            match (
+                normalized_present_value(physical.metadata.manufacturer.as_deref()),
+                normalized_present_value(physical.metadata.model.as_deref()),
+            ) {
+                (Some(physical_manufacturer), Some(physical_model)) => {
+                    physical_manufacturer == logical_manufacturer && physical_model == logical_model
+                }
+                _ => false,
+            }
+        }) {
+            return Some(remaining_physical.remove(index));
+        }
     }
 
     let name_candidates = logical_name_candidates(logical);
 
     if let Some(index) = unique_match_index(remaining_physical, |physical| {
-        name_candidates.iter().any(|candidate| {
-            physical.metadata.name == *candidate
-                || normalized_name(&physical.metadata.name) == normalized_name(candidate)
+        let physical_name_candidates = physical_name_candidates(physical);
+        name_candidates.iter().any(|logical_candidate| {
+            physical_name_candidates
+                .iter()
+                .any(|physical_candidate| {
+                    normalized_name(physical_candidate) == normalized_name(logical_candidate)
+                })
         })
     }) {
         return Some(remaining_physical.remove(index));
@@ -340,22 +363,31 @@ fn logical_name_candidates(logical: &LogicalDisplay) -> Vec<String> {
     push_unique_candidate(&mut candidates, logical.metadata.name.clone());
 
     if let (Some(manufacturer), Some(model)) = (
-        logical.metadata.manufacturer.as_deref().map(str::trim),
-        logical.metadata.model.as_deref().map(str::trim),
+        normalized_present_value(logical.metadata.manufacturer.as_deref()),
+        normalized_present_value(logical.metadata.model.as_deref()),
     ) {
-        if !manufacturer.is_empty() && !model.is_empty() {
-            push_unique_candidate(&mut candidates, format!("{manufacturer} {model}"));
-        }
+        push_unique_candidate(&mut candidates, format!("{manufacturer} {model}"));
     }
 
-    if let Some(model) = logical
-        .metadata
-        .model
-        .as_deref()
-        .map(str::trim)
-        .filter(|model| !model.is_empty())
-    {
-        push_unique_candidate(&mut candidates, model.to_string());
+    if let Some(model) = normalized_present_value(logical.metadata.model.as_deref()) {
+        push_unique_candidate(&mut candidates, model);
+    }
+
+    candidates
+}
+
+#[cfg(target_os = "linux")]
+fn physical_name_candidates(physical: &PhysicalDisplay) -> Vec<String> {
+    let mut candidates = Vec::new();
+
+    push_unique_candidate(&mut candidates, physical.metadata.name.clone());
+
+    if let (Some(manufacturer), Some(model)) = (
+        normalized_present_value(physical.metadata.manufacturer.as_deref()),
+        normalized_present_value(physical.metadata.model.as_deref()),
+    ) {
+        push_unique_candidate(&mut candidates, format!("{manufacturer} {model}"));
+        push_unique_candidate(&mut candidates, model);
     }
 
     candidates
@@ -363,11 +395,10 @@ fn logical_name_candidates(logical: &LogicalDisplay) -> Vec<String> {
 
 #[cfg(target_os = "linux")]
 fn push_unique_candidate(candidates: &mut Vec<String>, candidate: String) {
-    if candidate.is_empty() {
+    let Some(normalized_candidate) = normalized_present_value(Some(&candidate)) else {
         return;
-    }
+    };
 
-    let normalized_candidate = normalized_name(&candidate);
     if candidates
         .iter()
         .any(|existing| normalized_name(existing) == normalized_candidate)
@@ -376,6 +407,12 @@ fn push_unique_candidate(candidates: &mut Vec<String>, candidate: String) {
     }
 
     candidates.push(candidate);
+}
+
+#[cfg(target_os = "linux")]
+fn normalized_present_value(value: Option<&str>) -> Option<String> {
+    let normalized = value.map(normalized_name)?;
+    (!normalized.is_empty()).then_some(normalized)
 }
 
 #[cfg(target_os = "linux")]
@@ -584,5 +621,288 @@ mod tests {
         };
 
         assert_eq!(logical_connector_name(&logical), Some("eDP-1"));
+    }
+
+    #[test]
+    fn linux_matches_by_real_serial_when_connector_missing() {
+        let logical = LogicalDisplay {
+            metadata: displays_logical_types::LogicalDisplayMetadata {
+                name: "Dell U2723QE".to_string(),
+                path: "wayland:wlr:unknown".to_string(),
+                manufacturer: Some("Dell".to_string()),
+                model: Some("U2723QE".to_string()),
+                serial_number: Some("ABC123".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let expected = PhysicalDisplay {
+            metadata: displays_physical_types::PhysicalDisplayMetadata {
+                name: "U2723QE".to_string(),
+                path: "/dev/i2c-7".to_string(),
+                manufacturer: Some("Dell".to_string()),
+                model: Some("U2723QE".to_string()),
+                serial_number: Some("ABC123".to_string()),
+            },
+            ..Default::default()
+        };
+        let mut physical = vec![expected.clone()];
+
+        let matched = take_matching_physical_display(&logical, &mut physical);
+
+        assert_eq!(matched, Some(expected));
+        assert!(physical.is_empty());
+    }
+
+    #[test]
+    fn linux_treats_missing_serial_values_as_unavailable() {
+        let logical = LogicalDisplay {
+            metadata: displays_logical_types::LogicalDisplayMetadata {
+                name: "Dell U2723QE".to_string(),
+                path: "wayland:wlr:unknown".to_string(),
+                manufacturer: Some("Dell".to_string()),
+                model: Some("U2723QE".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let expected = PhysicalDisplay {
+            metadata: displays_physical_types::PhysicalDisplayMetadata {
+                name: "U2723QE".to_string(),
+                path: "/dev/i2c-7".to_string(),
+                manufacturer: Some("Dell".to_string()),
+                model: Some("U2723QE".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut physical = vec![expected.clone()];
+
+        let matched = take_matching_physical_display(&logical, &mut physical);
+
+        assert_eq!(matched, Some(expected));
+        assert!(physical.is_empty());
+    }
+
+    #[test]
+    fn linux_matches_by_manufacturer_and_model_when_unique() {
+        let logical = LogicalDisplay {
+            metadata: displays_logical_types::LogicalDisplayMetadata {
+                name: "Dell Display".to_string(),
+                path: "wayland:wlr:unknown".to_string(),
+                manufacturer: Some("Dell".to_string()),
+                model: Some("U2723QE".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let expected = PhysicalDisplay {
+            metadata: displays_physical_types::PhysicalDisplayMetadata {
+                name: "monitor-1".to_string(),
+                path: "/dev/i2c-7".to_string(),
+                manufacturer: Some("Dell".to_string()),
+                model: Some("U2723QE".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut physical = vec![
+            expected.clone(),
+            PhysicalDisplay {
+                metadata: displays_physical_types::PhysicalDisplayMetadata {
+                    name: "monitor-2".to_string(),
+                    path: "/dev/i2c-8".to_string(),
+                    manufacturer: Some("Dell".to_string()),
+                    model: Some("P2723DE".to_string()),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ];
+
+        let matched = take_matching_physical_display(&logical, &mut physical);
+
+        assert_eq!(matched, Some(expected));
+        assert_eq!(physical.len(), 1);
+    }
+
+    #[test]
+    fn linux_does_not_match_ambiguous_manufacturer_and_model_candidates() {
+        let logical = LogicalDisplay {
+            metadata: displays_logical_types::LogicalDisplayMetadata {
+                name: "Dell Display".to_string(),
+                path: "wayland:wlr:unknown".to_string(),
+                manufacturer: Some("Dell".to_string()),
+                model: Some("U2723QE".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut physical = vec![
+            PhysicalDisplay {
+                metadata: displays_physical_types::PhysicalDisplayMetadata {
+                    name: "monitor-1".to_string(),
+                    path: "/dev/i2c-7".to_string(),
+                    manufacturer: Some("Dell".to_string()),
+                    model: Some("U2723QE".to_string()),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            PhysicalDisplay {
+                metadata: displays_physical_types::PhysicalDisplayMetadata {
+                    name: "monitor-2".to_string(),
+                    path: "/dev/i2c-8".to_string(),
+                    manufacturer: Some("Dell".to_string()),
+                    model: Some("U2723QE".to_string()),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ];
+
+        let matched = take_matching_physical_display(&logical, &mut physical);
+
+        assert_eq!(matched, None);
+        assert_eq!(physical.len(), 2);
+    }
+
+    #[test]
+    fn linux_uses_physical_manufacturer_model_as_name_candidate() {
+        let logical = LogicalDisplay {
+            metadata: displays_logical_types::LogicalDisplayMetadata {
+                name: "Dell U2723QE".to_string(),
+                path: "wayland:wlr:unknown".to_string(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let expected = PhysicalDisplay {
+            metadata: displays_physical_types::PhysicalDisplayMetadata {
+                name: "i2c-display".to_string(),
+                path: "/dev/i2c-7".to_string(),
+                manufacturer: Some("Dell".to_string()),
+                model: Some("U2723QE".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut physical = vec![expected.clone()];
+
+        let matched = take_matching_physical_display(&logical, &mut physical);
+
+        assert_eq!(matched, Some(expected));
+        assert!(physical.is_empty());
+    }
+
+    #[test]
+    fn linux_does_not_fall_through_when_connector_candidates_are_ambiguous() {
+        let logical = LogicalDisplay {
+            metadata: displays_logical_types::LogicalDisplayMetadata {
+                name: "intel_backlight".to_string(),
+                path: "wayland:wlr:eDP-1".to_string(),
+                manufacturer: Some("LG Display".to_string()),
+                model: Some("0x07C6".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut physical = vec![
+            PhysicalDisplay {
+                metadata: displays_physical_types::PhysicalDisplayMetadata {
+                    name: "intel_backlight".to_string(),
+                    path: "/sys/devices/pci0000:00/0000:00:02.0/drm/card0/card0-eDP-1/intel_backlight"
+                        .to_string(),
+                    manufacturer: Some("LGD".to_string()),
+                    model: Some("0x07C6".to_string()),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            PhysicalDisplay {
+                metadata: displays_physical_types::PhysicalDisplayMetadata {
+                    name: "intel_backlight".to_string(),
+                    path: "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0008:00/backlight/acpi_video0/drm/card0/card0-eDP-1"
+                        .to_string(),
+                    manufacturer: Some("LGD".to_string()),
+                    model: Some("0x07C6".to_string()),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ];
+
+        let matched = take_matching_physical_display(&logical, &mut physical);
+
+        assert_eq!(matched, None);
+        assert_eq!(physical.len(), 2);
+    }
+
+    #[test]
+    fn linux_prefers_manufacturer_model_over_name_only_match() {
+        let logical = LogicalDisplay {
+            metadata: displays_logical_types::LogicalDisplayMetadata {
+                name: "Shared Name".to_string(),
+                path: "wayland:wlr:unknown".to_string(),
+                manufacturer: Some("Dell".to_string()),
+                model: Some("U2723QE".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let expected = PhysicalDisplay {
+            metadata: displays_physical_types::PhysicalDisplayMetadata {
+                name: "monitor-1".to_string(),
+                path: "/dev/i2c-7".to_string(),
+                manufacturer: Some("Dell".to_string()),
+                model: Some("U2723QE".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut physical = vec![
+            PhysicalDisplay {
+                metadata: displays_physical_types::PhysicalDisplayMetadata {
+                    name: "Shared Name".to_string(),
+                    path: "/dev/i2c-8".to_string(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            expected.clone(),
+        ];
+
+        let matched = take_matching_physical_display(&logical, &mut physical);
+
+        assert_eq!(matched, Some(expected));
+        assert_eq!(physical.len(), 1);
+    }
+
+    #[test]
+    fn linux_treats_missing_manufacturer_and_model_as_unavailable() {
+        let logical = LogicalDisplay {
+            metadata: displays_logical_types::LogicalDisplayMetadata {
+                name: "Shared Name".to_string(),
+                path: "wayland:wlr:unknown".to_string(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let expected = PhysicalDisplay {
+            metadata: displays_physical_types::PhysicalDisplayMetadata {
+                name: "Shared Name".to_string(),
+                path: "/dev/i2c-7".to_string(),
+                manufacturer: Some("Dell".to_string()),
+                model: Some("U2723QE".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut physical = vec![expected.clone()];
+
+        let matched = take_matching_physical_display(&logical, &mut physical);
+
+        assert_eq!(matched, Some(expected));
+        assert!(physical.is_empty());
     }
 }

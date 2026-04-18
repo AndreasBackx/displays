@@ -41,6 +41,7 @@ impl DisplayMetadata {
                     .physical
                     .as_ref()
                     .map(|physical| physical.serial_number.clone())
+                    .flatten()
                     .or_else(|| self.logical.serial_number.clone()),
             },
             path: self
