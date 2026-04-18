@@ -152,6 +152,9 @@ fn built_in_backlight_display(displays: Vec<Display>) -> Option<(DisplayIdentifi
         }
 
         let physical = get_property::<Option<PhysicalDisplay>>(&display, "physical")?;
+        if !get_property::<bool>(&physical, "has-brightness") {
+            return None;
+        }
         let brightness = get_property::<u32>(&physical, "brightness");
 
         Some((identifier, brightness))

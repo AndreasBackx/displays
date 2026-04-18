@@ -209,7 +209,7 @@ fn backlight_handle_from_device(device: Device) -> Result<DisplayHandle, QueryEr
             serial_number: String::new(),
         },
         state: PhysicalDisplayState {
-            brightness: Brightness::new(device.state.brightness_percent),
+            brightness: Some(Brightness::new(device.state.brightness_percent)),
             scale_factor: 100,
         },
         backend: Backend::Backlight { path },

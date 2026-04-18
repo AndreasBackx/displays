@@ -93,14 +93,17 @@ impl From<&displays::logical_display::LogicalDisplay> for LogicalDisplayData {
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhysicalDisplayData {
-    pub brightness: u32,
+    pub brightness: Option<u32>,
     pub scale_factor: i32,
 }
 
 impl From<displays::physical_display::PhysicalDisplay> for PhysicalDisplayData {
     fn from(value: displays::physical_display::PhysicalDisplay) -> Self {
         Self {
-            brightness: value.state.brightness.value() as u32,
+            brightness: value
+                .state
+                .brightness
+                .map(|brightness| brightness.value() as u32),
             scale_factor: value.state.scale_factor,
         }
     }
@@ -109,7 +112,11 @@ impl From<displays::physical_display::PhysicalDisplay> for PhysicalDisplayData {
 impl From<&displays::physical_display::PhysicalDisplay> for PhysicalDisplayData {
     fn from(value: &displays::physical_display::PhysicalDisplay) -> Self {
         Self {
-            brightness: value.state.brightness.value() as u32,
+            brightness: value
+                .state
+                .brightness
+                .as_ref()
+                .map(|brightness| brightness.value() as u32),
             scale_factor: value.state.scale_factor,
         }
     }

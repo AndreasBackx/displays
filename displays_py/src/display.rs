@@ -136,7 +136,7 @@ impl From<lib::types::Point> for Point {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhysicalDisplay {
     #[pyo3(get)]
-    brightness: u8,
+    brightness: Option<u8>,
     #[pyo3(get)]
     scale_factor: i32,
 }
@@ -176,7 +176,10 @@ impl From<lib::display::Display> for Display {
                 position: value.logical.state.position.map(|point| point.into()),
             },
             physical: value.physical.map(|physical| PhysicalDisplay {
-                brightness: physical.state.brightness.value(),
+                brightness: physical
+                    .state
+                    .brightness
+                    .map(|brightness| brightness.value()),
                 scale_factor: physical.state.scale_factor,
             }),
         }
@@ -212,7 +215,10 @@ impl std::fmt::Display for PhysicalDisplay {
         write!(
             f,
             "PhysicalDisplay(brightness={brightness}, scale_factor={scale_factor})",
-            brightness = self.brightness,
+            brightness = self
+                .brightness
+                .map(|value| value.to_string())
+                .unwrap_or_else(|| "None".to_string()),
             scale_factor = self.scale_factor,
         )
     }

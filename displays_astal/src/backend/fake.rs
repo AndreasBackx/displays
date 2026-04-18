@@ -76,7 +76,7 @@ fn fake_displays() -> Vec<DisplayData> {
                 position: Some(PointData { x: 0, y: 0 }),
             },
             physical: Some(PhysicalDisplayData {
-                brightness: 62,
+                brightness: Some(62),
                 scale_factor: 150,
             }),
         },
@@ -93,7 +93,7 @@ fn fake_displays() -> Vec<DisplayData> {
                 position: Some(PointData { x: 3840, y: 0 }),
             },
             physical: Some(PhysicalDisplayData {
-                brightness: 47,
+                brightness: Some(47),
                 scale_factor: 100,
             }),
         },

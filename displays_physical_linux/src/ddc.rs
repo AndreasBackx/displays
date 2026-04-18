@@ -24,37 +24,37 @@ pub(crate) fn enumerate_handles() -> Result<Vec<DisplayHandle>, QueryError> {
                 let maximum = vcp.maximum();
                 if maximum == 0 {
                     tracing::warn!(
-                        "Skipping display '{}' because brightness max was reported as 0",
+                        "Brightness is unavailable for display '{}' because max was reported as 0",
                         display_id
                     );
-                    continue;
+                    None
+                } else {
+                    Some(Brightness::new(
+                        (((vcp.value() as f64 / maximum as f64) * 100.0).round() as u8).min(100),
+                    ))
                 }
-                ((vcp.value() as f64 / maximum as f64) * 100.0).round() as u8
             }
             Err(err) => {
                 let message = err.to_string();
-                if is_io_error(&message) {
-                    tracing::warn!(
-                        "Assuming 0% brightness for display '{}' due to I/O error: {}",
-                        display_id,
-                        message
-                    );
-                    0
+                let detail = if is_io_error(&message) {
+                    "I/O error"
                 } else {
-                    tracing::warn!(
-                        "Skipping display '{}' due to query error: {}",
-                        display_id,
-                        message
-                    );
-                    continue;
-                }
+                    "query error"
+                };
+                tracing::warn!(
+                    "Brightness is unavailable for display '{}' due to {}: {}",
+                    display_id,
+                    detail,
+                    message
+                );
+                None
             }
         };
 
         handles.push(DisplayHandle {
             metadata: metadata_from_info(&info),
             state: PhysicalDisplayState {
-                brightness: Brightness::new(brightness.min(100)),
+                brightness,
                 scale_factor: 100,
             },
             backend: Backend::Ddc { display_index },

@@ -1,5 +1,5 @@
 /// Stable metadata describing a logical display.
-#[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialOrd, Ord, PartialEq, Eq)]
 pub struct LogicalDisplayMetadata {
     /// Human-readable display name.
     pub name: String,

@@ -238,6 +238,16 @@ fn take_matching_physical_display(
     // Linux physical/logical correlation is heuristic across separate backends,
     // so only accept uniquely identifying matches and prefer no match over a
     // potentially wrong association.
+    if let Some(logical_connector) = logical_connector_name(logical) {
+        if let Some(index) = unique_match_index(remaining_physical, |physical| {
+            physical_connector_name(physical)
+                .as_deref()
+                .is_some_and(|physical_connector| physical_connector == logical_connector)
+        }) {
+            return Some(remaining_physical.remove(index));
+        }
+    }
+
     if let Some(index) = unique_match_index(remaining_physical, |physical| {
         logical
             .metadata
@@ -261,6 +271,53 @@ fn take_matching_physical_display(
     }
 
     None
+}
+
+#[cfg(target_os = "linux")]
+fn logical_connector_name(logical: &LogicalDisplay) -> Option<&str> {
+    logical
+        .metadata
+        .path
+        .rsplit(':')
+        .find(|segment| is_connector_name(segment))
+}
+
+#[cfg(target_os = "linux")]
+fn physical_connector_name(physical: &PhysicalDisplay) -> Option<String> {
+    physical
+        .metadata
+        .path
+        .split('/')
+        .find_map(drm_connector_name)
+        .map(ToString::to_string)
+}
+
+#[cfg(target_os = "linux")]
+fn drm_connector_name(path_component: &str) -> Option<&str> {
+    let remainder = path_component.strip_prefix("card")?;
+    let separator_index = remainder.find('-')?;
+    let (card_index, connector) = remainder.split_at(separator_index);
+    if card_index.is_empty()
+        || !card_index
+            .chars()
+            .all(|character| character.is_ascii_digit())
+    {
+        return None;
+    }
+
+    let connector = connector.trim_start_matches('-');
+    is_connector_name(connector).then_some(connector)
+}
+
+#[cfg(target_os = "linux")]
+fn is_connector_name(value: &str) -> bool {
+    let Some((prefix, suffix)) = value.rsplit_once('-') else {
+        return false;
+    };
+
+    !prefix.is_empty()
+        && !suffix.is_empty()
+        && suffix.chars().all(|character| character.is_ascii_digit())
 }
 
 #[cfg(target_os = "linux")]
@@ -414,3 +471,118 @@ fn push_failed(
 pub struct QueryError {}
 pub struct ValidateUpdateError {}
 pub struct CreationError {}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn linux_matches_backlight_by_connector_name() {
+        let logical = LogicalDisplay {
+            metadata: displays_logical_types::LogicalDisplayMetadata {
+                name: "LG Display 0x07C6".to_string(),
+                path: "wayland:wlr:eDP-1".to_string(),
+                manufacturer: Some("LG Display".to_string()),
+                model: Some("0x07C6".to_string()),
+                serial_number: Some("unknown".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let expected = PhysicalDisplay {
+            metadata: displays_physical_types::PhysicalDisplayMetadata {
+                name: "intel_backlight".to_string(),
+                path: "/sys/devices/pci0000:00/0000:00:02.0/drm/card0/card0-eDP-1/intel_backlight"
+                    .to_string(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut physical = vec![expected.clone()];
+
+        let matched = take_matching_physical_display(&logical, &mut physical);
+
+        assert_eq!(matched, Some(expected));
+        assert!(physical.is_empty());
+    }
+
+    #[test]
+    fn linux_does_not_match_ambiguous_connectors() {
+        let logical = LogicalDisplay {
+            metadata: displays_logical_types::LogicalDisplayMetadata {
+                name: "LG Display 0x07C6".to_string(),
+                path: "wayland:wlr:eDP-1".to_string(),
+                manufacturer: Some("LG Display".to_string()),
+                model: Some("0x07C6".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut physical = vec![
+            PhysicalDisplay {
+                metadata: displays_physical_types::PhysicalDisplayMetadata {
+                    name: "intel_backlight".to_string(),
+                    path: "/sys/devices/pci0000:00/0000:00:02.0/drm/card0/card0-eDP-1/intel_backlight"
+                        .to_string(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            PhysicalDisplay {
+                metadata: displays_physical_types::PhysicalDisplayMetadata {
+                    name: "acpi_video0".to_string(),
+                    path: "/sys/devices/LNXSYSTM:00/LNXSYBUS:00/ACPI0008:00/backlight/acpi_video0/drm/card0/card0-eDP-1"
+                        .to_string(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ];
+
+        let matched = take_matching_physical_display(&logical, &mut physical);
+
+        assert_eq!(matched, None);
+        assert_eq!(physical.len(), 2);
+    }
+
+    #[test]
+    fn linux_falls_back_to_name_matching_when_connector_is_unavailable() {
+        let logical = LogicalDisplay {
+            metadata: displays_logical_types::LogicalDisplayMetadata {
+                name: "LG Display 0x07C6".to_string(),
+                path: "wayland:wlr:unknown".to_string(),
+                manufacturer: Some("LG Display".to_string()),
+                model: Some("0x07C6".to_string()),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let expected = PhysicalDisplay {
+            metadata: displays_physical_types::PhysicalDisplayMetadata {
+                name: "LG Display 0x07C6".to_string(),
+                path: "/dev/i2c-7".to_string(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut physical = vec![expected.clone()];
+
+        let matched = take_matching_physical_display(&logical, &mut physical);
+
+        assert_eq!(matched, Some(expected));
+        assert!(physical.is_empty());
+    }
+
+    #[test]
+    fn linux_extracts_connector_from_non_wlr_paths() {
+        let logical = LogicalDisplay {
+            metadata: displays_logical_types::LogicalDisplayMetadata {
+                path: "wayland:gnome:eDP-1".to_string(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+
+        assert_eq!(logical_connector_name(&logical), Some("eDP-1"));
+    }
+}

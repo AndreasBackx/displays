@@ -1,5 +1,5 @@
 /// Stable metadata describing a physical monitor.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhysicalDisplayMetadata {
     /// Platform-specific monitor path.
     pub path: String,

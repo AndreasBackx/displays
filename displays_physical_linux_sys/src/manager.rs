@@ -180,7 +180,10 @@ impl PhysicalDisplayManagerLinuxSys {
                 metadata: DeviceMetadata {
                     class,
                     id,
-                    path: device_path.to_string_lossy().into_owned(),
+                    path: fs::canonicalize(&device_path)
+                        .unwrap_or(device_path.clone())
+                        .to_string_lossy()
+                        .into_owned(),
                 },
                 state,
             });

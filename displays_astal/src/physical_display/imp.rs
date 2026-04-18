@@ -6,6 +6,8 @@ use glib::{prelude::*, subclass::prelude::*, Properties};
 #[properties(wrapper_type = super::PhysicalDisplay)]
 pub struct PhysicalDisplay {
     #[property(get, set, construct_only)]
+    pub has_brightness: Cell<bool>,
+    #[property(get, set, construct_only)]
     pub brightness: Cell<u32>,
     #[property(get, set, construct_only)]
     pub scale_factor: Cell<i32>,

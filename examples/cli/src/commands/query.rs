@@ -126,7 +126,13 @@ impl Command for QueryCommand {
                     .filter(|value| !value.is_empty())
                     .unwrap_or_else(|| "unavailable".to_string()),
                 physical
-                    .map(|physical| format!("{}%", physical.state.brightness.value()))
+                    .and_then(|physical| {
+                        physical
+                            .state
+                            .brightness
+                            .as_ref()
+                            .map(|brightness| format!("{}%", brightness.value()))
+                    })
                     .unwrap_or_else(|| "unavailable".to_string()),
                 physical
                     .map(|physical| physical.state.scale_factor.to_string())
