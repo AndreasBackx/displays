@@ -4,6 +4,7 @@ use crate::{
     backend::types::{LogicalDisplayData, LogicalDisplayUpdateContentData},
     enums::Orientation,
     point::Point,
+    size::Size,
 };
 
 pub mod ffi;
@@ -22,10 +23,13 @@ impl LogicalDisplay {
         Object::builder()
             .property("is-enabled", value.is_enabled)
             .property("orientation", value.orientation)
-            .property("has-width", value.width.is_some())
-            .property("width", value.width.unwrap_or_default())
-            .property("has-height", value.height.is_some())
-            .property("height", value.height.unwrap_or_default())
+            .property("logical-size", value.logical_size.map(Size::from_data))
+            .property("mode-size", value.mode_size.map(Size::from_data))
+            .property(
+                "scale-ratio-milli",
+                value.scale_ratio_milli.unwrap_or_default(),
+            )
+            .property("has-scale-ratio-milli", value.scale_ratio_milli.is_some())
             .property("position", value.position.map(Point::from_data))
             .build()
     }

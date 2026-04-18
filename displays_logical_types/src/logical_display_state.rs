@@ -1,4 +1,4 @@
-use displays_types::{Orientation, PixelFormat, Point};
+use displays_types::{Orientation, PixelFormat, Point, Size};
 
 /// The current logical display state.
 #[derive(Debug, Clone, PartialOrd, Ord, PartialEq, Eq, Default)]
@@ -7,10 +7,12 @@ pub struct LogicalDisplayState {
     pub is_enabled: bool,
     /// Current display orientation.
     pub orientation: Orientation,
-    /// Current logical width in pixels when known.
-    pub width: Option<u32>,
-    /// Current logical height in pixels when known.
-    pub height: Option<u32>,
+    /// Current logical size in pixels when known.
+    pub logical_size: Option<Size>,
+    /// Current output mode size in pixels when known.
+    pub mode_size: Option<Size>,
+    /// Current display scale ratio in milli-units where 1000 == 1.0x.
+    pub scale_ratio_milli: Option<u32>,
     /// Current pixel format when known.
     pub pixel_format: Option<PixelFormat>,
     /// Current top-left position when known.

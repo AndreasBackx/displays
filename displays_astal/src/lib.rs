@@ -18,6 +18,7 @@ pub mod logical_display;
 pub mod manager;
 pub mod physical_display;
 pub mod point;
+pub mod size;
 
 #[cfg(test)]
 mod tests;

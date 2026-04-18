@@ -20,6 +20,18 @@ fn format_point(value: Option<&lib::types::Point>) -> String {
         .unwrap_or_else(|| "unknown".to_string())
 }
 
+fn format_size(value: Option<&lib::types::Size>) -> String {
+    value
+        .map(|value| format!("{}x{}", value.width, value.height))
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+fn format_scale_ratio(value: Option<u32>) -> String {
+    value
+        .map(|value| format!("{:.3}x", value as f64 / 1000.0))
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
 #[derive(Parser)]
 pub struct QueryCommand {
     #[clap(long("enabled"))]
@@ -70,15 +82,16 @@ impl Command for QueryCommand {
                     "    Serial: {}\n",
                     "    Enabled: {}\n",
                     "    Orientation: {:?}\n",
-                    "    Resolution: {}x{}\n",
+                    "    Logical Size: {}\n",
+                    "    Mode Size: {}\n",
+                    "    Scale: {}\n",
                     "    Pixel Format: {}\n",
                     "    Position: {}\n",
                     "  Physical:\n",
                     "    Name: {}\n",
                     "    Path: {}\n",
                     "    Serial: {}\n",
-                    "    Brightness: {}\n",
-                    "    Brightness Scale: {}\n"
+                    "    Brightness: {}\n"
                 ),
                 display_name,
                 id.outer.name.unwrap_or_else(|| "unknown".to_string()),
@@ -101,18 +114,9 @@ impl Command for QueryCommand {
                     .unwrap_or_else(|| "unknown".to_string()),
                 display.logical.state.is_enabled,
                 display.logical.state.orientation,
-                display
-                    .logical
-                    .state
-                    .width
-                    .map(|value| value.to_string())
-                    .unwrap_or_else(|| "unknown".to_string()),
-                display
-                    .logical
-                    .state
-                    .height
-                    .map(|value| value.to_string())
-                    .unwrap_or_else(|| "unknown".to_string()),
+                format_size(display.logical.state.logical_size.as_ref()),
+                format_size(display.logical.state.mode_size.as_ref()),
+                format_scale_ratio(display.logical.state.scale_ratio_milli),
                 format_optional(display.logical.state.pixel_format),
                 format_point(display.logical.state.position.as_ref()),
                 physical
@@ -133,9 +137,6 @@ impl Command for QueryCommand {
                             .as_ref()
                             .map(|brightness| format!("{}%", brightness.value()))
                     })
-                    .unwrap_or_else(|| "unavailable".to_string()),
-                physical
-                    .map(|physical| physical.state.scale_factor.to_string())
                     .unwrap_or_else(|| "unavailable".to_string()),
             );
             println!();

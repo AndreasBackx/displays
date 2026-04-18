@@ -12,5 +12,5 @@ pub use displays_physical_types::{
     PhysicalDisplayUpdateContent,
 };
 pub use displays_types::{
-    Brightness, DisplayIdentifier, DisplayIdentifierInner, Orientation, PixelFormat, Point,
+    Brightness, DisplayIdentifier, DisplayIdentifierInner, Orientation, PixelFormat, Point, Size,
 };

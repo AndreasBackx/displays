@@ -53,10 +53,7 @@ pub(crate) fn enumerate_handles() -> Result<Vec<DisplayHandle>, QueryError> {
 
         handles.push(DisplayHandle {
             metadata: metadata_from_info(&info),
-            state: PhysicalDisplayState {
-                brightness,
-                scale_factor: 100,
-            },
+            state: PhysicalDisplayState { brightness },
             backend: Backend::Ddc { display_index },
         });
     }

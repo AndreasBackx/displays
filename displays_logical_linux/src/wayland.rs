@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use displays_logical_types::{
     LogicalDisplay, LogicalDisplayMetadata, LogicalDisplayState, LogicalDisplayUpdate,
 };
-use displays_types::{Orientation, Point};
+use displays_types::{Orientation, Point, Size};
 use wayland_client::{
     event_created_child,
     globals::{registry_queue_init, GlobalListContents},
@@ -252,6 +252,11 @@ impl Snapshot {
             .or_else(|| connector_name.clone())
             .unwrap_or_else(|| format!("wayland-head-{head_id}"));
         let transform = head.transform.unwrap_or(Transform::Normal);
+        let mode_size = head
+            .current_mode
+            .and_then(|mode_id| self.modes.get(&mode_id))
+            .and_then(|mode| mode_size(mode, transform))
+            .map(|(width, height)| Size { width, height });
         let logical_size = head
             .current_mode
             .and_then(|mode_id| self.modes.get(&mode_id))
@@ -271,8 +276,9 @@ impl Snapshot {
             state: LogicalDisplayState {
                 is_enabled: head.enabled.unwrap_or(false),
                 orientation: transform.orientation(),
-                width: logical_size.map(|(width, _)| width),
-                height: logical_size.map(|(_, height)| height),
+                logical_size: logical_size.map(|(width, height)| Size { width, height }),
+                mode_size,
+                scale_ratio_milli: head.scale_milli,
                 pixel_format: None,
                 position: match (head.x, head.y) {
                     (Some(x), Some(y)) => Some(Point { x, y }),
@@ -396,11 +402,7 @@ fn find_exact_mode_and_scale(
 }
 
 fn logical_size(mode: &ModeState, transform: Transform, scale_milli: u32) -> Option<(u32, u32)> {
-    let mut width = mode.width? as u32;
-    let mut height = mode.height? as u32;
-    if transform.swaps_dimensions() {
-        std::mem::swap(&mut width, &mut height);
-    }
+    let (width, height) = mode_size(mode, transform)?;
 
     if scale_milli == 0 {
         return None;
@@ -410,6 +412,16 @@ fn logical_size(mode: &ModeState, transform: Transform, scale_milli: u32) -> Opt
         logical_dimension(width, scale_milli)?,
         logical_dimension(height, scale_milli)?,
     ))
+}
+
+fn mode_size(mode: &ModeState, transform: Transform) -> Option<(u32, u32)> {
+    let mut width = mode.width? as u32;
+    let mut height = mode.height? as u32;
+    if transform.swaps_dimensions() {
+        std::mem::swap(&mut width, &mut height);
+    }
+
+    Some((width, height))
 }
 
 fn logical_dimension(value: u32, scale_milli: u32) -> Option<u32> {
@@ -610,7 +622,7 @@ impl Dispatch<ZwlrOutputConfigurationHeadV1, ()> for State {
 
 #[cfg(test)]
 mod tests {
-    use super::{logical_size, ModeState, Transform};
+    use super::{logical_size, mode_size, ModeState, Transform};
 
     #[test]
     fn logical_size_preserves_integer_scale() {
@@ -663,5 +675,27 @@ mod tests {
         };
 
         assert_eq!(logical_size(&mode, Transform::Normal, 0), None);
+    }
+
+    #[test]
+    fn mode_size_preserves_unscaled_dimensions() {
+        let mode = ModeState {
+            width: Some(2880),
+            height: Some(1800),
+            ..Default::default()
+        };
+
+        assert_eq!(mode_size(&mode, Transform::Normal), Some((2880, 1800)));
+    }
+
+    #[test]
+    fn mode_size_preserves_current_rotation_behavior() {
+        let mode = ModeState {
+            width: Some(2880),
+            height: Some(1800),
+            ..Default::default()
+        };
+
+        assert_eq!(mode_size(&mode, Transform::Rotate90), Some((1800, 2880)));
     }
 }

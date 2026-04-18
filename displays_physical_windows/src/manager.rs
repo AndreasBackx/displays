@@ -128,7 +128,6 @@ impl PhysicalDisplayManager {
                     id,
                     PhysicalDisplayState {
                         brightness: Some(monitor_info.monitor.get_brightness()?),
-                        scale_factor: monitor_info.monitor.get_scale_factor()?,
                     },
                 ))
             })

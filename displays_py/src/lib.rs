@@ -1,4 +1,4 @@
-use display::{Display, LogicalDisplay, PhysicalDisplay};
+use display::{Display, LogicalDisplay, PhysicalDisplay, Size};
 use display_identifier::DisplayIdentifier;
 use display_match::DisplayMatch;
 use display_update::{DisplayUpdate, LogicalDisplayUpdateContent, PhysicalDisplayUpdateContent};
@@ -91,5 +91,6 @@ fn displays(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PhysicalDisplay>()?;
     m.add_class::<Orientation>()?;
     m.add_class::<Point>()?;
+    m.add_class::<Size>()?;
     Ok(())
 }

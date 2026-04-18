@@ -71,13 +71,19 @@ fn fake_displays() -> Vec<DisplayData> {
             logical: LogicalDisplayData {
                 is_enabled: true,
                 orientation: Orientation::Landscape,
-                width: Some(3840),
-                height: Some(2160),
+                logical_size: Some(SizeData {
+                    width: 3840,
+                    height: 2160,
+                }),
+                mode_size: Some(SizeData {
+                    width: 3840,
+                    height: 2160,
+                }),
+                scale_ratio_milli: Some(1000),
                 position: Some(PointData { x: 0, y: 0 }),
             },
             physical: Some(PhysicalDisplayData {
                 brightness: Some(62),
-                scale_factor: 150,
             }),
         },
         DisplayData {
@@ -88,13 +94,19 @@ fn fake_displays() -> Vec<DisplayData> {
             logical: LogicalDisplayData {
                 is_enabled: true,
                 orientation: Orientation::Portrait,
-                width: Some(1440),
-                height: Some(2560),
+                logical_size: Some(SizeData {
+                    width: 1440,
+                    height: 2560,
+                }),
+                mode_size: Some(SizeData {
+                    width: 1440,
+                    height: 2560,
+                }),
+                scale_ratio_milli: Some(1000),
                 position: Some(PointData { x: 3840, y: 0 }),
             },
             physical: Some(PhysicalDisplayData {
                 brightness: Some(47),
-                scale_factor: 100,
             }),
         },
         DisplayData {
@@ -105,8 +117,15 @@ fn fake_displays() -> Vec<DisplayData> {
             logical: LogicalDisplayData {
                 is_enabled: false,
                 orientation: Orientation::LandscapeFlipped,
-                width: Some(1920),
-                height: Some(1080),
+                logical_size: Some(SizeData {
+                    width: 1920,
+                    height: 1080,
+                }),
+                mode_size: Some(SizeData {
+                    width: 1920,
+                    height: 1080,
+                }),
+                scale_ratio_milli: Some(1000),
                 position: Some(PointData { x: -1920, y: 0 }),
             },
             physical: None,

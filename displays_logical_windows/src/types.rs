@@ -2,7 +2,9 @@ use displays_logical_types::{
     LogicalDisplay, LogicalDisplayMetadata, LogicalDisplayState, LogicalDisplayUpdate,
     LogicalDisplayUpdateContent,
 };
-use displays_types::{DisplayIdentifier, DisplayIdentifierInner, Orientation, PixelFormat, Point};
+use displays_types::{
+    DisplayIdentifier, DisplayIdentifierInner, Orientation, PixelFormat, Point, Size,
+};
 use tracing::instrument;
 use windows::Win32::{
     Devices::Display::{
@@ -57,8 +59,17 @@ impl TryFrom<&PathInfo> for LogicalDisplay {
         if let Some(mode_source) = path_info.mode_source {
             let source_mode = unsafe { mode_source.Anonymous.sourceMode };
 
-            logical_display.state.width = Some(source_mode.width);
-            logical_display.state.height = Some(source_mode.height);
+            logical_display.state.logical_size = Some(Size {
+                width: source_mode.width,
+                height: source_mode.height,
+            });
+            logical_display.state.mode_size = Some(Size {
+                width: source_mode.width,
+                height: source_mode.height,
+            });
+            // TODO: Populate Windows scale from logical display APIs instead of using
+            // the default 1.0x ratio.
+            logical_display.state.scale_ratio_milli = Some(1000);
             logical_display.state.pixel_format = Some((&source_mode.pixelFormat).into());
             logical_display.state.position = Some((&source_mode.position).into());
 

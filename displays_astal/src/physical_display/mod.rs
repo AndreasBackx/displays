@@ -18,7 +18,6 @@ impl PhysicalDisplay {
         Object::builder()
             .property("has-brightness", value.brightness.is_some())
             .property("brightness", value.brightness.unwrap_or_default())
-            .property("scale-factor", value.scale_factor)
             .build()
     }
 }

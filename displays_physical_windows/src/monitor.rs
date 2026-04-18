@@ -5,7 +5,6 @@ use windows::Win32::{
         GetNumberOfPhysicalMonitorsFromHMONITOR, GetPhysicalMonitorsFromHMONITOR, PHYSICAL_MONITOR,
     },
     Graphics::Gdi::HMONITOR,
-    UI::Shell::GetScaleFactorForMonitor,
 };
 
 use crate::{error::ApplyError, physical_monitor::PhysicalMonitor};
@@ -57,11 +56,5 @@ impl Monitor {
         let physical_monitor = physical_monitors[0];
         physical_monitor.set_brightness(brightness)?;
         Ok(())
-    }
-
-    pub(crate) fn get_scale_factor(&self) -> Result<i32, WindowsError> {
-        let scale = unsafe { GetScaleFactorForMonitor(self.0) }?;
-
-        Ok(scale.0)
     }
 }

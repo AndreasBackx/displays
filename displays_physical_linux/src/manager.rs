@@ -210,7 +210,6 @@ fn backlight_handle_from_device(device: Device) -> Result<DisplayHandle, QueryEr
         },
         state: PhysicalDisplayState {
             brightness: Some(Brightness::new(device.state.brightness_percent)),
-            scale_factor: 100,
         },
         backend: Backend::Backlight { path },
     })

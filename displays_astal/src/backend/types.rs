@@ -40,6 +40,12 @@ pub struct PointData {
     pub y: i32,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub struct SizeData {
+    pub width: u32,
+    pub height: u32,
+}
+
 impl From<PointData> for displays::types::Point {
     fn from(value: PointData) -> Self {
         Self {
@@ -58,12 +64,31 @@ impl From<displays::types::Point> for PointData {
     }
 }
 
+impl From<SizeData> for displays::types::Size {
+    fn from(value: SizeData) -> Self {
+        Self {
+            width: value.width,
+            height: value.height,
+        }
+    }
+}
+
+impl From<displays::types::Size> for SizeData {
+    fn from(value: displays::types::Size) -> Self {
+        Self {
+            width: value.width,
+            height: value.height,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct LogicalDisplayData {
     pub is_enabled: bool,
     pub orientation: Orientation,
-    pub width: Option<u32>,
-    pub height: Option<u32>,
+    pub logical_size: Option<SizeData>,
+    pub mode_size: Option<SizeData>,
+    pub scale_ratio_milli: Option<u32>,
     pub position: Option<PointData>,
 }
 
@@ -72,8 +97,9 @@ impl From<displays::logical_display::LogicalDisplay> for LogicalDisplayData {
         Self {
             is_enabled: value.state.is_enabled,
             orientation: value.state.orientation.into(),
-            width: value.state.width,
-            height: value.state.height,
+            logical_size: value.state.logical_size.map(Into::into),
+            mode_size: value.state.mode_size.map(Into::into),
+            scale_ratio_milli: value.state.scale_ratio_milli,
             position: value.state.position.map(Into::into),
         }
     }
@@ -84,8 +110,9 @@ impl From<&displays::logical_display::LogicalDisplay> for LogicalDisplayData {
         Self {
             is_enabled: value.state.is_enabled,
             orientation: value.state.orientation.clone().into(),
-            width: value.state.width,
-            height: value.state.height,
+            logical_size: value.state.logical_size.clone().map(Into::into),
+            mode_size: value.state.mode_size.clone().map(Into::into),
+            scale_ratio_milli: value.state.scale_ratio_milli,
             position: value.state.position.clone().map(Into::into),
         }
     }
@@ -94,7 +121,6 @@ impl From<&displays::logical_display::LogicalDisplay> for LogicalDisplayData {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PhysicalDisplayData {
     pub brightness: Option<u32>,
-    pub scale_factor: i32,
 }
 
 impl From<displays::physical_display::PhysicalDisplay> for PhysicalDisplayData {
@@ -104,7 +130,6 @@ impl From<displays::physical_display::PhysicalDisplay> for PhysicalDisplayData {
                 .state
                 .brightness
                 .map(|brightness| brightness.value() as u32),
-            scale_factor: value.state.scale_factor,
         }
     }
 }
@@ -117,7 +142,6 @@ impl From<&displays::physical_display::PhysicalDisplay> for PhysicalDisplayData 
                 .brightness
                 .as_ref()
                 .map(|brightness| brightness.value() as u32),
-            scale_factor: value.state.scale_factor,
         }
     }
 }

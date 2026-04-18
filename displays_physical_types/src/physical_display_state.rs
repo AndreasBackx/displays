@@ -5,6 +5,4 @@ use displays_types::Brightness;
 pub struct PhysicalDisplayState {
     /// Current brightness percentage when supported.
     pub brightness: Option<Brightness>,
-    /// Current OS scale factor percentage.
-    pub scale_factor: i32,
 }

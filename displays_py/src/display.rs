@@ -137,8 +137,6 @@ impl From<lib::types::Point> for Point {
 pub struct PhysicalDisplay {
     #[pyo3(get)]
     brightness: Option<u8>,
-    #[pyo3(get)]
-    scale_factor: i32,
 }
 
 #[pymethods]
@@ -171,8 +169,9 @@ impl From<lib::display::Display> for Display {
             logical: LogicalDisplay {
                 is_enabled: value.logical.state.is_enabled,
                 orientation: value.logical.state.orientation.into(),
-                height: value.logical.state.height,
-                width: value.logical.state.width,
+                logical_size: value.logical.state.logical_size.map(Into::into),
+                mode_size: value.logical.state.mode_size.map(Into::into),
+                scale_ratio_milli: value.logical.state.scale_ratio_milli,
                 position: value.logical.state.position.map(|point| point.into()),
             },
             physical: value.physical.map(|physical| PhysicalDisplay {
@@ -180,7 +179,6 @@ impl From<lib::display::Display> for Display {
                     .state
                     .brightness
                     .map(|brightness| brightness.value()),
-                scale_factor: physical.state.scale_factor,
             }),
         }
     }
@@ -210,16 +208,33 @@ impl PhysicalDisplay {
     }
 }
 
+#[pymethods]
+impl Size {
+    pub fn __repr__(&self) -> String {
+        format!("{self}")
+    }
+}
+
 impl std::fmt::Display for PhysicalDisplay {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "PhysicalDisplay(brightness={brightness}, scale_factor={scale_factor})",
+            "PhysicalDisplay(brightness={brightness})",
             brightness = self
                 .brightness
                 .map(|value| value.to_string())
                 .unwrap_or_else(|| "None".to_string()),
-            scale_factor = self.scale_factor,
+        )
+    }
+}
+
+impl std::fmt::Display for Size {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Size(width={width}, height={height})",
+            width = self.width,
+            height = self.height
         )
     }
 }

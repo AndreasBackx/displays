@@ -9,8 +9,6 @@ pub struct PhysicalDisplay {
     pub has_brightness: Cell<bool>,
     #[property(get, set, construct_only)]
     pub brightness: Cell<u32>,
-    #[property(get, set, construct_only)]
-    pub scale_factor: Cell<i32>,
 }
 
 #[glib::object_subclass]
