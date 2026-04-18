@@ -86,10 +86,13 @@ impl Command for QueryCommand {
                     "    Mode Size: {}\n",
                     "    Scale: {}\n",
                     "    Pixel Format: {}\n",
-                    "    Position: {}\n",
+                    "    Mode Position: {}\n",
+                    "    Logical Position: {}\n",
                     "  Physical:\n",
                     "    Name: {}\n",
                     "    Path: {}\n",
+                    "    Manufacturer: {}\n",
+                    "    Model: {}\n",
                     "    Serial: {}\n",
                     "    Brightness: {}\n"
                 ),
@@ -118,12 +121,19 @@ impl Command for QueryCommand {
                 format_size(display.logical.state.mode_size.as_ref()),
                 format_scale_ratio(display.logical.state.scale_ratio_milli),
                 format_optional(display.logical.state.pixel_format),
-                format_point(display.logical.state.position.as_ref()),
+                format_point(display.logical.state.mode_position.as_ref()),
+                format_point(display.logical.state.logical_position.as_ref()),
                 physical
                     .map(|physical| physical.metadata.name.clone())
                     .unwrap_or_else(|| "unavailable".to_string()),
                 physical
                     .map(|physical| physical.metadata.path.clone())
+                    .unwrap_or_else(|| "unavailable".to_string()),
+                physical
+                    .and_then(|physical| physical.metadata.manufacturer.clone())
+                    .unwrap_or_else(|| "unavailable".to_string()),
+                physical
+                    .and_then(|physical| physical.metadata.model.clone())
                     .unwrap_or_else(|| "unavailable".to_string()),
                 physical
                     .map(|physical| physical.metadata.serial_number.clone())

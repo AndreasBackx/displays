@@ -206,6 +206,8 @@ fn backlight_handle_from_device(device: Device) -> Result<DisplayHandle, QueryEr
         metadata: PhysicalDisplayMetadata {
             path: path.clone(),
             name,
+            manufacturer: None,
+            model: None,
             serial_number: String::new(),
         },
         state: PhysicalDisplayState {

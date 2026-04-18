@@ -18,8 +18,10 @@ use crate::{
     error::{ApplyError, QueryError},
     monitor::Monitor,
     monitor_info::MonitorInfo,
-    types::{physical_display_id, PhysicalDisplayMetadata, PhysicalDisplayState},
+    types::{physical_display_id, physical_display_metadata_from_edid},
 };
+use displays_logical_windows::QueryError as LogicalQueryError;
+use displays_physical_types::{PhysicalDisplayMetadata, PhysicalDisplayState};
 
 #[derive(Clone)]
 pub struct PhysicalDisplayManager {}
@@ -27,7 +29,12 @@ pub struct PhysicalDisplayManager {}
 impl PhysicalDisplayManager {
     #[tracing::instrument(ret, level = "trace")]
     pub fn query() -> Result<Vec<PhysicalDisplay>, QueryError> {
-        let logical_displays: Vec<_> = LogicalDisplayManager::query()?.into_iter().collect();
+        let logical_displays: Vec<_> = LogicalDisplayManager::query()
+            .map_err(|err| match err {
+                LogicalQueryError::WindowsError { source } => QueryError::WindowsError { source },
+            })?
+            .into_iter()
+            .collect();
         let metadatas = Self::metadata()?;
         let ids = metadatas
             .iter()
@@ -104,7 +111,7 @@ impl PhysicalDisplayManager {
                         key: format!("{display_key_path}\\{model_id}\\{instance_id}"),
                     })?;
                     let path = format!(r"\\?\DISPLAY#{model_id}#{instance_id}");
-                    if let Ok(physical_display) = (path, edid).try_into() {
+                    if let Ok(physical_display) = physical_display_metadata_from_edid(path, edid) {
                         physical_displays.push(physical_display);
                     }
                 }

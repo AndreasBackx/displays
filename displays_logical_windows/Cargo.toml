@@ -18,6 +18,7 @@ windows = { version = "0.61.3", features = [
     "Win32_Foundation",
     "Win32_Graphics",
     "Win32_Graphics_Gdi",
+    "Win32_UI_Shell",
     "Win32_UI_Shell_Common",
 ] }
 displays_windows_common = { path = "../displays_windows_common" }

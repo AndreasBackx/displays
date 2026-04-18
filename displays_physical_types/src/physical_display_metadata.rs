@@ -5,6 +5,10 @@ pub struct PhysicalDisplayMetadata {
     pub path: String,
     /// Human-readable monitor name.
     pub name: String,
+    /// Monitor manufacturer when available.
+    pub manufacturer: Option<String>,
+    /// Monitor model when available.
+    pub model: Option<String>,
     /// Monitor serial number.
     pub serial_number: String,
 }

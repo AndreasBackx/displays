@@ -280,7 +280,8 @@ impl Snapshot {
                 mode_size,
                 scale_ratio_milli: head.scale_milli,
                 pixel_format: None,
-                position: match (head.x, head.y) {
+                mode_position: None,
+                logical_position: match (head.x, head.y) {
                     (Some(x), Some(y)) => Some(Point { x, y }),
                     _ => None,
                 },

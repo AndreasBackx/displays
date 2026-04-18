@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use windows::Win32::{
     Devices::Display::{
@@ -12,8 +12,9 @@ use windows::Win32::{
 
 use crate::{
     error::{ApplyError, QueryError},
-    types::{LogicalDisplay, LogicalDisplayUpdate},
+    types::{logical_display_from_path_info, logical_display_matches},
 };
+use displays_logical_types::{LogicalDisplay, LogicalDisplayUpdate};
 use displays_windows_common::error::WindowsError;
 
 #[derive(Clone)]
@@ -32,27 +33,23 @@ impl LogicalDisplayManager {
             .get_path_infos()
             .infos
             .iter()
-            .map(|path_info| -> Result<_, _> { path_info.try_into() })
+            .map(|path_info| logical_display_from_path_info(path_info))
             .filter_map(|path| path.ok())
             .collect();
 
-        let (enabled_displays, disabled_displays): (BTreeSet<_>, BTreeSet<_>) = logical_displays
-            .into_iter()
-            .partition(|display| display.state.is_enabled);
+        let mut deduped: BTreeMap<String, LogicalDisplay> = BTreeMap::new();
+        for display in logical_displays {
+            deduped
+                .entry(display.metadata.path.clone())
+                .and_modify(|existing| {
+                    if display_rank(&display) > display_rank(existing) {
+                        *existing = display.clone();
+                    }
+                })
+                .or_insert(display);
+        }
 
-        let only_disabled_displays: BTreeSet<_> = disabled_displays
-            .into_iter()
-            .filter(|disabled_display| {
-                !enabled_displays
-                    .iter()
-                    .any(|enabled_display| enabled_display.metadata == disabled_display.metadata)
-            })
-            .collect();
-
-        let mut unique_configs = enabled_displays;
-        unique_configs.extend(only_disabled_displays);
-
-        Ok(unique_configs)
+        Ok(deduped.into_values().collect())
     }
 
     pub fn apply(
@@ -70,13 +67,13 @@ impl LogicalDisplayManager {
         let all_path_infos = display_config.get_path_infos();
 
         for mut path_info in all_path_infos.infos.clone() {
-            let Ok(logical_display): Result<LogicalDisplay, _> = (&path_info).try_into() else {
+            let Ok(logical_display) = logical_display_from_path_info(&path_info) else {
                 continue;
             };
 
             let Some((matching_update, matching_index)) = remaining_updates
                 .iter()
-                .position(|update| logical_display.matches(&update.id))
+                .position(|update| logical_display_matches(&logical_display, &update.id))
                 .and_then(|index| {
                     remaining_updates
                         .get(index)
@@ -150,6 +147,23 @@ impl LogicalDisplayManager {
 
         Ok(remaining_updates)
     }
+}
+
+fn display_rank(display: &LogicalDisplay) -> (bool, usize) {
+    (
+        display.state.is_enabled,
+        [
+        display.state.logical_size.is_some(),
+        display.state.mode_size.is_some(),
+        display.state.scale_ratio_milli.is_some(),
+        display.state.pixel_format.is_some(),
+        display.state.mode_position.is_some(),
+        display.state.logical_position.is_some(),
+    ]
+        .into_iter()
+        .filter(|present| *present)
+        .count(),
+    )
 }
 
 pub(crate) struct PathInfos {

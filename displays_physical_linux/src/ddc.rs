@@ -163,6 +163,8 @@ fn metadata_from_info(info: &DisplayInfo) -> PhysicalDisplayMetadata {
     PhysicalDisplayMetadata {
         path: info.id.clone(),
         name,
+        manufacturer: None,
+        model: None,
         serial_number,
     }
 }

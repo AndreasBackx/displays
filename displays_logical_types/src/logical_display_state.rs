@@ -15,6 +15,8 @@ pub struct LogicalDisplayState {
     pub scale_ratio_milli: Option<u32>,
     /// Current pixel format when known.
     pub pixel_format: Option<PixelFormat>,
-    /// Current top-left position when known.
-    pub position: Option<Point>,
+    /// Current top-left position in physical pixels when known.
+    pub mode_position: Option<Point>,
+    /// Current top-left position in logical pixels when known.
+    pub logical_position: Option<Point>,
 }
