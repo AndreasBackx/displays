@@ -39,7 +39,9 @@ pub(crate) fn physical_display_metadata_from_edid(
         })
         .nth(0)
         .cloned()
-        .or_else(|| (edid.product.serial_number != 0).then(|| edid.product.serial_number.to_string()));
+        .or_else(|| {
+            (edid.product.serial_number != 0).then(|| edid.product.serial_number.to_string())
+        });
     Ok(PhysicalDisplayMetadata {
         path,
         name,

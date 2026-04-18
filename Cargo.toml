@@ -1,22 +1,21 @@
 [workspace]
 resolver = "2"
 members = [
-    "displays_types",
-    "displays_logical_types",
-    "displays_logical_linux",
-    "displays_physical_types",
-    "displays_physical_linux_sys",
-    "displays_physical_linux_logind",
-    "displays_physical_linux",
-    "displays_windows_common",
-    "displays_physical_windows",
-    "displays_logical_windows",
-    "displays",
-    "displays_py",
-    "displays_astal",
-    "examples/cli",
+  "displays_types",
+  "displays_logical_types",
+  "displays_logical_linux",
+  "displays_physical_types",
+  "displays_physical_linux_sys",
+  "displays_physical_linux_logind",
+  "displays_physical_linux",
+  "displays_windows_common",
+  "displays_physical_windows",
+  "displays_logical_windows",
+  "displays",
+  "displays_py",
+  "displays_astal",
+  "examples/cli",
 ]
 
 [patch.crates-io]
-ddc-hi = { path = "/home/andreas/dev/ddc-hi-rs" }
-ddc-i2c = { path = "/home/andreas/dev/ddc-i2c-rs" }
+ddc-i2c = { git = "https://github.com/AndreasBackx/ddc-i2c-rs.git", branch = "fix/lower-buffer-size" }

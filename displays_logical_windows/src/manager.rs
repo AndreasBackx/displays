@@ -153,13 +153,13 @@ fn display_rank(display: &LogicalDisplay) -> (bool, usize) {
     (
         display.state.is_enabled,
         [
-        display.state.logical_size.is_some(),
-        display.state.mode_size.is_some(),
-        display.state.scale_ratio_milli.is_some(),
-        display.state.pixel_format.is_some(),
-        display.state.mode_position.is_some(),
-        display.state.logical_position.is_some(),
-    ]
+            display.state.logical_size.is_some(),
+            display.state.mode_size.is_some(),
+            display.state.scale_ratio_milli.is_some(),
+            display.state.pixel_format.is_some(),
+            display.state.mode_position.is_some(),
+            display.state.logical_position.is_some(),
+        ]
         .into_iter()
         .filter(|present| *present)
         .count(),

@@ -1,10 +1,13 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use displays_physical_types::PhysicalDisplayMetadata;
 use ddc_hi::{Backend, DisplayInfo};
+use displays_physical_types::PhysicalDisplayMetadata;
 
-pub(crate) fn metadata_from_backlight_path(path: &str, fallback_name: &str) -> Option<PhysicalDisplayMetadata> {
+pub(crate) fn metadata_from_backlight_path(
+    path: &str,
+    fallback_name: &str,
+) -> Option<PhysicalDisplayMetadata> {
     let edid_path = drm_connector_dir_from_backlight_path(Path::new(path))?.join("edid");
     let bytes = fs::read(edid_path).ok()?;
     metadata_from_edid_bytes(path.to_string(), fallback_name.to_string(), &bytes)
@@ -37,10 +40,11 @@ fn metadata_from_info(
         .model_name
         .clone()
         .or_else(|| info.model_id.map(|model_id| format!("0x{model_id:04X}")));
-    let serial_number = info
-        .serial_number
-        .clone()
-        .or_else(|| info.serial.filter(|serial| *serial != 0).map(|serial| serial.to_string()));
+    let serial_number = info.serial_number.clone().or_else(|| {
+        info.serial
+            .filter(|serial| *serial != 0)
+            .map(|serial| serial.to_string())
+    });
     let name = info.model_name.unwrap_or(fallback_name);
 
     PhysicalDisplayMetadata {
@@ -58,13 +62,15 @@ mod tests {
     use std::fs;
     use std::path::{Path, PathBuf};
 
-    use super::{drm_connector_dir_from_backlight_path, metadata_from_backlight_path, metadata_from_edid_bytes};
+    use super::{
+        drm_connector_dir_from_backlight_path, metadata_from_backlight_path,
+        metadata_from_edid_bytes,
+    };
 
     #[test]
     fn extracts_drm_connector_dir_from_backlight_path() {
-        let path = Path::new(
-            "/sys/devices/pci0000:00/0000:00:02.0/drm/card0/card0-eDP-1/intel_backlight",
-        );
+        let path =
+            Path::new("/sys/devices/pci0000:00/0000:00:02.0/drm/card0/card0-eDP-1/intel_backlight");
 
         assert_eq!(
             drm_connector_dir_from_backlight_path(path),
@@ -148,7 +154,10 @@ mod tests {
             };
         }
 
-        assert!(parsed > 0, "expected to parse at least one EDID corpus file");
+        assert!(
+            parsed > 0,
+            "expected to parse at least one EDID corpus file"
+        );
         assert!(
             decode_failures.is_empty(),
             "expected no EDID corpus decode failures, these failed {decode_failures:#?}"
@@ -173,20 +182,25 @@ mod tests {
                 continue;
             }
 
-            if path.file_name().and_then(|file_name| file_name.to_str()).is_some_and(is_corpus_file_name) {
+            if path
+                .file_name()
+                .and_then(|file_name| file_name.to_str())
+                .is_some_and(is_corpus_file_name)
+            {
                 files.push(path);
             }
         }
     }
 
     fn is_corpus_file_name(file_name: &str) -> bool {
-        file_name.len() == 12 && file_name.chars().all(|character| character.is_ascii_hexdigit())
+        file_name.len() == 12
+            && file_name
+                .chars()
+                .all(|character| character.is_ascii_hexdigit())
     }
 
     fn relative_corpus_path(corpus_root: &Path, path: &Path) -> PathBuf {
-        path.strip_prefix(corpus_root)
-            .unwrap_or(path)
-            .to_path_buf()
+        path.strip_prefix(corpus_root).unwrap_or(path).to_path_buf()
     }
 
     enum CorpusEdidDecode {
@@ -211,7 +225,10 @@ mod tests {
                 continue;
             }
 
-            if trimmed.chars().all(|character| character.is_ascii_hexdigit() || character == ' ') {
+            if trimmed
+                .chars()
+                .all(|character| character.is_ascii_hexdigit() || character == ' ')
+            {
                 for chunk in trimmed.split_whitespace() {
                     bytes.push(u8::from_str_radix(chunk, 16).ok()?);
                 }

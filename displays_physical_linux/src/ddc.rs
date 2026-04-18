@@ -158,10 +158,11 @@ fn metadata_from_info(info: &DisplayInfo) -> PhysicalDisplayMetadata {
         .clone()
         .unwrap_or_else(|| format!("Display {}", info.id));
 
-    let serial_number = info
-        .serial_number
-        .clone()
-        .or_else(|| info.serial.filter(|serial| *serial != 0).map(|serial| serial.to_string()));
+    let serial_number = info.serial_number.clone().or_else(|| {
+        info.serial
+            .filter(|serial| *serial != 0)
+            .map(|serial| serial.to_string())
+    });
 
     PhysicalDisplayMetadata {
         path: info.id.clone(),

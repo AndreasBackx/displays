@@ -252,8 +252,9 @@ fn take_matching_physical_display(
         normalized_present_value(logical.metadata.serial_number.as_deref())
     {
         if let Some(index) = unique_match_index(remaining_physical, |physical| {
-            normalized_present_value(physical.metadata.serial_number.as_deref())
-                .is_some_and(|physical_serial_number| physical_serial_number == logical_serial_number)
+            normalized_present_value(physical.metadata.serial_number.as_deref()).is_some_and(
+                |physical_serial_number| physical_serial_number == logical_serial_number,
+            )
         }) {
             return Some(remaining_physical.remove(index));
         }
@@ -283,11 +284,9 @@ fn take_matching_physical_display(
     if let Some(index) = unique_match_index(remaining_physical, |physical| {
         let physical_name_candidates = physical_name_candidates(physical);
         name_candidates.iter().any(|logical_candidate| {
-            physical_name_candidates
-                .iter()
-                .any(|physical_candidate| {
-                    normalized_name(physical_candidate) == normalized_name(logical_candidate)
-                })
+            physical_name_candidates.iter().any(|physical_candidate| {
+                normalized_name(physical_candidate) == normalized_name(logical_candidate)
+            })
         })
     }) {
         return Some(remaining_physical.remove(index));

@@ -4,15 +4,15 @@ use tracing::instrument;
 use windows::{
     core::BOOL,
     Win32::{
-        Foundation::{LPARAM, RECT},
-    Devices::Display::{
-        DisplayConfigGetDeviceInfo, DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME,
-        DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME, DISPLAYCONFIG_PATH_INFO,
-        DISPLAYCONFIG_SOURCE_DEVICE_NAME, DISPLAYCONFIG_TARGET_DEVICE_NAME,
-    },
+        Devices::Display::{
+            DisplayConfigGetDeviceInfo, DISPLAYCONFIG_DEVICE_INFO_GET_SOURCE_NAME,
+            DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_NAME, DISPLAYCONFIG_PATH_INFO,
+            DISPLAYCONFIG_SOURCE_DEVICE_NAME, DISPLAYCONFIG_TARGET_DEVICE_NAME,
+        },
         Foundation::WIN32_ERROR,
+        Foundation::{LPARAM, RECT},
         Graphics::Gdi::{
-            DISPLAYCONFIG_PATH_ACTIVE, EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR,
+            EnumDisplayMonitors, GetMonitorInfoW, DISPLAYCONFIG_PATH_ACTIVE, HDC, HMONITOR,
             MONITORINFO, MONITORINFOEXW,
         },
         UI::Shell::GetScaleFactorForMonitor,
@@ -22,7 +22,10 @@ use windows::{
 use crate::manager::PathInfo;
 use displays_windows_common::{error::WindowsError, utils, utils::try_utf16_cstring};
 
-pub(crate) fn logical_display_matches(display: &LogicalDisplay, id: &DisplayIdentifierInner) -> bool {
+pub(crate) fn logical_display_matches(
+    display: &LogicalDisplay,
+    id: &DisplayIdentifierInner,
+) -> bool {
     if let Some(ref name) = id.outer.name {
         if !display.metadata.name.starts_with(name) {
             return false;
@@ -38,7 +41,9 @@ pub(crate) fn logical_display_matches(display: &LogicalDisplay, id: &DisplayIden
     true
 }
 
-pub(crate) fn logical_display_from_path_info(path_info: &PathInfo) -> Result<LogicalDisplay, WindowsError> {
+pub(crate) fn logical_display_from_path_info(
+    path_info: &PathInfo,
+) -> Result<LogicalDisplay, WindowsError> {
     let mut logical_display = logical_display_from_path(&path_info.path)?;
 
     if let Some(mode_source) = path_info.mode_source {
@@ -53,7 +58,8 @@ pub(crate) fn logical_display_from_path_info(path_info: &PathInfo) -> Result<Log
             height: source_mode.height,
         };
 
-        logical_display.state.logical_size = Some(logical_size_from_mode_size(&mode_size, scale_ratio_milli));
+        logical_display.state.logical_size =
+            Some(logical_size_from_mode_size(&mode_size, scale_ratio_milli));
         logical_display.state.mode_size = Some(mode_size);
         logical_display.state.scale_ratio_milli = scale_ratio_milli;
         logical_display.state.pixel_format = Some((&source_mode.pixelFormat).into());
@@ -66,7 +72,9 @@ pub(crate) fn logical_display_from_path_info(path_info: &PathInfo) -> Result<Log
     Ok(logical_display)
 }
 
-fn logical_display_from_path(path: &DISPLAYCONFIG_PATH_INFO) -> Result<LogicalDisplay, WindowsError> {
+fn logical_display_from_path(
+    path: &DISPLAYCONFIG_PATH_INFO,
+) -> Result<LogicalDisplay, WindowsError> {
     let is_enabled = path.flags & DISPLAYCONFIG_PATH_ACTIVE == DISPLAYCONFIG_PATH_ACTIVE;
     let orientation = (&path.targetInfo.rotation).into();
 
@@ -91,7 +99,8 @@ fn logical_display_from_path(path: &DISPLAYCONFIG_PATH_INFO) -> Result<LogicalDi
     WIN32_ERROR(unsafe { DisplayConfigGetDeviceInfo(&mut source_device_name.header) } as u32)
         .ok()?;
 
-    let metadata = logical_display_metadata_from_device_names(target_device_name, source_device_name)?;
+    let metadata =
+        logical_display_metadata_from_device_names(target_device_name, source_device_name)?;
     Ok(LogicalDisplay {
         metadata,
         state: LogicalDisplayState {
@@ -135,7 +144,9 @@ fn logical_display_metadata_from_device_names(
 
     if name.is_empty() || path.is_empty() {
         return Err(WindowsError::Other {
-            message: format!("monitorFriendlyDeviceName ({name}) or monitorDevicePath ({path}) empty"),
+            message: format!(
+                "monitorFriendlyDeviceName ({name}) or monitorDevicePath ({path}) empty"
+            ),
         });
     }
 
@@ -166,7 +177,9 @@ fn scaled_dimension(value: u32, scale_ratio_milli: u32) -> u32 {
         .unwrap_or(value as u64) as u32
 }
 
-fn scale_ratio_milli_for_gdi_device_id(gdi_device_id: Option<u32>) -> Result<Option<u32>, WindowsError> {
+fn scale_ratio_milli_for_gdi_device_id(
+    gdi_device_id: Option<u32>,
+) -> Result<Option<u32>, WindowsError> {
     let Some(gdi_device_id) = gdi_device_id else {
         return Ok(None);
     };

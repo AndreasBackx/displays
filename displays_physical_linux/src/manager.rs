@@ -202,13 +202,14 @@ impl PhysicalDisplayManager {
 fn backlight_handle_from_device(device: Device) -> Result<DisplayHandle, QueryError> {
     let path = device.metadata.path;
     let name = device.metadata.id;
-    let metadata = edid::metadata_from_backlight_path(&path, &name).unwrap_or(PhysicalDisplayMetadata {
-        path: path.clone(),
-        name,
-        manufacturer: None,
-        model: None,
-        serial_number: None,
-    });
+    let metadata =
+        edid::metadata_from_backlight_path(&path, &name).unwrap_or(PhysicalDisplayMetadata {
+            path: path.clone(),
+            name,
+            manufacturer: None,
+            model: None,
+            serial_number: None,
+        });
 
     Ok(DisplayHandle {
         metadata,
