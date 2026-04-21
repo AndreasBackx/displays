@@ -9,7 +9,7 @@ rust-version.workspace = true
 description = "Linux logical display querying support for the displays crate"
 documentation = "https://docs.rs/displays_logical_linux"
 readme = "README.md"
-keywords = ["display", "linux", "wayland", "wlroots", "wlr-output-management"]
+keywords = ["display", "linux", "wayland", "wlroots"]
 categories = ["hardware-support", "os::linux-apis"]
 
 [lib]

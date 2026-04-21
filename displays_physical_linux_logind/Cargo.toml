@@ -19,4 +19,4 @@ path = "src/lib.rs"
 [dependencies]
 dbus = "0.9.7"
 thiserror = "2.0.17"
-displays_physical_linux_sys = "0.1.0"
+displays_physical_linux_sys = { version = "0.1.0", path = "../displays_physical_linux_sys" }
