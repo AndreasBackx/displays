@@ -1,1 +1,1 @@
-See the project root `README.md` for the overall API and crate graph.
+See the `displays` crate for the main cross-platform API and the workspace crate graph.

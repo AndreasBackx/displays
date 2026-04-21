@@ -2,4 +2,4 @@
 
 It builds on the lower-level `displays_*` crates in this workspace and is the main entry point most users should start with.
 
-See the project root `README.md` for the workspace overview, dependency graph, platform support matrix, and usage examples.
+This crate is the main Rust API for the workspace and the entry point most users should use.

@@ -4,8 +4,6 @@ Domain-specific type crates build on top of it: `displays_logical_types` for log
 
 Most users should start with the top-level `displays` crate instead of depending on this crate directly.
 
-See the project root `README.md` for the overall API and dependency graph.
-
 ```text
                  +------------------------+
                  |     displays_types     |

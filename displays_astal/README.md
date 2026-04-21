@@ -8,8 +8,7 @@ Astal/GI library for display control, implemented in Rust.
 from GJS and TypeScript while delegating the actual display work to the Rust
 `displays` crate.
 
-See the project root `README.md` for the overall crate graph and the main
-cross-platform Rust API.
+For the main cross-platform Rust API, start with the `displays` crate.
 
 ## Backend Selection
 

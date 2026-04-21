@@ -7,7 +7,7 @@ brightness devices exposed through sysfs.
 
 It is also the lowest-level Linux physical brightness backend used by the higher-level `displays` crate.
 
-See the project root `README.md` for the overall workspace layout and start with `displays` unless you need direct sysfs access.
+Start with the `displays` crate unless you need direct sysfs access.
 
 It currently works with devices under:
 
