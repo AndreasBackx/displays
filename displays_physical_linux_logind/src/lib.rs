@@ -1,5 +1,5 @@
 #![warn(missing_docs)]
-//! Linux brightness updates through the systemd-logind DBus API.
+#![doc = include_str!("../docs/crate.md")]
 
 mod error;
 mod manager;

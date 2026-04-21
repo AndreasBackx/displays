@@ -1,7 +1,3 @@
-<!-- This file is generated from crate docs with cargo-readme. Do not edit directly. -->
-
-# displays_physical_linux_sys
-
 `displays_physical_linux_sys` is a small Rust library for querying and updating Linux
 brightness devices exposed through sysfs.
 
@@ -109,7 +105,7 @@ kernel's available brightness-capable devices through one API.
 
 ## Usage
 
-```rust
+```rust,no_run
 use std::collections::BTreeSet;
 
 use displays_physical_linux_sys::{

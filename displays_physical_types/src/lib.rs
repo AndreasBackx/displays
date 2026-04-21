@@ -1,4 +1,4 @@
-//! Shared physical display data types used across platform backends.
+#![doc = include_str!("../docs/crate.md")]
 
 mod physical_display;
 mod physical_display_metadata;

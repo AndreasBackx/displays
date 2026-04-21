@@ -1,3 +1,5 @@
+#![doc = include_str!("../docs/crate.md")]
+
 mod brightness;
 mod display_identifier;
 mod orientation;

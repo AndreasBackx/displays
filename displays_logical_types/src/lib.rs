@@ -1,3 +1,5 @@
+#![doc = include_str!("../docs/crate.md")]
+
 mod logical_display;
 mod logical_display_metadata;
 mod logical_display_state;

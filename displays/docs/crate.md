@@ -1,7 +1,3 @@
-<!-- This file is generated from crate docs with cargo-readme. Do not edit directly. -->
-
-# displays
-
 `displays` is the high-level crate for querying and updating logical and physical display state on Linux and Windows.
 
 It builds on the lower-level `displays_*` crates in this workspace and is the main entry point most users should start with.

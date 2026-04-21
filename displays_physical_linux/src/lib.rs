@@ -1,5 +1,5 @@
 #![warn(missing_docs)]
-//! Linux physical display facade combining DDC, sysfs, and logind backends.
+#![doc = include_str!("../docs/crate.md")]
 
 mod ddc;
 mod edid;

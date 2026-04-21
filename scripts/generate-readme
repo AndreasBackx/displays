@@ -1,0 +1,79 @@
+#!/usr/bin/env zsh
+
+set -euo pipefail
+
+if [[ $# -ne 3 ]]; then
+  print -u2 "usage: generate-readme <crate-root> <template> <output>"
+  exit 1
+fi
+
+crate_root=$1
+template=$2
+output=$3
+manifest_path="$crate_root/Cargo.toml"
+
+metadata=$(cargo metadata --format-version 1 --no-deps --manifest-path "$manifest_path")
+package=$(jq -er --arg manifest "$manifest_path" '.packages[] | select(.manifest_path == $manifest)' <<<"$metadata")
+
+name=$(jq -r '.name' <<<"$package")
+version=$(jq -r '.version' <<<"$package")
+edition=$(jq -r '.edition' <<<"$package")
+license=$(jq -r '.license // empty' <<<"$package")
+description=$(jq -r '.description // empty' <<<"$package")
+repository=$(jq -r '.repository // empty' <<<"$package")
+homepage=$(jq -r '.homepage // empty' <<<"$package")
+documentation=$(jq -r '.documentation // empty' <<<"$package")
+input=$(jq -r '.targets[] | select(.kind | index("lib")) | .src_path' <<<"$package")
+
+temp_dir=$(mktemp -d)
+trap 'rm -rf "$temp_dir"' EXIT
+temp_source_dir="$temp_dir/src"
+temp_source="$temp_source_dir/lib.rs"
+
+mkdir -p "$temp_source_dir"
+
+{
+  print '[package]'
+  print "name = \"$name\""
+  print "version = \"$version\""
+  print "edition = \"$edition\""
+
+  if [[ -n "$license" ]]; then
+    print "license = \"$license\""
+  fi
+
+  if [[ -n "$description" ]]; then
+    print "description = \"$description\""
+  fi
+
+  if [[ -n "$repository" ]]; then
+    print "repository = \"$repository\""
+  fi
+
+  if [[ -n "$homepage" ]]; then
+    print "homepage = \"$homepage\""
+  fi
+
+  if [[ -n "$documentation" ]]; then
+    print "documentation = \"$documentation\""
+  fi
+} > "$temp_dir/Cargo.toml"
+
+while IFS= read -r line || [[ -n "$line" ]]; do
+  if [[ "$line" =~ '^#!\[doc = include_str!\("([^"]+)"\)\]$' ]]; then
+    include_path=$(realpath -m "$(dirname "$input")/${match[1]}")
+
+    while IFS= read -r include_line || [[ -n "$include_line" ]]; do
+      print -r -- "//! ${include_line}" >> "$temp_source"
+    done < "$include_path"
+  else
+    print -r -- "$line" >> "$temp_source"
+  fi
+done < "$input"
+
+cargo readme \
+  --project-root "$temp_dir" \
+  --input "$temp_source" \
+  --no-indent-headings \
+  --template "$template" \
+  --output "$output"

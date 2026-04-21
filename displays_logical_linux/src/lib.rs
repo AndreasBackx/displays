@@ -1,3 +1,5 @@
+#![doc = include_str!("../docs/crate.md")]
+
 mod error;
 mod manager;
 mod types;
