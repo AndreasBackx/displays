@@ -1,8 +1,8 @@
 #![doc = include_str!("../docs/crate.md")]
 #![doc = ""]
-#![doc = include_str!("../../docs/readme/fragments/python-dev-setup.md")]
+#![doc = include_str!("../docs/fragments/python-dev-setup.md")]
 #![doc = ""]
-#![doc = include_str!("../../docs/readme/fragments/examples/displays-python.md")]
+#![doc = include_str!("../docs/fragments/displays-python.md")]
 
 use display::{Display, LogicalDisplay, PhysicalDisplay, Size};
 use display_identifier::DisplayIdentifier;

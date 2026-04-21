@@ -1,14 +1,14 @@
 #![doc = include_str!("../docs/crate.md")]
 #![doc = ""]
-#![doc = include_str!("../../docs/readme/fragments/astal-backend-selection.md")]
+#![doc = include_str!("../docs/fragments/astal-backend-selection.md")]
 #![doc = ""]
-#![doc = include_str!("../../docs/readme/fragments/astal-build.md")]
+#![doc = include_str!("../docs/fragments/astal-build.md")]
 #![doc = ""]
-#![doc = include_str!("../../docs/readme/fragments/astal-smoke-test.md")]
+#![doc = include_str!("../docs/fragments/astal-smoke-test.md")]
 #![doc = ""]
-#![doc = include_str!("../../docs/readme/fragments/examples/displays-astal.md")]
+#![doc = include_str!("../docs/fragments/displays-astal.md")]
 #![doc = ""]
-#![doc = include_str!("../../docs/readme/fragments/astal-api-notes.md")]
+#![doc = include_str!("../docs/fragments/astal-api-notes.md")]
 
 pub mod backend;
 pub mod display;

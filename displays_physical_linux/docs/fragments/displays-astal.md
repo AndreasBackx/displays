@@ -1,0 +1,1 @@
+../../../docs/readme/fragments/examples/displays-astal.md

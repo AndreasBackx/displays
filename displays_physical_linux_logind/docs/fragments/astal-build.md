@@ -1,0 +1,1 @@
+../../../docs/readme/fragments/astal-build.md

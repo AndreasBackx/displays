@@ -1,6 +1,6 @@
 #![doc = include_str!("../docs/crate.md")]
 #![doc = ""]
-#![doc = include_str!("../../docs/readme/fragments/start-with-displays.md")]
+#![doc = include_str!("../docs/fragments/start-with-displays.md")]
 
 mod physical_display;
 mod physical_display_metadata;
