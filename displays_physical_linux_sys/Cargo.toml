@@ -11,11 +11,6 @@ documentation = "https://docs.rs/displays_physical_linux_sys"
 readme = "README.md"
 keywords = ["linux", "backlight", "brightness", "led", "sysfs"]
 categories = ["os::linux-apis", "hardware-support", "api-bindings"]
-include = [
-    "/src/**/*.rs",
-    "/Cargo.toml",
-    "/README.md",
-]
 
 [lib]
 name = "displays_physical_linux_sys"
