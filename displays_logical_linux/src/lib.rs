@@ -1,4 +1,6 @@
 #![doc = include_str!("../docs/crate.md")]
+#![doc = ""]
+#![doc = include_str!("../../docs/readme/fragments/backend-start-with-displays.md")]
 
 mod error;
 mod manager;

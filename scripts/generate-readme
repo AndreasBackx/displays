@@ -23,6 +23,18 @@ description=$(jq -r '.description // empty' <<<"$package")
 repository=$(jq -r '.repository // empty' <<<"$package")
 homepage=$(jq -r '.homepage // empty' <<<"$package")
 documentation=$(jq -r '.documentation // empty' <<<"$package")
+lib_target_count=$(jq -r '[.targets[] | select(.kind | index("lib"))] | length' <<<"$package")
+
+if [[ "$lib_target_count" -eq 0 ]]; then
+  print -u2 "error: no library target found in $manifest_path"
+  exit 1
+fi
+
+if [[ "$lib_target_count" -ne 1 ]]; then
+  print -u2 "error: expected exactly one library target in $manifest_path, found $lib_target_count"
+  exit 1
+fi
+
 input=$(jq -r '.targets[] | select(.kind | index("lib")) | .src_path' <<<"$package")
 
 temp_dir=$(mktemp -d)
@@ -59,17 +71,35 @@ mkdir -p "$temp_source_dir"
   fi
 } > "$temp_dir/Cargo.toml"
 
+found_doc=0
+
 while IFS= read -r line || [[ -n "$line" ]]; do
-  if [[ "$line" =~ '^#!\[doc = include_str!\("([^"]+)"\)\]$' ]]; then
+  if [[ "$line" =~ '^#!\[doc[[:space:]]*=[[:space:]]*include_str!\("([^"]+)"\)\]$' ]]; then
+    found_doc=1
     include_path=$(realpath -m "$(dirname "$input")/${match[1]}")
+
+    if [[ ! -f "$include_path" ]]; then
+      print -u2 "error: included doc file not found: $include_path"
+      exit 1
+    fi
 
     while IFS= read -r include_line || [[ -n "$include_line" ]]; do
       print -r -- "//! ${include_line}" >> "$temp_source"
     done < "$include_path"
+  elif [[ "$line" =~ '^#!\[doc[[:space:]]*=[[:space:]]*""\]$' ]]; then
+    found_doc=1
+    print '//!' >> "$temp_source"
   else
     print -r -- "$line" >> "$temp_source"
   fi
 done < "$input"
+
+if [[ "$found_doc" -eq 0 ]]; then
+  if ! grep -Eq '^(//!|/\*\*)' "$input"; then
+    print -u2 "error: no crate-level docs found in $input"
+    exit 1
+  fi
+fi
 
 cargo readme \
   --project-root "$temp_dir" \
