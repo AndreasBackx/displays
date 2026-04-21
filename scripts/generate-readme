@@ -23,19 +23,19 @@ description=$(jq -r '.description // empty' <<<"$package")
 repository=$(jq -r '.repository // empty' <<<"$package")
 homepage=$(jq -r '.homepage // empty' <<<"$package")
 documentation=$(jq -r '.documentation // empty' <<<"$package")
-lib_target_count=$(jq -r '[.targets[] | select(.kind | index("lib"))] | length' <<<"$package")
+readme_target_count=$(jq -r '[.targets[] | select((.kind | index("lib")) or (.kind | index("cdylib")) or (.src_path | endswith("/src/lib.rs")))] | length' <<<"$package")
 
-if [[ "$lib_target_count" -eq 0 ]]; then
-  print -u2 "error: no library target found in $manifest_path"
+if [[ "$readme_target_count" -eq 0 ]]; then
+  print -u2 "error: no src/lib.rs-style target found in $manifest_path"
   exit 1
 fi
 
-if [[ "$lib_target_count" -ne 1 ]]; then
-  print -u2 "error: expected exactly one library target in $manifest_path, found $lib_target_count"
+if [[ "$readme_target_count" -ne 1 ]]; then
+  print -u2 "error: expected exactly one src/lib.rs-style target in $manifest_path, found $readme_target_count"
   exit 1
 fi
 
-input=$(jq -r '.targets[] | select(.kind | index("lib")) | .src_path' <<<"$package")
+input=$(jq -r '.targets[] | select((.kind | index("lib")) or (.kind | index("cdylib")) or (.src_path | endswith("/src/lib.rs"))) | .src_path' <<<"$package")
 
 temp_dir=$(mktemp -d)
 trap 'rm -rf "$temp_dir"' EXIT

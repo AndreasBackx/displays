@@ -1,4 +1,6 @@
 #![doc = include_str!("../docs/crate.md")]
+#![doc = ""]
+#![doc = include_str!("../../docs/readme/fragments/examples/displays-rust.md")]
 // #![windows_subsystem = "windows"]
 #[cfg(not(any(target_os = "windows", target_os = "linux")))]
 compile_error!("displays currently supports only Windows and Linux targets");

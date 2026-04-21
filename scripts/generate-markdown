@@ -1,0 +1,31 @@
+#!/usr/bin/env zsh
+
+set -euo pipefail
+
+if [[ $# -ne 2 ]]; then
+  print -u2 "usage: generate-markdown <input> <output>"
+  exit 1
+fi
+
+input=$1
+output=$2
+
+render_file() {
+  local file=$1
+  local line
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ "$line" =~ '^\{\{include[[:space:]]+([^}]+)\}\}$' ]]; then
+      if [[ ! -f "$(realpath -m "$(dirname "$file")/${match[1]}")" ]]; then
+        print -u2 "error: included markdown file not found: $(realpath -m "$(dirname "$file")/${match[1]}")"
+        exit 1
+      fi
+
+      render_file "$(realpath -m "$(dirname "$file")/${match[1]}")"
+    else
+      print -r -- "$line"
+    fi
+  done < "$file"
+}
+
+render_file "$input" > "$output"

@@ -1,12 +1,15 @@
-# displays-astal
+<!-- This file is generated from crate docs with cargo-readme. Do not edit directly. -->
+
+# displays_astal
 
 Astal/GI library for display control, implemented in Rust.
 
-`displays-astal` exports a GObject-Introspection typelib that can be consumed
+`displays_astal` exports a GObject-Introspection typelib that can be consumed
 from GJS and TypeScript while delegating the actual display work to the Rust
 `displays` crate.
 
-See the project root `README.md` for the overall crate graph and the main cross-platform Rust API.
+See the project root `README.md` for the overall crate graph and the main
+cross-platform Rust API.
 
 ## Backend Selection
 
@@ -38,18 +41,18 @@ meson compile -C build-faked
 
 ## Smoke Testing
 
-The repository includes a fake-backend GJS smoke test at
-`examples/test.js`. It expects a typelib built with the `faked` feature.
+The repository includes a fake-backend GJS smoke test at `examples/test.js`.
+It expects a typelib built with the `faked` feature.
 
 ```sh
 env GI_TYPELIB_PATH="$PWD/build-faked" gjs -m "$PWD/examples/test.js"
 ```
 
-## Async Usage
+## Astal / GI Example
 
-The GI API is async-only and follows the standard GLib `*_async` / `*_finish`
-pattern. In GJS and TypeScript, the usual approach is to promisify the methods
-once and then `await` them.
+`displays_astal` exposes an async GI API that can be consumed from GJS or
+TypeScript while delegating the actual display work to the Rust `displays`
+crate.
 
 ```ts
 import Gio from "gi://Gio";
@@ -71,13 +74,7 @@ async function main() {
         print(`${name} (${serial})`);
     }
 
-    const matches = await manager.get_async([
-        new DisplaysAstal.DisplayIdentifier({ name: "LG UltraFine" }),
-    ], null);
-
-    print(`matched ${matches.length} display(s)`);
-
-    const validation = await manager.validate_async([
+    const results = await manager.update_async([
         new DisplaysAstal.DisplayUpdate({
             id: new DisplaysAstal.DisplayIdentifier({ name: "Missing Display" }),
             physical: new DisplaysAstal.PhysicalDisplayUpdateContent({
@@ -87,7 +84,7 @@ async function main() {
         }),
     ], null);
 
-    print(`validation returned ${validation.length} result(s)`);
+    print(`apply returned ${results.length} result(s)`);
 }
 
 main().catch(err => {

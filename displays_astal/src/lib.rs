@@ -1,9 +1,14 @@
-//! GObject-Introspection bridge for the `displays` crate.
-//!
-//! By default this crate delegates to the real `displays::manager::DisplayManager`.
-//! When built with the `faked` Cargo feature it swaps in a deterministic fake
-//! backend instead, which is useful for GI smoke tests and TypeScript iteration
-//! without touching real hardware.
+#![doc = include_str!("../docs/crate.md")]
+#![doc = ""]
+#![doc = include_str!("../../docs/readme/fragments/astal-backend-selection.md")]
+#![doc = ""]
+#![doc = include_str!("../../docs/readme/fragments/astal-build.md")]
+#![doc = ""]
+#![doc = include_str!("../../docs/readme/fragments/astal-smoke-test.md")]
+#![doc = ""]
+#![doc = include_str!("../../docs/readme/fragments/examples/displays-astal.md")]
+#![doc = ""]
+#![doc = include_str!("../../docs/readme/fragments/astal-api-notes.md")]
 
 pub mod backend;
 pub mod display;
