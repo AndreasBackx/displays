@@ -21,5 +21,3 @@
 {{include ../fragments/astal-smoke-test.md}}
 
 {{include ../fragments/examples/displays-astal.md}}
-
-{{include support-matrix.md}}
